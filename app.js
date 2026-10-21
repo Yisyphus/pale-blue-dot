@@ -376,7 +376,7 @@ $('verGo').onclick = searchVersions; $('verq').onkeydown = e => { if (e.key === 
 
 // Playback diagnostics: kept in data/radio-log.txt by the helper, so a silent or skipped song can be explained later.
 function rlog(msg, data) {
-  try { console.info('[radio] ' + msg, data || ''); fetch('/api/log', { method: 'POST', body: msg + (data ? ' ' + JSON.stringify(data) : '') }).catch(() => {}); } catch {}
+  try { console.info('[radio] ' + msg, data || ''); if (HELPER) fetch('/api/log', { method: 'POST', body: msg + (data ? ' ' + JSON.stringify(data) : '') }).catch(() => {}); } catch {}
 }
 // code: the YouTube error. 100 = removed, 101/150 = the owner does not allow embedding. Those versions are
 // dropped from the saved list for good, so the same broken upload is never tried again.
@@ -1179,7 +1179,7 @@ setInterval(() => {
 }, 500);
 
 // keeps the helper alive while the radio window is open (the installed version closes the helper when the window is gone)
-setInterval(() => { fetch('/api/ping').catch(() => {}); }, 20000);
+setInterval(() => { if (HELPER) fetch('/api/ping').catch(() => {}); }, 20000);   // keeps the PC helper alive; nothing to ping on the web
 
 // ---------- silence watchdog: what the screen says is playing must really be audible ----------
 // Every 2 s, while a song is shown as playing and nothing else is happening: unmute a player the browser muted,
