@@ -1,0 +1,75 @@
+// Midnight podcast: what to search for, how the host introduces an episode, how she or he closes it.
+// Placeholders: {t} episode title, {a} channel, {min} minutes, {topic} subject, {time}, {host}, {station}
+(function () {
+  const R = window.RADIO;
+
+  R.podcastTopics = [
+    { q: 'existentialism podcast conversation', label: 'existentialism' },
+    { q: 'philosophy of the meaning of life podcast', label: 'the meaning of life' },
+    { q: 'Albert Camus absurdism explained talk', label: 'the absurd' },
+    { q: 'stoicism podcast how to live', label: 'stoicism and living well' },
+    { q: 'loneliness and solitude podcast conversation', label: 'loneliness' },
+    { q: 'death and mortality philosophy podcast', label: 'death and mortality' },
+    { q: 'nihilism and how to live podcast', label: 'nihilism' },
+    { q: 'peace of mind anxiety podcast conversation', label: 'peace of mind' },
+    { q: 'addiction and connection podcast interview', label: 'addiction and connection' },
+    { q: 'antinatalism philosophy discussion', label: 'antinatalism' },
+    { q: 'what is love philosophy lecture', label: 'love' },
+    { q: 'Alan Watts lecture life', label: 'life, in the words of Alan Watts' },
+    { q: 'Viktor Frankl meaning talk', label: 'meaning, after Viktor Frankl' },
+    { q: 'faith and doubt podcast conversation', label: 'faith and doubt' },
+    { q: 'free will philosophy podcast', label: 'free will' },
+    { q: 'boredom and routine psychology podcast', label: 'routine and boredom' },
+    { q: 'desire and happiness philosophy talk', label: 'desire' },
+    { q: 'grief and loss podcast conversation', label: 'grief' },
+    { q: 'depression and meaning podcast interview', label: 'meaning in dark times' },
+    { q: 'Nietzsche explained podcast', label: 'Nietzsche' },
+    { q: 'Schopenhauer pessimism podcast', label: 'pessimism' },
+    { q: 'Kierkegaard anxiety podcast', label: 'anxiety and choice' },
+    { q: 'Simone de Beauvoir existentialism talk', label: 'freedom and responsibility' },
+    { q: 'Sartre existentialism lecture', label: 'freedom, after Sartre' },
+    { q: 'philosophy of time and memory podcast', label: 'time and memory' },
+    { q: 'mindfulness and impermanence talk', label: 'impermanence' },
+    { q: 'the human condition documentary essay', label: 'the human condition' },
+    { q: 'Carl Sagan cosmos humanity talk', label: 'our place in the cosmos' },
+    { q: 'letters to a young poet reading Rilke', label: 'solitude and patience' },
+    { q: 'Marcus Aurelius Meditations podcast', label: 'Marcus Aurelius' },
+    { q: 'Seneca letters podcast', label: 'time, after Seneca' },
+    { q: 'purpose and success without meaning talk', label: 'purpose and success' },
+    { q: 'insomnia night thoughts philosophy podcast', label: 'the night mind' },
+    { q: 'existential therapy Irvin Yalom talk', label: 'existential therapy' },
+    { q: 'Camus The Myth of Sisyphus discussion', label: 'Sisyphus' },
+  ];
+
+  R.podcastIntros = [
+    'It is {time}, and midnight has come. That means it is time for tonight\'s episode. Today, a conversation about {topic}. It is called {t}, from {a}, and it runs about {min} minutes. I will be quiet now, and let them talk. We will be back with music when it ends.',
+    'The clock has crossed into the small hours, and the music takes a step back. Tonight\'s midnight podcast is about {topic}: {t}, from {a}. About {min} minutes. Get comfortable, dim the lights, and listen.',
+    'Midnight. The hour when the day has finished and the mind begins. So tonight, instead of a song, I would like you to hear a voice. The subject is {topic}. The episode is {t}, from {a}, about {min} minutes long.',
+    'It is {time}, and it is time to hand the microphone to someone else. The midnight podcast tonight is on {topic}. The episode: {t}, by {a}. {min} minutes. We will return to the songs after.',
+    'Good midnight. I have found something for you to think with. It is on {topic}, from {a}, called {t}. It lasts around {min} minutes. Pour something warm, and I will see you on the other side.',
+    'The songs will rest for a while. At this hour, a long conversation is better company. Tonight: {topic}, in an episode called {t}, from {a}. {min} minutes, give or take a pause.',
+    'It is {time}. Time for the midnight podcast. Tonight\'s subject, {topic}. The title is {t}, and it comes from {a}. It is about {min} minutes. Lie back, or sit up, and let someone else do the talking for a while.',
+    'Midnight is for long thoughts. So here is one, in someone else\'s voice. The topic is {topic}. The episode is {t}, from {a}, around {min} minutes. When it is done, I will be back with you, and with music.',
+    'The night has turned to a new day, and we have a guest for the hour. Not in the studio, but in your headphones. {t}, from {a}, on the subject of {topic}. It runs about {min} minutes.',
+    'It is {time} on {station}. The music pauses, because there is a conversation worth hearing. Tonight\'s subject is {topic}. The episode is called {t}, from {a}, around {min} minutes.',
+    'This is the midnight podcast, our small ritual at the start of the day. Tonight: {topic}. We have {t}, from {a}, which lasts about {min} minutes. Listen closely, or let it wash over you, both are fine.',
+    'Midnight, and the world is quieter. I would like to share a longer thought tonight, about {topic}. The episode is {t}, from {a}. {min} minutes. I will meet you at the end.',
+    'The date has changed, and so has the format. For the next stretch, no songs, just a voice, and a subject: {topic}. The episode is {t}, from {a}, around {min} minutes.',
+    'It is just past midnight, which makes it the perfect hour for a long talk. Tonight\'s episode is about {topic}, and it is called {t}, from {a}. {min} minutes. Let us begin.',
+  ];
+
+  R.podcastOutros = [
+    'That was the midnight podcast. {t}, from {a}. I hope something in it stayed with you. We are back to the music now.',
+    'And that is the end of the episode. Thank you for listening to {a}, with us. Let us return to the songs, slowly.',
+    'That was a long conversation, and a good one. The episode was {t}, by {a}. Now, back to the music.',
+    'The voices have gone quiet. That was {t}, from {a}. If a line from it is still in your head, keep it. Back to songs now.',
+    'And that concludes our midnight podcast, from {a}. The night goes on, and so does the music.',
+    'That was {t}. I always find it takes a moment to come back from a long talk. Take that moment. The next song will wait.',
+    'Thank you, {a}, for the company. That was the midnight episode. And now, the music returns.',
+    'The episode has ended, and the room feels a little different. That was {t}, from {a}. Let us listen to something gentler.',
+    'That was the midnight podcast. If it was heavy, drink some water. If it was light, let it linger. Either way, back to the music.',
+    'And that was {t}, by {a}. Somewhere, somebody is thinking about the same things at the same hour. Now, a song.',
+    'The talk is over, but the thoughts do not have to be. Let them play quietly under the next song. Back to the music.',
+    'That was a long listen. Well done for staying. Here is something to float on.',
+  ];
+})();

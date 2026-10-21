@@ -1,0 +1,302 @@
+// Pale Blue Dot Radio — the DJ's brain. Everything Pale Blue Dot says lives here. Edit freely.
+window.RADIO = {
+  station: 'Pale Blue Dot Radio',
+  tagline: 'the station at the edge of the night',
+  host: 'Pale Blue Dot',
+
+  // theme tags: time death alienation letting-go love hope routine absurd faith desire peace
+  themeLine: {
+    time: ['A song about the one thing nobody ever gets more of.', 'Time again. It is always time again.', 'Some songs are just a clock with a melody.'],
+    death: ['A song that looks at the ending without flinching.', 'Death is the quiet editor of every story. This song knows it.', 'Memento mori, with a good tune.'],
+    alienation: ['A song for the person alone in the lit window.', 'For anyone who has felt like a visitor in their own life.', 'A song from the lonely room, where a lot of honest thinking happens.'],
+    'letting-go': ['A song about loosening your grip.', 'Let it happen. Sometimes that is the whole philosophy.', 'A song that dissolves the edges a little.'],
+    love: ['A song about love, and everything we say to avoid saying it.', 'Love, the most stubborn answer to a question nobody asked.', 'Tenderness, under pressure.'],
+    hope: ['A song that refuses to quit, quietly.', 'Hope, but the grown-up kind: eyes open.', 'A small light, held up on purpose.'],
+    routine: ['A song about the loop, the commute, the Tuesday of it all.', 'Routine can be a cage or a rhythm. This song asks which.', 'Sisyphus, with headphones on.'],
+    absurd: ['A song from the heart of the absurd, where the joke is also the truth.', 'Strange question, stranger answer. Typical for the universe.', 'Camus would have raised an eyebrow, and then smiled.'],
+    faith: ['A song about believing, or trying to.', 'Faith and doubt: two hands of the same person.', 'A song that talks to the sky, just in case.'],
+    desire: ['A song about wanting, the engine under everything.', 'Desire: the itch that builds civilizations and ruins weekends.', 'Wanting is the whole plot. This song knows it.'],
+    peace: ['A song to put your shoulders down to.', 'Peace of mind is not a place. It is a practice, and this song is a rehearsal.', 'Breathe out. This one is for that.'],
+  },
+
+  // how a genre relates to existential feeling
+  genreNotes: [
+    { g: 'prog', t: 'Progressive rock is existential music in disguise. When a band stretches a song to twelve or twenty minutes, they are saying that some questions cannot be answered in three. The long form is the argument: stay with it, and you may feel something shift.' },
+    { g: 'jazz', t: 'Jazz is the sound of improvisation, which is just a nicer word for living without a script. Every solo is a person making meaning in real time, with no guarantee it will land. That is the existential condition with a saxophone.' },
+    { g: 'psych', t: 'Psychedelic music tries to loosen the walls of the self. Whether or not you ever touch any of the chemistry, the sound does something philosophical: it asks whether the thing you call me is as solid as it looks.' },
+    { g: 'neo-psych', t: 'Neo-psychedelia took the dissolving sounds of the sixties and gave them a modern ache. The mood is less "let us open the doors of perception" and more "the doors are open, and it is very quiet in here."' },
+    { g: 'anti-pop', t: 'Anti-pop is pop music that turns around halfway and looks you in the eye. Bright tunes, dark thoughts. It is the oldest trick in the book: the sweeter the melody, the easier the truth goes down.' },
+    { g: 'folk', t: 'Folk music is philosophy for people who do not have time for philosophy. A voice, a guitar, and a few plain words about death, work, and love. No theory. Just testimony.' },
+    { g: 'soul', t: 'Soul music is what happens when suffering has to be sung. It is existential at the root: not an idea about pain, but pain turned into something you can hum.' },
+    { g: 'chanson', t: 'The French chanson tradition treats a song like a small novel. Time, regret, love, the ones who left. It is a genre that never pretended life was simple, only that it could be said beautifully.' },
+    { g: 'vapor', t: 'Vaporwave is nostalgia for a future that never arrived. Slowed-down elevator music from a dead decade, drifting through empty shopping malls. It is a strangely honest genre about consumer dreams and how quickly they fade.' },
+    { g: 'lofi', t: 'Lo-fi, the hissy, homemade sound, says something simple: you do not need a perfect studio to say a true thing. A cassette, a bedroom, a cracked voice. Sometimes the cracks are the message.' },
+    { g: 'ambient', t: 'Ambient music has no rush and no demands. It does not ask you to feel anything. It just makes room, and in that room, you get to hear your own thoughts for once.' },
+    { g: 'indie', t: 'Indie rock is the sound of people being honest in public while pretending to be shy. A lot of modern existential feeling lives here: small rooms, big questions, a guitar that is a little out of tune on purpose.' },
+    { g: 'hiphop', t: 'Hip hop and existential thought have always been close. It is a genre built on speaking from the edge, naming what is unfair out loud, and turning a hard day into a verse.' },
+    { g: 'score', t: 'Film scores are existential in a quiet way: music that tells you what a face cannot. A lonely saxophone over a rainy street can say more about isolation than a page of dialogue.' },
+  ],
+
+  // Songs. a=artist, t=title, q=search query, tags, genre, fact (spoken in the intro)
+  songs: [
+    { a: 'Pink Floyd', t: 'Time', q: 'Pink Floyd Time Dark Side of the Moon', tags: ['time', 'routine', 'death'], genre: 'prog', fact: 'It opens with a wall of clocks that engineer Alan Parsons recorded one by one in an antique shop, then stitched together. The lyrics are about waking up one day and realizing you have been waiting for your life to start.' },
+    { a: 'Pink Floyd', t: 'Echoes', q: 'Pink Floyd Echoes Meddle 2011 remaster', tags: ['alienation', 'letting-go', 'love'], genre: 'prog', fact: 'It takes up a whole side of the album Meddle, over twenty minutes, and begins with a single piano note sent through a rotating speaker, a sound like a sonar ping from deep water. It is a song about two strangers realizing, across a gap, that they are the same.' },
+    { a: 'David Bowie', t: 'Five Years', q: 'David Bowie Five Years Ziggy Stardust', tags: ['death', 'time', 'love'], genre: 'glam', fact: 'The opening track of Ziggy Stardust imagines the news telling the world it has five years left, and then watches how people react: some weep, some stare, some just keep shopping. Bowie turns the apocalypse into a study of ordinary humans.' },
+    { a: 'Frank Sinatra', t: 'My Way', q: 'Frank Sinatra My Way', tags: ['death', 'hope'], genre: 'chanson', fact: 'The English words were written by Paul Anka over a French song called Comme d\'habitude, a song about a marriage going cold. Sinatra recorded it in 1969, and reportedly grew tired of it. But it remains the anthem of anyone who wants to stand at the end and say: I owned my choices.' },
+    { a: 'BADBADNOTGOOD', t: 'Time Moves Slow', q: 'BADBADNOTGOOD Time Moves Slow', tags: ['time', 'peace', 'alienation'], genre: 'jazz', fact: 'BADBADNOTGOOD started as jazz students in Toronto, and you can hear the instinct to let a groove breathe. Here, the voice of Samuel T. Herring, of Future Islands, sounds like a man watching the hours dissolve.' },
+    { a: 'Tame Impala', t: 'Let It Happen', q: 'Tame Impala Let It Happen', tags: ['letting-go', 'time', 'absurd'], genre: 'neo-psych', fact: 'Kevin Parker recorded almost everything himself, and halfway through there is a deliberate glitch, as if the track were skipping like a scratched disc. It is a song about the fear of change, and the strange relief of surrender.' },
+    { a: 'Alvvays', t: 'Forget About Life', q: 'Alvvays Forget About Life', tags: ['letting-go', 'absurd', 'routine'], genre: 'indie', fact: 'A bright jangle over a quietly fatalistic idea: when the weight of everything gets too much, why not step out of it for one evening? Dream pop is usually the genre of escape, and this is a perfect example.' },
+    { a: 'Radiohead', t: 'Subterranean Homesick Alien', q: 'Radiohead Subterranean Homesick Alien', tags: ['alienation', 'absurd', 'hope'], genre: 'prog', fact: 'On OK Computer, Thom Yorke imagines being taken up by aliens, and they would be the only ones who would listen to him. The title is a wink to a Bob Dylan song, but the loneliness is entirely his own.' },
+    { a: 'Charles Aznavour', t: 'Hier encore', q: 'Charles Aznavour Hier encore', tags: ['time', 'death', 'love'], genre: 'chanson', fact: 'He wrote it in the sixties, when he was around forty, and already looking back on youth as if it had left the room moments ago. In English it became Yesterday When I Was Young. The French original is gentler, and a little crueler.' },
+    { a: 'Bernard Herrmann', t: 'Taxi Driver main title', q: 'Taxi Driver main title Bernard Herrmann', tags: ['alienation', 'desire'], genre: 'score', fact: 'The score is the last work of Bernard Herrmann, who died on the night he finished recording it. Over a steaming New York street, a lonely saxophone, played by Tom Scott, does what dialogue cannot: it makes isolation sound sweet and dangerous at once.' },
+    { a: 'Johnny Cash', t: 'Hurt', q: 'Johnny Cash Hurt', tags: ['death', 'time', 'desire'], genre: 'folk', fact: 'It began as a Nine Inch Nails song by Trent Reznor. Cash recorded it near the end of his life, with a trembling voice and a worn guitar, and even Reznor said it was no longer his song. Cash died the following year, a few months after his wife, June Carter.' },
+    { a: 'The Doors', t: 'The End', q: 'The Doors The End', tags: ['death', 'alienation', 'faith'], genre: 'psych', fact: 'Jim Morrison started writing it as a simple goodbye song, and it grew into an eleven-minute descent. Years later, it became the opening of Apocalypse Now. It is the sound of a door closing, slowly, on an old world.' },
+    { a: 'Shane Alexander', t: 'Feels Like the End', q: 'Shane Alexander Feels Like the End', tags: ['alienation', 'letting-go'], genre: 'indie', fact: 'A quiet, modern confession for the end of a long day. The title says it all: not a dramatic ending, just the feeling that something is closing, and the courage to say so out loud.' },
+    { a: 'Car Seat Headrest', t: 'Kimochi Warui', q: 'Car Seat Headrest Kimochi Warui When When When When', tags: ['alienation', 'absurd', 'desire'], genre: 'lo-fi', fact: 'Will Toledo made his first records alone, in the back seat of his parents\' car, because that was where he could record without being heard. Kimochi warui is a Japanese phrase for a sick, uneasy feeling, and the song is full of exactly that.' },
+    { a: 'Car Seat Headrest', t: 'Times to Die', q: 'Car Seat Headrest Times to Die', tags: ['death', 'hope', 'absurd'], genre: 'indie', fact: 'A song that wanders through the question of when, or whether, it is time to die, and ends up somewhere warmer than it began. Will Toledo writes like someone talking to himself at 3 a.m., and somehow you are in the room.' },
+    { a: 'Neutral Milk Hotel', t: 'In the Aeroplane Over the Sea', q: 'Neutral Milk Hotel In the Aeroplane Over the Sea', tags: ['love', 'death', 'faith'], genre: 'lo-fi', fact: 'Jeff Mangum wrote the album after being moved by the diary of Anne Frank, and the grief and the tenderness bleed into everything. After it came out, he largely withdrew from music, and the record became a quiet legend.' },
+    { a: 'King Crimson', t: 'Starless', q: 'King Crimson Starless Red', tags: ['death', 'letting-go', 'time'], genre: 'prog', fact: 'The closing of the album Red begins as a sorrowful ballad and slowly grows into a great, tense, grinding climb, before dissolving back into the first melody. It is twelve minutes of someone looking at the dark, and deciding not to look away.' },
+    { a: 'King Crimson', t: 'I Talk to the Wind', q: 'King Crimson I Talk to the Wind', tags: ['alienation', 'faith', 'peace'], genre: 'prog', fact: 'A flute drifting over soft guitar, from the 1969 debut. The words, by Peter Sinfield, are about speaking and not being heard. Some music works best as a conversation with nobody.' },
+    { a: 'El Waili ft. Yucifer', t: 'Al Abd wal Waili', q: 'El Waili Yucifer العبد والوايلى محمود الحسينى', tags: ['absurd', 'routine', 'alienation'], genre: 'hiphop', lang: 'ar', fact: 'A voice from the Arabic underground, with a beat and a bite. It is the street-level version of existential thought: not philosophy in a book, but philosophy in a mouth that has had enough.' },
+    { a: 'Macintosh Plus', t: 'ブート', q: 'Macintosh Plus ブート', tags: ['time', 'absurd', 'desire'], genre: 'vapor', fact: 'Macintosh Plus is the most famous name in vaporwave. Slowed-down samples of decades-old pop, echoing through empty digital malls. It is nostalgia for something that was never really yours.' },
+    { a: '10cc', t: 'I\'m Not In Love', q: '10cc I\'m Not In Love', tags: ['love', 'desire'], genre: 'soft-rock', fact: 'The wall of ghostly voices is not a synth. The band recorded their own voices singing a single note, over and over, and layered hundreds of tracks into a choir. And the whispered line in the middle is a studio secretary, asked to say it softly.' },
+    { a: 'Mac DeMarco', t: 'Chamber of Reflection', q: 'Mac DeMarco Chamber of Reflection', tags: ['alienation', 'time', 'peace'], genre: 'neo-psych', fact: 'A woozy synth over a slow beat. The phrase also names a dark little room, in some initiation rituals, where a person sits alone with symbols of mortality, and thinks. Mac makes the idea sound like a very comfortable couch.' },
+    { a: 'Kid Cudi', t: 'In My Dreams (Cudder Anthem)', q: 'Kid Cudi In My Dreams Cudder Anthem', tags: ['alienation', 'hope', 'desire'], genre: 'hiphop', fact: 'Kid Cudi was one of the first big rappers to speak openly about depression and loneliness, back when that was rarely said in the genre. This one is a dream, hummed from a lonely room.' },
+    { a: 'Daft Punk', t: 'Within', q: 'Daft Punk Within Random Access Memories', tags: ['alienation', 'peace', 'letting-go'], genre: 'ambient', fact: 'Two robots, a piano by Chilly Gonzales, and a voice that admits it does not know who it is. It is the most human moment on an album about machines.' },
+    { a: 'John Lennon', t: 'Imagine', q: 'John Lennon Imagine', tags: ['hope', 'faith', 'peace'], genre: 'soft-rock', fact: 'It is simple enough for a child to play and radical enough to scare governments. No heaven, no countries, no possessions: a thought experiment disguised as a lullaby.' },
+    { a: 'Skywatchers', t: 'The Lunar Tune', q: 'Skywatchers The Lunar Tune', tags: ['peace', 'letting-go'], genre: 'ambient', fact: 'A drifting little piece that feels like watching the moon from an open window. Not every song needs a message. Some are just somewhere to be.' },
+    { a: 'Fleet Foxes', t: 'Blue Spotted Tail', q: 'Fleet Foxes Blue Spotted Tail', tags: ['alienation', 'peace', 'time'], genre: 'folk', fact: 'From Helplessness Blues, an album that asks what it means to be a single person among billions. Robin Pecknold sings it close to the bone, like a thought said out loud by a campfire.' },
+    { a: 'MGMT', t: 'Time to Pretend', q: 'MGMT Time to Pretend', tags: ['time', 'desire', 'absurd'], genre: 'anti-pop', fact: 'On the surface, a glittery anthem about becoming a rock star. Underneath, a joke about how empty the dream is, and how short the party lasts. Anti-pop at its brightest: you dance, and then the lyrics catch up with you.' },
+    { a: 'Sam Cooke', t: 'A Change Is Gonna Come', q: 'Sam Cooke A Change Is Gonna Come', tags: ['hope', 'death', 'faith'], genre: 'soul', fact: 'Written in 1964, the year Sam Cooke lost his young son, and the year he was turned away from a motel. He wrote it in sorrow and defiance, and it was released after his death. It carries the whole weight of waiting for justice, and never quite stops believing.' },
+    { a: 'Tamer Abu Ghazaleh', t: 'Namla', q: 'تامر أبو غزالة نملة', tags: ['routine', 'absurd', 'hope'], genre: 'folk', lang: 'ar', fact: 'Namla means ant. A tiny creature carrying a load far bigger than itself, day after day, without asking why. Camus imagined Sisyphus as happy. Here, it is the ant.' },
+    { a: 'Daniel Johnston', t: 'Walking the Cow', q: 'Daniel Johnston Walking the Cow', tags: ['love', 'absurd', 'alienation'], genre: 'lo-fi', fact: 'Daniel Johnston recorded his songs on cheap cassettes in his parents\' home, and fought a lifelong struggle with mental illness. His voice cracks, and that is the point. Kurt Cobain once wore his artwork on a T-shirt.' },
+    { a: 'M83', t: 'Wait', q: 'M83 Wait Hurry Up We\'re Dreaming', tags: ['hope', 'time', 'letting-go'], genre: 'neo-psych', fact: 'The closer of Hurry Up, We\'re Dreaming. Anthony Gonzalez builds a quiet cathedral of synthesizers, and then the whole thing swells like a long breath. A song about waiting, and what it means to arrive.' },
+    { a: 'Stromae', t: 'Je cours', q: 'Stromae Je cours', tags: ['routine', 'absurd', 'desire'], genre: 'anti-pop', lang: 'fr', fact: 'A song about running: from stress, from stillness, from yourself. Stromae is Belgian, with Rwandan roots, and he makes dance music that carries therapy-level honesty. It is the soundtrack to every busy day that is secretly a flight.' },
+    { a: 'Stromae', t: 'Sommeil', q: 'Stromae Sommeil', tags: ['peace', 'routine', 'desire'], genre: 'anti-pop', lang: 'fr', fact: 'Sommeil means sleep, the great daily rehearsal for death, and the one thing we cannot force. Another from Multitude, a song about how badly the modern mind wants to rest, and how bad it is at doing so.' },
+  ],
+
+  // Deep talks (about every 30 minutes). Paragraphs are spoken with pauses.
+  talks: [
+    { id: 'love', title: 'What is love, anyway?', tags: ['love'], p: [
+      'Good evening. This is Pale Blue Dot, and this is the long hour. Let us ask a very old question, in a very quiet voice: what is love?',
+      'Biology says it is chemistry that keeps us together long enough to raise children. Poets say it is the only reason anything matters. Both can be true, and neither is comforting at four in the morning.',
+      'Here is a stranger idea. Love is a decision to pay attention. Not a feeling that arrives, but a kind of work: you choose to see another person, in all their ordinary, inconvenient detail, and you keep choosing. It is the opposite of the absurd. In a universe that does not answer, love is a small place where something does.',
+      'It also costs something. To love is to agree to lose. Every person you hold is a person you will, one way or another, let go. The existentialists did not hide from this. They said: yes, and that is exactly why it counts.',
+      'So if you are lonely tonight, remember: loneliness is not proof that love is absent. It is proof that you are built for it. Your ache is a compass. Let it point somewhere kind.',
+      'Stay with me. Here comes more music.',
+    ] },
+    { id: 'death', title: 'On death, without panic', tags: ['death', 'time'], p: [
+      'This is Pale Blue Dot, and this is the long hour. Tonight, a topic most radio stations avoid: death.',
+      'The Stoics practiced it on purpose. They called it memento mori, remember that you will die. Not to make life gloomy, but to make it sharp. A day you know is finite is a day you cannot waste so easily.',
+      'Epicurus had another answer. He said: when death is here, you are not. When you are here, death is not. So there is never a moment where the two meet. It is not a comforting trick for everyone, but it is worth turning over in your mind like a smooth stone.',
+      'And then there is the plain, human fear. The fear of not being. It is allowed. It is the shadow cast by how much you love being alive.',
+      'You do not have to conquer this fear. You only have to let it teach you one thing: what do you want to have done with the time you have? Not forever, just this week. This afternoon. What would a person who knew they were mortal, which you are, do next?',
+      'Maybe call someone. Maybe walk. Maybe just drink tea slowly, as if it mattered, because it does. That is not a defeat of death. It is a quiet way of answering it.',
+    ] },
+    { id: 'absurd', title: 'The absurd, and Sisyphus', tags: ['absurd', 'routine', 'hope'], p: [
+      'Good evening, from the edge of the night. I am Pale Blue Dot, and for the next few minutes, I want to talk about a man pushing a rock.',
+      'In the Greek myth, Sisyphus is condemned to roll a boulder up a hill, watch it fall, and begin again. Forever. In 1942, Albert Camus used him to describe our condition: we ask for meaning, and the universe stays silent. That mismatch is what he called the absurd.',
+      'Camus said there are three responses. One is escape, to pretend there is a meaning, a promise from somewhere. Another is to give up entirely. The third, the hard one, is revolt: to keep going with open eyes, fully aware, and refuse to be crushed by the lack of an answer.',
+      'And then his famous line, that we must imagine Sisyphus happy. Not because the rock is light. Because the struggle itself, chosen consciously, is enough to fill a heart.',
+      'Think of your own boulder. The job, the bills, the same streets, the same worries. You may not be able to change the hill. But you can change how you carry it. You can notice the weather. You can hum.',
+      'The absurd does not have to be a curse. It can be a kind of freedom. If nothing is written, you are the one holding the pen.',
+    ] },
+    { id: 'antinatalism', title: 'Antinatalism, honestly', tags: ['death', 'absurd'], p: [
+      'This is Pale Blue Dot. Tonight, a heavy subject, handled gently: antinatalism.',
+      'It is the philosophical view that bringing new people into existence is ethically problematic. The argument, in its best-known form, comes from the philosopher David Benatar. He says that the pleasures we enjoy do not make up for the harms we cannot avoid, and that nobody can consent to being born.',
+      'It is a serious position, and I will not wave it away. If you have thought about it, you are not strange. It often comes from a place of compassion, from looking at suffering and refusing to pretend it is small.',
+      'But here is where I want to stay honest on both sides. The argument is about hypothetical people. You are not hypothetical. You are here, which means the real question is not whether you should have been born, but what you will do now that you are.',
+      'Many thinkers, from Camus to Viktor Frankl, would say: the fact that life contains suffering is exactly why kindness matters. A world with pain in it needs people who notice. You can hold the argument in one hand, and a cup of tea in the other.',
+      'And if the thought ever turns heavy, please speak to a human being. Philosophy is good company. It should never be your only company.',
+    ] },
+    { id: 'faith', title: 'Faith, doubt, and the quiet in between', tags: ['faith', 'peace'], p: [
+      'It is Pale Blue Dot. Let us talk, gently, about faith. Whatever you believe, or do not.',
+      'Kierkegaard called faith a leap. Not a conclusion you reach by logic, but a jump you make in the dark, trembling. He thought doubt was not the enemy of belief, but its companion. To believe without ever wondering would be to believe nothing at all.',
+      'Many traditions understand this. The mystics speak of silence. Of emptying the cup. Even Mother Teresa, we now know, lived through decades of spiritual dryness, and still she acted with love.',
+      'You do not need to settle the question of God tonight. But notice that most people, believers or not, share something: a hunger for meaning that logic alone does not feed. Call it prayer, call it reflection, call it a walk at sunset. It does the same quiet work.',
+      'If you are in doubt, you are in good company. If you are in faith, may it be a soft one, and not a hard fist. And if you are in neither, that is a place too. Stay there a while. It has a view.',
+    ] },
+    { id: 'routine', title: 'Routine: cage or rhythm?', tags: ['routine', 'peace'], p: [
+      'Pale Blue Dot here. Let us talk about Tuesday.',
+      'We tend to treat routine as the enemy of a meaningful life. The alarm, the commute, the same coffee. Nietzsche had a thought experiment: imagine you had to live this exact life again and again, forever. Would you despair, or would you say yes?',
+      'It is a hard test, but it points to something. If your days are a loop, then what you put into the loop matters enormously. Because you will repeat it.',
+      'Routine is not only a cage. It can also be a rhythm. A heartbeat is a routine. So is breathing. So is the morning ritual that quietly holds you up on days when your head is a storm.',
+      'The trick is to make the small repetitions kind. A walk at the same hour. A glass of water before the phone. Ten pages of a book. These are not grand gestures, but they are the load-bearing walls of a life.',
+      'You do not need a revolution. You need a good Tuesday, repeated.',
+    ] },
+    { id: 'desire', title: 'Desire, the engine and the trap', tags: ['desire', 'peace'], p: [
+      'Good evening, this is Pale Blue Dot. Tonight: wanting.',
+      'The Buddha said that suffering comes from craving. Schopenhauer, in a darker mood, said that life swings like a pendulum between pain and boredom: we want, we suffer; we get, we are bored; we want again.',
+      'And yet desire is also the thing that makes you get out of bed. It builds bridges, it writes songs, it falls in love. A life without wanting would be quiet, but also flat.',
+      'So the question is not how to kill desire. It is how to choose which desires deserve your life. Ask: will this still matter when I am calm? Is this wanting mine, or was it installed by an advertisement?',
+      'Try, tonight, to name one thing you want that no one has ever sold to you. A quiet one. A bench by the sea. A friend who laughs easily. A year of honest work. Start there.',
+    ] },
+    { id: 'addiction', title: 'Addiction and the hole it tries to fill', tags: ['desire', 'alienation'], p: [
+      'This is Pale Blue Dot. Let me say something with care. It is about addiction.',
+      'We usually speak of it as a moral failure. But many people who study it, including the writer Johann Hari, argue the opposite. They say the opposite of addiction is not sobriety. It is connection. People reach for the bottle, the phone, the pill, the screen, when there is an ache that nothing else is touching.',
+      'That is an existential idea. The ache is real. It is the gap between how you feel and how you wish to feel, between your life and some missing meaning. The substance is just a fast, false bridge across it.',
+      'So when you catch yourself reaching, try asking, gently: what am I trying not to feel? What do I actually need? Rest, company, a walk, a cry, a reason?',
+      'You are not weak. You are a person trying to feel better in the quickest way you know. Let us find slower, kinder ways together. And if the habit is bigger than you, there is no shame in asking for help. Strength is mostly knowing when to hand someone the other end of the rope.',
+    ] },
+    { id: 'peace', title: 'Peace of mind', tags: ['peace', 'letting-go'], p: [
+      'Pale Blue Dot, at the edge of the night. Tonight: peace of mind.',
+      'Epictetus, a former slave who became one of the great Stoic teachers, divided the world into two piles. What is up to us: our judgments, our actions, our attitude. And what is not: everything else, including other people, the past, the weather, and the final outcome.',
+      'Peace begins when you stop trying to carry the second pile. It sounds easy. It is the work of a lifetime.',
+      'Try a small exercise. Name one worry that is circling you. Ask: is this in my control? If yes, what is the next small step? If not, can I let it sit beside me, like a passenger, instead of letting it drive?',
+      'Peace is not the absence of noise. It is the ability to hear the noise and not be commanded by it.',
+      'Breathe in. Breathe out a little slower than you breathed in. There. You have just done what philosophers write books about.',
+    ] },
+    { id: 'meaning', title: 'Meaning, and how to build a good life anyway', tags: ['hope', 'absurd'], p: [
+      'This is Pale Blue Dot. A few words on success, in an unfair, absurd world.',
+      'Let us be honest: it is not fair. Some people start with a head start, some with a headwind. Philosophy does not fix that. What it can do is help you decide what to do with your own hands.',
+      'Viktor Frankl survived the camps and wrote that we cannot always choose our circumstances, but we can choose our attitude, our response. He said the last of the human freedoms is to choose one\'s way.',
+      'Here is a practical version. Define success on your own terms, in a sentence you can say out loud. Then break it into a Tuesday-sized step. Do the step. Rest. Repeat.',
+      'The universe is not keeping score. That is sad, and also a relief. It means you are free to build something small and real, and call it enough.',
+      'You do not have to win. You only have to keep showing up, with your eyes open, and perhaps a song in your pocket.',
+    ] },
+    { id: 'time', title: 'The strange tyranny of time', tags: ['time', 'death'], p: [
+      'It is Pale Blue Dot. A quiet word about the clock.',
+      'Augustine once wrote that he knew perfectly well what time was, until someone asked him. It is the thing we measure constantly and understand barely.',
+      'We treat time like money, spent or saved. But the philosopher Henri Bergson suggested another picture: time as something lived, a flowing inner river, not a row of ticks. An hour with a friend and an hour in a waiting room are not the same hour.',
+      'Seneca said it is not that we have a short time to live, but that we waste a lot of it. Notice how true that is. Scrolling, rehearsing arguments that will never happen, worrying about tomorrow, regretting yesterday.',
+      'You cannot get more time. But you can get more presence per minute. One conscious cup of tea can be longer than an afternoon of distraction.',
+      'So, for the next song, try this. Do nothing else. Just listen. Let the song be the whole hour.',
+    ] },
+    { id: 'loneliness', title: 'Loneliness, the honest room', tags: ['alienation', 'love'], p: [
+      'Pale Blue Dot, in the lit window. Tonight I want to talk about loneliness.',
+      'Existentialists said we are, in the end, alone in a specific way: no one else can feel your feelings from the inside, or die your death. But they did not conclude that we must be lonely. They said we must be honest.',
+      'Loneliness is a signal, like hunger. It does not mean you are broken. It means you are a social animal who has gone too long without being truly seen.',
+      'Solitude, on the other hand, is a different thing. It is the room where you meet yourself. Many artists, monks, and thinkers have used it. The difference is choice, and warmth. Solitude has a blanket. Loneliness has a draft.',
+      'If it is the draft tonight, here is a small plan. Send one message to someone you have not spoken to in a while. Not a grand speech. Just, I thought of you. And while you wait, stay with this radio. I am here until the last song.',
+    ] },
+  ],
+
+  // Short advice segments: "Letters to the Absurd"
+  letters: [
+    { title: 'Start smaller than you think', t: 'A letter to the absurd, and to you. When everything feels pointless, shrink the question. Do not ask what the meaning of life is. Ask what the next kind thing is that you can do in ten minutes. Wash a cup. Open a window. Answer one message. Meaning is often built from tiny, unglamorous bricks. Lay one. Then another.' },
+    { title: 'You are not behind', t: 'A note for anyone who feels behind. There is no universal schedule. Nobody handed out a timetable, and the people who seem ahead are mostly improvising with confidence. Your pace is yours. The only race worth running is the one against who you were last year, and gently.' },
+    { title: 'Discipline is a form of kindness', t: 'Here is a quiet idea. Discipline is not punishment. It is a kindness to your future self. When you sleep on time, drink water, and do the work today, you are leaving a warm light on for the person who will wake up tomorrow. Be that person\'s friend.' },
+    { title: 'Unfairness', t: 'Yes, it is unfair. Some people are handed doors, and some are handed walls. Do not let anyone tell you otherwise. But once you have named the unfairness honestly, the next question is not "why me?" It is "what is within my reach?" Grief for what you did not get, and work with what you have, can happen on the same day.' },
+    { title: 'The small ritual', t: 'If you want to survive the absurd with some grace, build one small ritual. A morning tea. An evening walk. Ten minutes of silence. It does not have to mean anything. Its power is that it is yours, and that it comes back every day, like a friend who always knocks.' },
+    { title: 'Success, on your terms', t: 'Success, in a meaningless universe, is a good news story: since nobody wrote the definition, you get to. Is it peace? Craft? A family? A garden? Write it in one sentence. Pin it somewhere you can see it. And when the world offers you a louder definition, check it against yours.' },
+    { title: 'Be your own good company', t: 'A practical tip for the lonely hours: learn to be good company for yourself. Cook one proper meal. Put on music you love. Talk to yourself kindly, the way you would to a tired friend. You will be spending a lot of time with that person. Make it pleasant.' },
+    { title: 'Doubt is fine', t: 'You do not have to be certain to move. Most of the people you admire acted in the fog. Certainty is a luxury, and action is the real thing. Decide, test, adjust. The map gets drawn as you walk.' },
+    { title: 'Rest is not quitting', t: 'A gentle reminder: rest is not a failure of will. Even the strongest engines cool down. If you are tired, you do not need a motivational speech. You need a pillow. The work will still be there. And so will you, better.' },
+    { title: 'Stay curious', t: 'When the big answers are not coming, go for the small questions. Why does that song make me feel this way? What is that plant? How does a bridge hold? Curiosity is the oldest antidote to despair. It does not solve the absurd. It just makes the day more interesting.' },
+  ],
+
+  // Readings & poems (public domain, or short paraphrases)
+  readings: [
+    { title: 'The Moving Finger', by: 'Omar Khayyam, in Edward FitzGerald\'s version', intro: 'A quatrain from the Rubaiyat, nine centuries old, and still the best summary of our problem.', t: 'The Moving Finger writes; and, having writ, moves on. Nor all your Piety nor Wit shall lure it back to cancel half a Line, nor all your Tears wash out a Word of it.' },
+    { title: 'A Jug of Wine', by: 'Omar Khayyam, in Edward FitzGerald\'s version', intro: 'Khayyam, again, with his idea of a good life.', t: 'A Book of Verses underneath the Bough, a Jug of Wine, a Loaf of Bread, and Thou beside me singing in the Wilderness. And Wilderness is Paradise enow.' },
+    { title: 'Ozymandias', by: 'Percy Bysshe Shelley', intro: 'A sonnet about the pride of kings, and what remains.', t: 'I met a traveller from an antique land, who said: Two vast and trunkless legs of stone stand in the desert. Near them, on the sand, half sunk, a shattered visage lies, whose frown and wrinkled lip and sneer of cold command tell that its sculptor well those passions read. And on the pedestal these words appear: My name is Ozymandias, King of Kings. Look on my works, ye Mighty, and despair! Nothing beside remains. Round the decay of that colossal wreck, boundless and bare, the lone and level sands stretch far away.' },
+    { title: 'Ulysses, the last lines', by: 'Alfred, Lord Tennyson', intro: 'An old man, tired and unbowed, refusing to stop.', t: 'Though much is taken, much abides; and though we are not now that strength which in old days moved earth and heaven, that which we are, we are: one equal temper of heroic hearts, made weak by time and fate, but strong in will to strive, to seek, to find, and not to yield.' },
+    { title: 'Because I could not stop for Death', by: 'Emily Dickinson', intro: 'The politest meeting with mortality in all of poetry.', t: 'Because I could not stop for Death, he kindly stopped for me. The Carriage held but just Ourselves, and Immortality.' },
+    { title: 'Meditations', by: 'Marcus Aurelius, paraphrased', intro: 'A Roman emperor, writing to himself in the middle of a war.', t: 'You have power over your mind, not outside events. Realize this, and you will find strength. Begin each morning by telling yourself: today I shall meet interfering, ungrateful, arrogant people. They are like this because they cannot tell good from evil. And I can still choose to be good.' },
+    { title: 'Song of Myself, a fragment', by: 'Walt Whitman', intro: 'A brief burst of cosmic generosity, to balance the dark.', t: 'I celebrate myself, and sing myself, and what I assume you shall assume, for every atom belonging to me as good belongs to you. I loafe and invite my soul. I lean and loafe at my ease, observing a spear of summer grass.' },
+    { title: 'The Myth of Sisyphus, a paraphrase', by: 'after Albert Camus', intro: 'Camus on the final image of the myth.', t: 'The struggle itself toward the heights is enough to fill a man\'s heart. One must imagine Sisyphus happy.' },
+    { title: 'The Raven, the last stanza', by: 'Edgar Allan Poe', intro: 'And since this is the late hour, some gothic company.', t: 'And the Raven, never flitting, still is sitting, still is sitting on the pallid bust of Pallas just above my chamber door. And his eyes have all the seeming of a demon\'s that is dreaming, and the lamp-light o\'er him streaming throws his shadow on the floor. And my soul from out that shadow that lies floating on the floor shall be lifted nevermore.' },
+    { title: 'Invictus', by: 'William Ernest Henley', intro: 'A poem written by a man who had lost a leg, and refused to lose himself.', t: 'Out of the night that covers me, black as the pit from pole to pole, I thank whatever gods may be for my unconquerable soul. It matters not how strait the gate, how charged with punishments the scroll. I am the master of my fate. I am the captain of my soul.' },
+  ],
+
+  // Fictional radio shows. who: 'h' = host voice, 'g' = guest/character voice
+  shows: [
+    { title: 'The Lighthouse at the End of Tuesday', intro: 'Now, our fictional hour. Tonight, a short episode of The Lighthouse at the End of Tuesday. Dim the lights.', lines: [
+      { w: 'h', t: 'Somewhere, past the last bus stop and the final streetlight, there is a lighthouse that only appears on Tuesdays.' },
+      { w: 'g', t: 'Lamp keeper\'s log. Tuesday again. A man came in tonight. Soaked. He asked me if the light was for ships.' },
+      { w: 'g', t: 'I told him: no. The ships have radar now. The light is for people who have gotten lost in their own lives.' },
+      { w: 'h', t: 'The man sat down. He said: I do not know what I am doing. I have a job, a flat, a phone full of names. And I do not know why.' },
+      { w: 'g', t: 'I handed him tea. I said: nobody knows why. The ones who seem to know are only louder about it.' },
+      { w: 'g', t: 'I said: stay here until the kettle is empty. Then tomorrow, do one small thing that you would be proud to tell a stranger.' },
+      { w: 'h', t: 'He smiled. For the first time that night. And the light turned, slowly, over the dark water, to find the next person who needed it.' },
+      { w: 'h', t: 'That was The Lighthouse at the End of Tuesday. Tune in next time. If you can find it.' },
+    ] },
+    { title: 'The Last Cafe on Earth', intro: 'Time for the fictional hour. This is The Last Cafe on Earth.', lines: [
+      { w: 'h', t: 'The sun has two billion years left. The cafe, however, closes at midnight.' },
+      { w: 'g', t: 'Another coffee? You have been staring at that sugar bowl for an hour.' },
+      { w: 'g', t: 'I am thinking about how everything ends. The sun, the stars. Even this cafe.' },
+      { w: 'h', t: 'The waiter wiped the counter and looked unmoved.' },
+      { w: 'g', t: 'Sure. And your coffee will be cold in four minutes. Drink it now. That is my whole philosophy.' },
+      { w: 'h', t: 'The customer laughed, for the first time in weeks, and drank. It was a very good coffee. That was all, and that was enough.' },
+      { w: 'h', t: 'You were listening to The Last Cafe on Earth.' },
+    ] },
+    { title: 'Night Bus 11', intro: 'And now, our fictional hour. A little story called Night Bus 11.', lines: [
+      { w: 'h', t: 'The last bus leaves at 11:40. It is almost empty. Almost.' },
+      { w: 'g', t: 'Excuse me, is this seat taken?' },
+      { w: 'g', t: 'Not at all. It is a bus. Nobody owns a seat for more than twenty minutes. That is the beauty of it.' },
+      { w: 'h', t: 'They rode in silence. Streets passed like unread chapters.' },
+      { w: 'g', t: 'Do you ever feel like we are all just passing through? Like we are on the bus, and the destination is never the point?' },
+      { w: 'g', t: 'I think the destination is a rumor. But the window is real. Look, the moon is following us.' },
+      { w: 'h', t: 'And they watched the moon, together, until the bus turned the corner and the moon, of course, followed.' },
+      { w: 'h', t: 'Night Bus 11, last stop. Mind the gap, and take your time.' },
+    ] },
+  ],
+
+  // Imagined guests (clearly fictional dialogues)
+  guests: [
+    { name: 'an imagined Albert Camus', intro: 'Tonight\'s guest is an imaginary one. These are not his words, only our reverie of what he might say. Please welcome, in a manner of speaking, Albert Camus.', lines: [
+      { w: 'h', t: 'Monsieur Camus, people come to you when life feels pointless. What do you tell them?' },
+      { w: 'g', t: 'I tell them: you are right to feel it. The silence of the world is real. But do not mistake the lack of a given meaning for the lack of any meaning. Make one. Out of bread, out of work, out of a friend\'s laugh.' },
+      { w: 'h', t: 'Is that not a consolation prize?' },
+      { w: 'g', t: 'It is the only prize there is. And it is not small. Ask anyone who has tasted it.' },
+      { w: 'h', t: 'And what about despair? On the very bad nights?' },
+      { w: 'g', t: 'On the bad nights, do the next simple thing. Light a lamp. Make tea. The revolt is quiet most of the time. It looks like getting up in the morning.' },
+      { w: 'h', t: 'Thank you. And may all our Tuesdays be tolerable.' },
+    ] },
+    { name: 'an imagined Seneca', intro: 'A guest from antiquity, imagined. Not his actual words, only a modern echo. Welcome, Seneca.', lines: [
+      { w: 'h', t: 'Seneca, we are always short of time. What would you tell us?' },
+      { w: 'g', t: 'I would tell you that you are not short of time. You are only generous with it, to everyone but yourself.' },
+      { w: 'h', t: 'And how do we take it back?' },
+      { w: 'g', t: 'Say no more often, and mean it. Decide, each morning, what is the one thing you would be sorry to have skipped. Do that first.' },
+      { w: 'h', t: 'And death?' },
+      { w: 'g', t: 'Rehearse it. Not in fear, but as one rehearses a speech, so that you are calm when the day comes. A person who has made peace with the ending lives the beginning better.' },
+      { w: 'h', t: 'Thank you, Seneca. A good night to the living.' },
+    ] },
+    { name: 'an imagined Omar Khayyam', intro: 'A visitor from eleventh-century Persia, imagined. A poet, an astronomer, a doubter. Welcome, Khayyam.', lines: [
+      { w: 'h', t: 'Khayyam, you wrote about the shortness of life. Are you sad?' },
+      { w: 'g', t: 'Sad? A little, as a cup is a little empty. But I would rather drink what is in it than weep about the bottom.' },
+      { w: 'h', t: 'Do you believe in a plan?' },
+      { w: 'g', t: 'I looked at the stars for years, and I found the geometry beautiful and the plan silent. So I decided that beauty itself would be my scripture.' },
+      { w: 'h', t: 'Any advice for us tonight?' },
+      { w: 'g', t: 'Sit with someone you love. Eat something good. Let the great questions wait outside, like patient guests. They will still be there tomorrow.' },
+      { w: 'h', t: 'Thank you, Khayyam. A peaceful night to you.' },
+    ] },
+  ],
+
+  // Absurd ads in the Vice City spirit
+  ads: [
+    'And now, a word from our sponsors. Meaning, trademarked. Tired of searching for the point? Meaning is now available in convenient family packs. Side effects include sudden tenderness, and a mild interest in sunsets. Meaning, because you looked everywhere else.',
+    'Brought to you by Tomorrow, a new product. Tomorrow: always one day away, never overdue. Subscribe now to procrastinate with confidence. Terms and conditions apply, mostly to you.',
+    'Sleep In, the mattress that understands you. Sleep In has no opinion about your career, your ex, or the heat death of the universe. It only wants to hold you. Sleep In. Doing less since forever.',
+    'Regret Insurance. Did you say something you should not have? Did you not say something you should have? For a small monthly fee, we will tell you that everyone else did the same. Regret Insurance. We have all been there.',
+    'Attention, citizens of the afternoon: Tea. It is warm. It asks nothing. That is all. Tea.',
+    'This broadcast is sponsored by the Ministry of Small Joys. Today\'s approved joy: a window with a bit of sun in it. Please enjoy responsibly.',
+    'Existential Dread Plus. Now with fewer thoughts at three in the morning, and more thoughts at three in the afternoon, when you can actually do something about them. Ask your doctor, or your best friend, or this radio.',
+  ],
+
+  // Station idents / time checks. {time} is replaced with the clock
+  idents: [
+    'You are listening to Pale Blue Dot Radio, the station at the edge of the night. It is {time}.',
+    'It is {time} on Pale Blue Dot Radio. If you are awake, so are we.',
+    'This is Pale Blue Dot, with you at {time}. Pale Blue Dot Radio, where the lamp stays on.',
+    'Pale Blue Dot Radio. {time}. Somewhere out there, someone else is awake and listening to the same song.',
+    '{time} on Pale Blue Dot Radio. You have no meetings tonight, only thoughts. Let us keep them company.',
+  ],
+
+  // Gentle check-in
+  checkins: [
+    'A small check-in, from me to you. Have you had water? Have you eaten something today? Is there someone you could text, even with a single emoji? Do one of those, and then come back. The music will wait.',
+    'Quick pause. Drop your shoulders. Unclench your jaw. Breathe out slowly. You are doing better than your thoughts say you are.',
+  ],
+
+  // Generic intros {a} artist {t} title
+  introTemplates: [
+    'Up next, {t}, by {a}.', 'Here is {a}, with {t}.', 'This one is {t}, from {a}.', 'Let us listen to {a}. The song is {t}.', 'Next, a track I like very much: {t}, by {a}.',
+  ],
+  backTemplates: [
+    'That was {a}, with {t}.', 'You just heard {t}, by {a}.', '{a}, and {t}. Still ringing in the room.', 'That was {t}, from {a}.',
+  ],
+  newSongTemplates: [
+    'This next one is a song you suggested to me. {t}, by {a}. Good taste, by the way.', 'From your own list: {a}, with {t}. I am glad it is here.',
+  ],
+};

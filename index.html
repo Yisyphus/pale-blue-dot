@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pale Blue Dot</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04061a; --bg2:#0a0f2e; --panel:#0f1840; --line:#232f6b;
+  --amber:#8ec5ff; --amber2:#5a6cff; --glow:rgba(110,150,255,.4);
+  --cream:#e2ebff; --mute:#8190c4; --red:#d77bff;
+  --serif:'Fraunces',Georgia,serif; --mono:'DM Mono',ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:radial-gradient(90% 55% at 80% 0%,rgba(120,70,220,.28),transparent 70%),radial-gradient(80% 60% at 10% 100%,rgba(40,110,220,.25),transparent 70%),radial-gradient(120% 80% at 50% 0%,#141c52 0%,var(--bg) 62%);color:var(--cream);font-family:var(--serif);overflow:hidden;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.app{max-width:440px;height:100%;margin:0 auto;padding:14px 18px 16px;display:flex;flex-direction:column;gap:12px;position:relative}
+.grain{position:fixed;inset:0;pointer-events:none;opacity:.07;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>")}
+
+.stars{position:fixed;inset:0;pointer-events:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><circle cx='114' cy='261' r='1.2' fill='white' fill-opacity='0.38'/><circle cx='109' cy='202' r='0.5' fill='white' fill-opacity='0.97'/><circle cx='253' cy='256' r='1' fill='white' fill-opacity='0.96'/><circle cx='133' cy='33' r='1.5' fill='white' fill-opacity='0.61'/><circle cx='241' cy='100' r='1.5' fill='white' fill-opacity='0.37'/><circle cx='224' cy='169' r='0.7' fill='white' fill-opacity='0.66'/><circle cx='115' cy='8' r='1.5' fill='white' fill-opacity='0.37'/><circle cx='144' cy='215' r='1.3' fill='white' fill-opacity='0.54'/><circle cx='33' cy='49' r='0.6' fill='white' fill-opacity='0.39'/><circle cx='248' cy='45' r='1.1' fill='white' fill-opacity='0.96'/><circle cx='263' cy='198' r='0.6' fill='white' fill-opacity='0.39'/><circle cx='179' cy='287' r='1.3' fill='white' fill-opacity='0.72'/><circle cx='249' cy='43' r='0.7' fill='white' fill-opacity='0.92'/><circle cx='212' cy='274' r='1.2' fill='white' fill-opacity='0.88'/><circle cx='208' cy='54' r='1.2' fill='white' fill-opacity='0.57'/><circle cx='217' cy='5' r='1' fill='white' fill-opacity='0.43'/><circle cx='25' cy='45' r='1.4' fill='white' fill-opacity='0.53'/><circle cx='7' cy='244' r='1.1' fill='white' fill-opacity='0.77'/><circle cx='238' cy='280' r='0.7' fill='white' fill-opacity='0.41'/><circle cx='132' cy='32' r='1.5' fill='white' fill-opacity='0.63'/><circle cx='92' cy='115' r='0.7' fill='white' fill-opacity='0.57'/><circle cx='148' cy='269' r='1.1' fill='white' fill-opacity='0.48'/><circle cx='170' cy='80' r='0.9' fill='white' fill-opacity='0.77'/><circle cx='145' cy='61' r='0.7' fill='white' fill-opacity='0.91'/><circle cx='56' cy='299' r='1.6' fill='white' fill-opacity='0.64'/><circle cx='41' cy='131' r='1.1' fill='white' fill-opacity='0.36'/><circle cx='171' cy='170' r='0.6' fill='white' fill-opacity='0.85'/><circle cx='230' cy='153' r='0.9' fill='white' fill-opacity='0.73'/><circle cx='90' cy='71' r='0.5' fill='white' fill-opacity='0.57'/><circle cx='247' cy='41' r='1.2' fill='white' fill-opacity='0.47'/><circle cx='168' cy='186' r='1.3' fill='white' fill-opacity='0.84'/><circle cx='133' cy='278' r='0.7' fill='white' fill-opacity='0.73'/><circle cx='217' cy='85' r='1.5' fill='white' fill-opacity='0.64'/><circle cx='38' cy='130' r='0.8' fill='white' fill-opacity='0.92'/><circle cx='252' cy='53' r='1.3' fill='white' fill-opacity='0.95'/><circle cx='245' cy='245' r='1' fill='white' fill-opacity='0.39'/><circle cx='267' cy='234' r='0.9' fill='white' fill-opacity='0.51'/><circle cx='52' cy='260' r='0.5' fill='white' fill-opacity='0.38'/><circle cx='110' cy='238' r='1.5' fill='white' fill-opacity='0.69'/><circle cx='217' cy='236' r='1.1' fill='white' fill-opacity='0.77'/><circle cx='120' cy='147' r='0.6' fill='white' fill-opacity='0.66'/><circle cx='183' cy='280' r='1' fill='white' fill-opacity='0.91'/><circle cx='285' cy='46' r='1' fill='white' fill-opacity='0.77'/><circle cx='113' cy='211' r='0.9' fill='white' fill-opacity='0.83'/><circle cx='57' cy='196' r='1.4' fill='white' fill-opacity='0.78'/><circle cx='175' cy='276' r='1' fill='white' fill-opacity='0.91'/></svg>"),url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='170' height='170'><circle cx='114' cy='261' r='0.6' fill='white' fill-opacity='0.38'/><circle cx='109' cy='202' r='0.6' fill='white' fill-opacity='0.97'/><circle cx='253' cy='256' r='0.6' fill='white' fill-opacity='0.96'/><circle cx='133' cy='33' r='0.6' fill='white' fill-opacity='0.61'/><circle cx='241' cy='100' r='0.6' fill='white' fill-opacity='0.37'/><circle cx='224' cy='169' r='0.6' fill='white' fill-opacity='0.66'/><circle cx='115' cy='8' r='0.6' fill='white' fill-opacity='0.37'/><circle cx='144' cy='215' r='0.6' fill='white' fill-opacity='0.54'/><circle cx='33' cy='49' r='0.6' fill='white' fill-opacity='0.39'/><circle cx='248' cy='45' r='0.6' fill='white' fill-opacity='0.96'/><circle cx='263' cy='198' r='0.6' fill='white' fill-opacity='0.39'/><circle cx='179' cy='287' r='0.6' fill='white' fill-opacity='0.72'/><circle cx='249' cy='43' r='0.6' fill='white' fill-opacity='0.92'/><circle cx='212' cy='274' r='0.6' fill='white' fill-opacity='0.88'/><circle cx='208' cy='54' r='0.6' fill='white' fill-opacity='0.57'/><circle cx='217' cy='5' r='0.6' fill='white' fill-opacity='0.43'/><circle cx='25' cy='45' r='0.6' fill='white' fill-opacity='0.53'/><circle cx='7' cy='244' r='0.6' fill='white' fill-opacity='0.77'/><circle cx='238' cy='280' r='0.6' fill='white' fill-opacity='0.41'/><circle cx='132' cy='32' r='0.6' fill='white' fill-opacity='0.63'/><circle cx='92' cy='115' r='0.6' fill='white' fill-opacity='0.57'/><circle cx='148' cy='269' r='0.6' fill='white' fill-opacity='0.48'/><circle cx='170' cy='80' r='0.6' fill='white' fill-opacity='0.77'/><circle cx='145' cy='61' r='0.6' fill='white' fill-opacity='0.91'/><circle cx='56' cy='299' r='0.6' fill='white' fill-opacity='0.64'/><circle cx='41' cy='131' r='0.6' fill='white' fill-opacity='0.36'/><circle cx='171' cy='170' r='0.6' fill='white' fill-opacity='0.85'/><circle cx='230' cy='153' r='0.6' fill='white' fill-opacity='0.73'/><circle cx='90' cy='71' r='0.6' fill='white' fill-opacity='0.57'/><circle cx='247' cy='41' r='0.6' fill='white' fill-opacity='0.47'/><circle cx='168' cy='186' r='0.6' fill='white' fill-opacity='0.84'/><circle cx='133' cy='278' r='0.6' fill='white' fill-opacity='0.73'/><circle cx='217' cy='85' r='0.6' fill='white' fill-opacity='0.64'/><circle cx='38' cy='130' r='0.6' fill='white' fill-opacity='0.92'/><circle cx='252' cy='53' r='0.6' fill='white' fill-opacity='0.95'/><circle cx='245' cy='245' r='0.6' fill='white' fill-opacity='0.39'/><circle cx='267' cy='234' r='0.6' fill='white' fill-opacity='0.51'/><circle cx='52' cy='260' r='0.6' fill='white' fill-opacity='0.38'/><circle cx='110' cy='238' r='0.6' fill='white' fill-opacity='0.69'/><circle cx='217' cy='236' r='0.6' fill='white' fill-opacity='0.77'/><circle cx='120' cy='147' r='0.6' fill='white' fill-opacity='0.66'/><circle cx='183' cy='280' r='0.6' fill='white' fill-opacity='0.91'/><circle cx='285' cy='46' r='0.6' fill='white' fill-opacity='0.77'/><circle cx='113' cy='211' r='0.6' fill='white' fill-opacity='0.83'/><circle cx='57' cy='196' r='0.6' fill='white' fill-opacity='0.78'/><circle cx='175' cy='276' r='0.6' fill='white' fill-opacity='0.91'/></svg>");background-position:0 0,60px 90px;animation:tw 6s ease-in-out infinite alternate}
+@keyframes tw{from{opacity:.55}to{opacity:1}}
+/* top bar */
+.top{display:flex;align-items:center;gap:10px}
+.brand{flex:1;display:flex;flex-direction:column;line-height:1.05}
+.brand b{font-weight:600;font-size:17px;letter-spacing:.02em}
+.brand small{font-family:var(--mono);font-size:9.5px;color:var(--mute);letter-spacing:.12em;text-transform:uppercase}
+.onair{font-family:var(--mono);font-size:10px;letter-spacing:.14em;padding:3px 8px;border:1px solid var(--line);border-radius:99px;color:var(--mute);display:flex;gap:6px;align-items:center}
+.onair i{width:7px;height:7px;border-radius:50%;background:#34407a}
+.onair.live{color:var(--amber);border-color:var(--amber2)}
+.onair.live i{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--mute)}
+.ico:hover{background:var(--panel);color:var(--amber)}
+.ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* dial */
+.dial{position:relative;height:34px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(#0a1034,#060a22);overflow:hidden}
+.ticks{position:absolute;inset:0;background:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 10px);opacity:.8;mask:linear-gradient(transparent 52%,#000 52%)}
+.ticks.big{background:repeating-linear-gradient(90deg,var(--mute) 0 1px,transparent 1px 50px);mask:linear-gradient(transparent 28%,#000 28%)}
+.freq{position:absolute;left:10px;top:3px;font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:.1em}
+.needle{position:absolute;top:0;bottom:0;width:2px;background:var(--red);box-shadow:0 0 10px var(--red);left:30%;transition:left 2.4s cubic-bezier(.6,0,.2,1)}
+
+/* stage */
+.stage{display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0 0}
+.vinyl{width:188px;height:188px;border-radius:50%;position:relative;background:conic-gradient(from 20deg,#04061a,#16204f,#04061a 25%,#1a2560 40%,#04061a 60%,#16204f 80%,#04061a);box-shadow:0 0 0 1px #000,0 18px 50px rgba(0,0,0,.6),0 0 60px var(--glow);animation:spin 9s linear infinite;animation-play-state:paused}
+.vinyl.on{animation-play-state:running}
+.vinyl:before{content:'';position:absolute;inset:8px;border-radius:50%;background:repeating-radial-gradient(circle,transparent 0 3px,rgba(255,255,255,.03) 3px 4px)}
+.label{position:absolute;inset:60px;border-radius:50%;background:#1c2a6b center/cover;box-shadow:0 0 0 3px #000, inset 0 0 12px rgba(0,0,0,.6)}
+.label:after{content:'';position:absolute;inset:calc(50% - 4px);background:var(--bg);border-radius:50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+.vinyl.talk{box-shadow:0 0 0 1px #000,0 18px 50px rgba(0,0,0,.6),0 0 90px rgba(120,160,255,.6)}
+.np{text-align:center;min-height:62px;width:100%}
+.np .kind{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+.np h1{font-weight:600;font-size:22px;line-height:1.15;margin:4px 0 2px;text-wrap:balance}
+.np p{color:var(--mute);font-size:14px}
+.chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:7px}
+.chip{font-family:var(--mono);font-size:10px;padding:2px 8px;border:1px solid var(--line);border-radius:99px;color:var(--mute)}
+
+/* caption */
+.cap{background:linear-gradient(var(--bg2),#080c26);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:74px;max-height:92px;overflow:hidden;position:relative}
+.cap small{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--amber);text-transform:uppercase;display:block;margin-bottom:3px}
+.cap div{font-size:14px;line-height:1.42;font-style:italic;color:var(--cream)}
+.cap.idle div{color:var(--mute)}
+
+/* progress */
+.bar{height:3px;background:var(--line);border-radius:3px;overflow:hidden;cursor:pointer}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber2),var(--amber));box-shadow:0 0 10px var(--glow)}
+.times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--mute);margin-top:4px}
+
+/* controls */
+.ctrl{display:flex;align-items:center;justify-content:center;gap:22px}
+.ctrl button{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:var(--cream)}
+.ctrl button:hover{color:var(--amber)}
+.ctrl svg{width:22px;height:22px;fill:currentColor}
+.ctrl .play{width:64px;height:64px;background:linear-gradient(var(--amber),var(--amber2));color:#060a2a;box-shadow:0 6px 24px var(--glow)}
+.ctrl .play:hover{color:#060a2a;filter:brightness(1.08)}
+.ctrl .play svg{width:26px;height:26px}
+.row{display:flex;align-items:center;gap:8px}
+.row .grow{flex:1}
+.vol{display:flex;align-items:center;gap:8px;flex:1;color:var(--mute)}
+.vol svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+input[type=range]{-webkit-appearance:none;appearance:none;height:3px;background:var(--line);border-radius:3px;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--glow)}
+.pill{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:7px 11px;border:1px solid var(--line);border-radius:99px;color:var(--cream);display:flex;gap:6px;align-items:center}
+.pill:hover{border-color:var(--amber);color:var(--amber)}
+
+/* overlay panels */
+.sheet{position:absolute;inset:0;background:rgba(3,5,18,.97);z-index:5;padding:16px 18px;display:none;flex-direction:column;gap:10px}
+.sheet.open{display:flex}
+.sheet h2{font-weight:600;font-size:20px}
+.sheet .hd{display:flex;align-items:center;justify-content:space-between}
+.field{display:flex;gap:8px}
+input[type=text]{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--cream);font:inherit;font-size:14px;user-select:text}
+select{background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--cream);padding:6px;font:inherit;font-size:13px;max-width:210px}
+.btn{background:linear-gradient(var(--amber),var(--amber2));color:#060a2a;border-radius:10px;padding:9px 14px;font-weight:600;font-size:13px}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--cream)}
+.list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:2px}
+.item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border:1px solid transparent;border-radius:10px;font-size:13.5px}
+.item:hover{border-color:var(--line)}
+.item .meta{flex:1;min-width:0;cursor:pointer}
+.item .meta b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .meta span{color:var(--mute);font-size:12px;font-family:var(--mono)}
+.item.now{border-color:var(--amber2)}
+.ico.on{color:var(--amber);background:var(--panel);box-shadow:0 0 0 1px var(--line)}
+.run-info{align-self:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--amber);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-align:center}
+.titlerow{display:flex;align-items:center;justify-content:center;gap:10px}
+.heart{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--mute);flex:none}
+.heart svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+.heart:hover:not(:disabled){color:#ff8fc0;background:var(--panel)}
+.heart.on{color:#ff7ab8}.heart.on svg{fill:#ff7ab8}
+.heart:disabled{opacity:.3;cursor:default}
+.mini-btn{font-family:var(--mono);font-size:11px;color:var(--mute);padding:4px 7px;border-radius:6px}
+.mini-btn:hover{color:var(--amber);background:var(--bg2)}
+.themes{display:flex;gap:6px;flex-wrap:wrap}
+.themes label{font-family:var(--mono);font-size:10.5px;padding:3px 9px;border:1px solid var(--line);border-radius:99px;color:var(--mute);cursor:pointer}
+.themes input{display:none}
+.themes input:checked+span{color:var(--amber)}
+.themes label:has(input:checked){border-color:var(--amber);color:var(--amber)}
+.set{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.seg{display:flex;border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.seg button{font-family:var(--mono);font-size:11px;padding:6px 11px;color:var(--mute)}
+.seg button.on{background:var(--amber);color:#060a2a}
+.toast{position:absolute;left:18px;right:18px;bottom:78px;background:var(--amber);color:#060a2a;padding:9px 13px;border-radius:10px;font-size:13px;font-weight:600;z-index:9;opacity:0;transform:translateY(8px);transition:.3s;pointer-events:none}
+.toast.show{opacity:1;transform:none}
+
+/* tune-in */
+.tune{position:absolute;inset:0;z-index:20;background:radial-gradient(90% 60% at 50% 35%,#1b2672,var(--bg));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:30px}
+.tune h1{font-weight:600;font-size:34px;letter-spacing:.01em}
+.tune p{color:var(--mute);max-width:280px;line-height:1.5}
+.tune .big{width:96px;height:96px;border-radius:50%;background:linear-gradient(var(--amber),var(--amber2));display:grid;place-items:center;box-shadow:0 0 70px var(--glow);color:#060a2a}
+.tune .big svg{width:36px;height:36px;fill:currentColor}
+.tune .big:hover{transform:scale(1.04)}
+.tune small{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--amber);text-transform:uppercase}
+#yt{position:fixed;left:-9999px;top:0;width:320px;height:180px}
+
+/* compact */
+body.mini .stage .vinyl,body.mini .cap,body.mini .dial,body.mini .times,body.mini .bar,body.mini .row.extras{display:none}
+body.mini .stage{padding:0}
+body.mini .np{min-height:0}
+body.mini .np h1{font-size:16px}
+body.mini .ctrl{gap:10px}
+body.mini .ctrl button{width:38px;height:38px}
+body.mini .ctrl .play{width:46px;height:46px}
+body.mini .app{gap:6px}
+@media (prefers-reduced-motion:reduce){.vinyl{animation:none}}
+</style>
+</head>
+<body>
+<div class="stars"></div><div class="grain"></div>
+<div class="app" id="app">
+
+  <div class="top">
+    <div class="brand"><b>Pale Blue Dot</b><small>radio from a small blue speck</small></div>
+    <div class="onair" id="onair"><i></i>ON AIR</div>
+    <button class="ico" id="btnMini" title="Compact mode" aria-label="Compact mode"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="ico" id="btnClose" title="Close the radio" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+
+  <div class="dial"><div class="ticks"></div><div class="ticks big"></div><div class="freq" id="freq">88.8 FM</div><div class="needle" id="needle"></div></div>
+
+  <div class="stage">
+    <div class="vinyl" id="vinyl"><div class="label" id="label"></div></div>
+    <div class="np">
+      <div class="kind" id="kind">standing by</div>
+      <div class="titlerow"><h1 id="title">Pale Blue Dot</h1><button class="heart" id="btnHeart" aria-label="Favorite this song" aria-pressed="false" title="Add to favorites" disabled><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></button></div>
+      <p id="artist">Press play to tune in</p>
+      <div class="chips" id="chips"></div>
+      <button class="mini-btn" id="btnWrong" title="Play another upload of this song">no sound or wrong song? try another version</button>
+    </div>
+  </div>
+
+  <div class="run-info" id="runInfo" style="display:none"></div>
+  <div class="cap idle" id="cap"><button class="mini-btn" id="btnAdRemove" style="display:none;position:absolute;right:8px;bottom:6px">&#10005; never play this ad</button><small id="capKind">Pale Blue Dot</small><div id="capText">He will be with you in a moment.</div></div>
+
+  <div>
+    <div class="bar" id="bar"><i id="barfill"></i></div>
+    <div class="times"><span id="tcur">0:00</span><span id="tdur">0:00</span></div>
+  </div>
+
+  <div class="ctrl">
+    <button id="btnPrev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+    <button class="play" id="btnPlay" aria-label="Play or pause"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+    <button id="btnNext" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+  </div>
+
+  <div class="row extras">
+    <div class="vol"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8a5 5 0 010 8"/></svg><input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume"></div>
+    <button class="pill" id="btnAdd">+ Suggest</button>
+    <button class="pill" id="btnLib">Library</button>
+    <button class="ico" id="btnRun" title="Genre run: play the next 20 to 40 songs from one genre" aria-label="Genre run"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg></button>
+    <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button>
+  </div>
+
+  <!-- add song -->
+  <div class="sheet" id="shAdd">
+    <div class="hd"><h2>Suggest a song</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><input type="text" id="addq" placeholder="Artist - song title"><button class="btn" id="addGo">Search</button></div>
+    <div class="themes" id="addThemes"></div>
+    <div class="list" id="addRes"><p style="color:var(--mute);font-size:13px;line-height:1.5">Type what you want to hear and pick the right result. I will add just that song to the library and play it next. Optionally, tick the themes it belongs to.</p></div>
+  </div>
+
+  <!-- choose another version of the playing song -->
+  <div class="sheet" id="shVer">
+    <div class="hd"><h2>Choose another version</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><input type="text" id="verq" placeholder="Artist - song title"><button class="btn" id="verGo">Search</button></div>
+    <div class="list" id="verRes"></div>
+  </div>
+
+  <!-- commercials -->
+  <div class="sheet" id="shAds">
+    <div class="hd"><h2>Commercials <span id="adCount" style="color:var(--mute);font-size:14px"></span></h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><input type="text" id="adq" placeholder="Paste a YouTube link, or search (pub maroc inwi)"><button class="btn" id="adGo">Add</button></div>
+    <div class="list" id="adRes" style="flex:none;max-height:170px"></div>
+    <div class="seg" id="adTabs" style="align-self:flex-start"><button data-v="on" class="on">Playing</button><button data-v="off">Removed</button></div>
+    <div class="list" id="adList"></div>
+  </div>
+
+  <!-- genre run -->
+  <div class="sheet" id="shRun">
+    <div class="hd"><h2>Genre run</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p style="color:var(--mute);font-size:13px;line-height:1.5">Pick a genre and the next 20 to 40 songs come from it. Then the radio returns to the normal mix on its own.</p>
+    <div class="list" id="runList"></div>
+  </div>
+
+  <!-- library -->
+  <div class="sheet" id="shLib">
+    <div class="hd"><h2>Library <span id="libCount" style="color:var(--mute);font-size:14px"></span></h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button></div>
+    <div class="list" id="libList"></div>
+  </div>
+
+  <!-- settings -->
+  <div class="sheet" id="shSet">
+    <div class="hd"><h2>Settings</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="set"><span>Host speaks</span><div class="seg" id="segTalk"><button data-v="normal">every 2 songs</button><button data-v="high">every song</button></div></div>
+    <div class="set"><span>Voice</span><select id="voiceSel"></select></div>
+    <div class="set"><span>Speaking pace</span><input type="range" id="rate" min="70" max="110" value="90" style="width:120px"></div>
+    <div class="set"><span>Sleep timer</span><div class="seg" id="segSleep"><button data-v="0">off</button><button data-v="30">30m</button><button data-v="60">1h</button><button data-v="120">2h</button></div></div>
+    <div class="set"><span>Trim song endings</span><div class="seg" id="segTrim"><button data-v="0">off</button><button data-v="5">5s</button><button data-v="8">8s</button></div></div>
+    <div class="set"><span>Programming</span><span style="color:var(--mute);font-size:12px;text-align:right;line-height:1.5">a 64-song cycle, one big part every 8:<br>ads 8 · long talk 16 · ads 24 · long letter 32<br>ads 40 · conversation 48 · ads 56 · podcast 64<br>plus the midnight podcast</span></div>
+    <div class="set"><span>Commercials</span><button class="btn ghost" id="btnAds">Manage commercials</button></div>
+    <div class="set"><span>Cloud sync<br><small id="cloudNote" style="color:var(--mute);font-size:11px;line-height:1.4">off</small></span><button class="btn ghost" id="btnCloud">Sign in with Google</button></div>
+    <div class="set"><button class="btn ghost" id="btnTest">Test the voice</button><button class="btn ghost" id="btnReset">Restore removed songs</button></div>
+    <p id="voiceNote" style="color:var(--amber);font-size:12px;line-height:1.5"></p>
+    <p style="color:var(--mute);font-size:12px;line-height:1.5">Tip: Microsoft Edge has free natural voices. Look for names ending in "(Natural)" like Aria, Jenny or Sonia.</p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="tune" id="tune">
+    <small>on the air tonight</small>
+    <h1>Pale Blue Dot</h1>
+    <p>Songs, long talks, poems, and a calm voice for the hours when the world is too loud or too quiet.</p>
+    <button class="big" id="btnTune" aria-label="Tune in"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+    <p style="font-size:12px">Tune in</p>
+  </div>
+</div>
+<div id="yt"><div id="yt0"></div><div id="yt1"></div></div>
+<script src="content.js"></script>
+<script src="content2.js"></script>
+<script src="content3.js"></script>
+<script src="content4.js"></script>
+<script src="content_songs.js"></script>
+<script src="content5.js"></script>
+<script src="content6.js"></script>
+<script src="content7.js"></script>
+<script src="content8.js"></script>
+<script src="content9.js"></script>
+<script src="content10.js"></script>
+<script src="content11.js"></script>
+<script src="content12.js"></script>
+<script src="content13.js"></script>
+<script src="content14.js"></script>
+<script src="content15.js"></script>
+<script src="content16.js"></script>
+<script src="content17.js"></script>
+<script src="content18.js"></script>
+<script src="content19.js"></script>
+<script src="content20.js"></script>
+<script src="jingles.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="cloud.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
