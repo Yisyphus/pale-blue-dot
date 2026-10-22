@@ -1,5 +1,5 @@
 {
- "version": "2026-10-22T08:44:40Z",
+ "version": "2026-10-22T08:46:10Z",
  "files": {
   "app.js": "a30d6f510e24b2bd",
   "cloud.js": "97dbb4006a2c21fe",
@@ -26,8 +26,8 @@
   "content_songs.js": "4362bfe563749cf2",
   "firebase-config.js": "ba36e87aecba3a8d",
   "icon.png": "414972388b2218eb",
-  "index.html": "3dc8b2b0e7655e0d",
-  "jingles.js": "a10e041f741ea634"
+  "jingles.js": "a10e041f741ea634",
+  "index.html": "12c2b9fc24aad41c"
  },
  "server": "51e000175dc29e88"
 }
