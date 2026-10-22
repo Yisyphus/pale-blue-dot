@@ -41,17 +41,47 @@ async function loadLib() {
   }
   normalizeLib();
 }
-// Compare with the cloud: take the cloud copy if it is newer, otherwise send ours up (the first time, this moves your library to the cloud).
+// Two copies of the library (this device, and the cloud or another device) are MERGED, never swapped:
+// favorites, your songs, removed songs, saved versions, trims and broken-song marks from both are kept.
+// Things you deliberately took away are remembered with a date in lib.del, so they do not come back.
+// (A plain "newest copy wins" once let a brand-new, empty library replace everything.)
+function mergeLib(a, b) {
+  a = a || {}; b = b || {};
+  const newer = (a.savedAt || 0) >= (b.savedAt || 0) ? a : b, older = newer === a ? b : a;
+  const out = Object.assign({}, older, newer);   // settings, history, letter rotation...: from the newer copy
+  const del = {};
+  ['fav', 'user', 'removed'].forEach(k => {
+    del[k] = {};
+    [older, newer].forEach(c => Object.entries((c.del || {})[k] || {}).forEach(([key, t]) => { if ((del[k][key] || 0) < t) del[k][key] = t; }));
+  });
+  out.del = del;
+  const alive = (k, key, ts) => !(del[k][key] && del[k][key] >= (ts || 0));
+  const byKey = (list, tsOf) => { const m = new Map(); list.forEach(x => { if (!x || !x.key) return; const p = m.get(x.key); if (!p || tsOf(x) >= tsOf(p)) m.set(x.key, x); }); return [...m.values()]; };
+  out.fav = byKey([...(older.fav || []), ...(newer.fav || [])], x => x.ts || 0).filter(f => alive('fav', f.key, f.ts)).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  out.user = byKey([...(older.user || []), ...(newer.user || [])], x => x.added || 0).filter(s => alive('user', s.key, s.added));
+  out.removedTs = Object.assign({}, older.removedTs, newer.removedTs);
+  out.removed = [...new Set([...(older.removed || []), ...(newer.removed || [])])].filter(k => alive('removed', k, out.removedTs[k]));
+  ['cache', 'trim', 'bad'].forEach(k => { out[k] = Object.assign({}, older[k], newer[k]); });
+  out.b = Math.max(older.b || 0, newer.b || 0);
+  out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
+  return out;
+}
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}]);
+// Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 async function syncWithCloud() {
   try {
     const c = await Cloud.pull(); if (!c) return;
     cloudAds = c.ads || null;
-    if (c.lib && (c.savedAt || 0) > (lib.savedAt || 0)) {
-      lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, c.lib);
-      if (HELPER) fetch('/api/library', { method: 'POST', body: JSON.stringify(lib) }).catch(() => {});   // refresh the local backup
-    } else { lib.savedAt = lib.savedAt || Date.now(); Cloud.push(lib, true); }
+    const merged = mergeLib(lib, c.lib ? Object.assign({ savedAt: c.savedAt || 0 }, c.lib) : {});
+    const changedHere = libSig(merged) !== libSig(lib), changedThere = !c.lib || libSig(merged) !== libSig(c.lib);
+    lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, merged);
+    if (changedHere && HELPER) fetch('/api/library', { method: 'POST', body: JSON.stringify(lib) }).catch(() => {});   // refresh the local copy
+    if (changedThere) { lib.savedAt = Date.now(); Cloud.push(lib, true); }
+    rlog('cloud sync', { favorites: (lib.fav || []).length, yourSongs: (lib.user || []).length, removed: (lib.removed || []).length, sentUp: changedThere });
   } catch (e) { console.warn('[cloud]', e); toast('Cloud: ' + (e.code === 'permission-denied' ? 'this Google account is not allowed.' : 'could not sync right now.')); }
 }
+// Recording what you deliberately take away, so merging does not bring it back.
+function markDeleted(kind, key) { lib.del = lib.del || {}; lib.del[kind] = lib.del[kind] || {}; lib.del[kind][key] = Date.now(); }
 let saveT;
 function saveLib() {
   clearTimeout(saveT);
@@ -64,9 +94,12 @@ function saveLib() {
 }
 // A change made on your other device: take it, as long as it is newer than what we have here.
 if (window.Cloud) Cloud.onRemote = ({ lib: rl, savedAt }) => {
-  if (!rl || savedAt <= (lib.savedAt || 0)) return;
-  lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, rl);
+  if (!rl) return;
+  const merged = mergeLib(lib, Object.assign({ savedAt }, rl));
+  if (libSig(merged) === libSig(lib) && savedAt <= (lib.savedAt || 0)) return;
+  lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, merged);
   normalizeLib(); buildSongs(); updateHeart();
+  if (libSig(merged) !== libSig(rl)) { lib.savedAt = Date.now(); Cloud.push(lib); }   // the other device was missing something we have: send the merge back
   if (HELPER) fetch('/api/library', { method: 'POST', body: JSON.stringify(lib) }).catch(() => {});
   else { try { localStorage.setItem('pbd-lib', JSON.stringify(lib)); } catch {} }
 };
@@ -1083,7 +1116,7 @@ async function addSong(v, q) {
   // a suggested song is added to your library and plays next. Nothing else is pulled in with it.
   const ts = [...document.querySelectorAll('#addThemes input:checked')].map(i => i.value);
   const { a, t } = splitTitle(v);
-  const draft = { a, t, q, tags: ts.length ? ts : (current && current.tags && current.tags.length ? current.tags.slice() : ['absurd']), genre: '', user: true, cands: [v] };
+  const draft = { a, t, q, tags: ts.length ? ts : (current && current.tags && current.tags.length ? current.tags.slice() : ['absurd']), genre: '', user: true, cands: [v], added: Date.now() };
   draft.key = key(draft);
   let s = songs.find(x => (x.cands || []).some(c => c.id === v.id)) || songs.find(x => x.key === draft.key);
   const isNew = !s;
@@ -1111,7 +1144,7 @@ function updateHeart() {
 function toggleFav() {
   if (!current || current.podcast) return;
   lib.fav = lib.fav || []; const i = favIdx(current.key);
-  if (i >= 0) { lib.fav.splice(i, 1); toast('Removed from your favorites.'); }
+  if (i >= 0) { lib.fav.splice(i, 1); markDeleted('fav', current.key); toast('Removed from your favorites.'); }
   else {
     const c = current.cands && (current.cands[candIdx] || current.cands[0]);   // remember the exact version that is playing
     lib.fav.push({ key: current.key, a: current.a, t: current.t, id: c ? c.id : null, tags: (current.tags || []).slice(), genre: current.genre || '', ts: Date.now() });
@@ -1138,7 +1171,7 @@ function renderFav() {
     const [pn, rm] = d.querySelectorAll('.mini-btn');
     const playNext = () => { queueNext(favToSong(x)); toast(`"${x.t}" plays next.`); };
     d.querySelector('.meta').onclick = playNext; pn.onclick = playNext;
-    rm.onclick = () => { lib.fav = lib.fav.filter(y => y.key !== x.key); saveLib(); updateHeart(); renderLib(); };
+    rm.onclick = () => { lib.fav = lib.fav.filter(y => y.key !== x.key); markDeleted('fav', x.key); saveLib(); updateHeart(); renderLib(); };
     l.appendChild(d);
   });
 }
@@ -1153,7 +1186,7 @@ function renderLib() {
     d.querySelector('b').textContent = s.t; d.querySelector('span').textContent = `${s.a} · ${(R.genreMap && R.genreMap[s.genre] || {}).name || 'genre not set'}${s.user ? ' · yours' : ''}`;
     d.querySelector('.meta').onclick = () => { openSheet(null); planned = null; preload = null; advance({ song: s, quick: true }); };
     const [rm] = d.querySelectorAll('.mini-btn');
-    rm.onclick = () => { lib.removed.push(s.key); lib.user = lib.user.filter(x => x.key !== s.key); buildSongs(); saveLib(); renderLib(); };
+    rm.onclick = () => { lib.removed.push(s.key); lib.removedTs = lib.removedTs || {}; lib.removedTs[s.key] = Date.now(); if (lib.user.some(x => x.key === s.key)) markDeleted('user', s.key); lib.user = lib.user.filter(x => x.key !== s.key); buildSongs(); saveLib(); renderLib(); };
     l.appendChild(d);
   });
 }
@@ -1170,7 +1203,7 @@ $('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('s
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
-$('btnReset').onclick = () => { lib.removed = []; buildSongs(); saveLib(); toast('All songs restored.'); };
+$('btnReset').onclick = () => { lib.removed.forEach(k => markDeleted('removed', k)); lib.removed = []; buildSongs(); saveLib(); toast('All songs restored.'); };
 
 $('vol').oninput = e => { S.vol = +e.target.value; if (ytReady && !busy && !P()._fading) setVol(P(), S.vol); saveLib(); };
 $('btnWrong').onclick = openVersions;
