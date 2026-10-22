@@ -230,7 +230,15 @@ window.onYouTubeIframeAPIReady = () => {
         if (adHook && adHook.idx === i) { adHook.state(e.data); return; }
         if (i !== ai) return;
         if (e.data === YT.PlayerState.PLAYING) { clearTimeout(startWatch); playing = true; setPlayIcon(true); setLive(true); try { pl[i].unMute(); if (Number.isFinite(pl[i]._vol)) pl[i].setVolume(pl[i]._vol); } catch {} }
-        else if (e.data === YT.PlayerState.PAUSED) { if (busy) return; playing = false; setPlayIcon(false); setLive(false); }
+        else if (e.data === YT.PlayerState.PAUSED) {
+          // paused, but not by the radio's pause button: YouTube (or the phone) stopped it. Note it, and start it again twice at most.
+          if (!globalPaused && current && !current._selfPauses) current._selfPauses = 0;
+          if (!globalPaused && current) {
+            rlog('song paused by itself', { song: current.key, t: Math.round(pl[i].getCurrentTime()), busy, retry: current._selfPauses });
+            if (current._selfPauses < 2) { current._selfPauses++; setTimeout(() => { try { if (!globalPaused && pl[ai] === pl[i]) pl[i].playVideo(); } catch {} }, 700); return; }
+          }
+          if (busy) return; playing = false; setPlayIcon(false); setLive(false);
+        }
         else if (e.data === YT.PlayerState.ENDED) { console.info('[radio] ENDED event, busy=' + busy); if (started && !busy) advance(); }
       },
       onError: e => {
@@ -304,6 +312,7 @@ async function startSong(s, startVol, fadeInMs = 0) {
   setVol(np, fadeInMs ? 0 : startVol);
   if (preload && preload.key === s.key && preload.idx === n) np.playVideo(); else np.loadVideoById(c[0].id);
   preload = null;
+  rlog('start', { song: s.key, id: c[0].id });
   fadeP(old, 0, 1200).then(() => { try { if (pl[ai] !== old) old.pauseVideo(); } catch {} });
   setNow(s);
   clearTimeout(startWatch); startWatch = setTimeout(() => { if (!playing && !globalPaused) tryNextCand(); }, 14000);
@@ -375,8 +384,15 @@ function useVersion(s, v) {
 $('verGo').onclick = searchVersions; $('verq').onkeydown = e => { if (e.key === 'Enter') searchVersions(); };
 
 // Playback diagnostics: kept in data/radio-log.txt by the helper, so a silent or skipped song can be explained later.
+// The last 80 events are also kept on the device, for Settings > Playback report (useful on the phone, where there is no helper log).
+const diag = (() => { try { return JSON.parse(localStorage.getItem('pbd-diag') || '[]'); } catch { return []; } })();
 function rlog(msg, data) {
-  try { console.info('[radio] ' + msg, data || ''); if (HELPER) fetch('/api/log', { method: 'POST', body: msg + (data ? ' ' + JSON.stringify(data) : '') }).catch(() => {}); } catch {}
+  try {
+    console.info('[radio] ' + msg, data || '');
+    diag.push(new Date().toLocaleTimeString('en-GB') + '  ' + msg + (data ? '  ' + JSON.stringify(data) : '')); if (diag.length > 80) diag.splice(0, diag.length - 80);
+    try { localStorage.setItem('pbd-diag', JSON.stringify(diag)); } catch {}
+    if (HELPER) fetch('/api/log', { method: 'POST', body: msg + (data ? ' ' + JSON.stringify(data) : '') }).catch(() => {});
+  } catch {}
 }
 // code: the YouTube error. 100 = removed, 101/150 = the owner does not allow embedding. Those versions are
 // dropped from the saved list for good, so the same broken upload is never tried again.
@@ -1035,7 +1051,13 @@ async function tuneIn() {
 }
 
 // ---------- panels ----------
-const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer'];
+const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport'];
+$('btnReport').onclick = () => {
+  const head = [`device: ${/Android|iPhone|iPad/i.test(navigator.userAgent) ? (navigator.userAgent.match(/Android[^;)]*|iPhone|iPad/) || [''])[0] : 'computer'} · ${(navigator.userAgent.match(/(EdgA|Edg|Brave|SamsungBrowser|Firefox|Chrome)\/[\d.]+/) || ['browser'])[0]}`,
+    `helper on this device: ${HELPER ? 'yes' : 'no'} · cloud: ${window.Cloud && Cloud.user ? 'signed in' : 'not signed in'} · now: ${current ? current.a + ' - ' + current.t : 'nothing'}`, ''];
+  $('reportText').textContent = head.concat(diag.slice().reverse()).join('\n') || 'Nothing recorded yet.';
+  openSheet('shReport');
+};
 function openSheet(id) { sheets.forEach(s => $(s).classList.toggle('open', s === id)); }
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => openSheet(null));
 
@@ -1175,7 +1197,7 @@ setInterval(() => {
       if (!isPod && d > 30 && ((S.trim > 0 && rem <= S.trim) || (trimAt && c >= trimAt))) { console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: 3000 }); }
     } catch {}
   }
-  if (sleepAt && Date.now() > sleepAt) { sleepAt = 0; S.sleep = 0; stopSpeech(); bedOff(); busy = true; (async () => { try { await say('It is time to rest. Goodnight. The world will still be here in the morning, and so will you.', 'h'); await fadeP(P(), 0, 6000); P().pauseVideo(); setVol(P(), S.vol); } catch {} busy = false; })(); }
+  if (sleepAt && Date.now() > sleepAt) { sleepAt = 0; S.sleep = 0; stopSpeech(); bedOff(); busy = true; (async () => { try { await say('It is time to rest. Goodnight. The world will still be here in the morning, and so will you.', 'h'); await fadeP(P(), 0, 6000); if (current) current._selfPauses = 99; P().pauseVideo(); setVol(P(), S.vol); } catch {} busy = false; })(); }
 }, 500);
 
 // keeps the helper alive while the radio window is open (the installed version closes the helper when the window is gone)

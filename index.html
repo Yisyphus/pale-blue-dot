@@ -204,6 +204,13 @@ body.mini .app{gap:6px}
     <div class="list" id="addRes"><p style="color:var(--mute);font-size:13px;line-height:1.5">Type what you want to hear and pick the right result. I will add just that song to the library and play it next. Optionally, tick the themes it belongs to.</p></div>
   </div>
 
+  <!-- playback report: the last events, to send when something does not play -->
+  <div class="sheet" id="shReport">
+    <div class="hd"><h2>Playback report</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p style="color:var(--mute);font-size:13px;line-height:1.5">If songs do not play on this device, take a screenshot of this page and send it. Newest lines are at the top.</p>
+    <pre id="reportText" style="white-space:pre-wrap;font-size:11px;line-height:1.45;color:var(--ink,#ddd);max-height:60vh;overflow:auto"></pre>
+  </div>
+
   <!-- choose another version of the playing song -->
   <div class="sheet" id="shVer">
     <div class="hd"><h2>Choose another version</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -244,6 +251,7 @@ body.mini .app{gap:6px}
     <div class="set"><span>Trim song endings</span><div class="seg" id="segTrim"><button data-v="0">off</button><button data-v="5">5s</button><button data-v="8">8s</button></div></div>
     <div class="set"><span>Programming</span><span style="color:var(--mute);font-size:12px;text-align:right;line-height:1.5">a 64-song cycle, one big part every 8:<br>ads 8 · long talk 16 · ads 24 · long letter 32<br>ads 40 · conversation 48 · ads 56 · podcast 64<br>plus the midnight podcast</span></div>
     <div class="set"><span>Commercials</span><button class="btn ghost" id="btnAds">Manage commercials</button></div>
+    <div class="set"><span>Playback report<br><small style="color:var(--mute);font-size:11px">what YouTube did, for fixing problems</small></span><button class="btn ghost" id="btnReport">Show</button></div>
     <div class="set"><span>Cloud sync<br><small id="cloudNote" style="color:var(--mute);font-size:11px;line-height:1.4">off</small></span><button class="btn ghost" id="btnCloud">Sign in with Google</button></div>
     <div class="set"><button class="btn ghost" id="btnTest">Test the voice</button><button class="btn ghost" id="btnReset">Restore removed songs</button></div>
     <p id="voiceNote" style="color:var(--amber);font-size:12px;line-height:1.5"></p>
