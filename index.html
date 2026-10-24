@@ -211,8 +211,12 @@ body.mini .app{gap:6px}
         <button class="btn" id="listGo">Read the list</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mute);cursor:pointer"><input type="checkbox" id="listPlayNext"> Play these next</label>
       </div>
-      <p id="listStatus" style="color:var(--mute);font-size:12.5px;line-height:1.5;margin:0">Songs from a list join your library without a genre. Give them one in Library &gt; Needs labels (or ask me to label them).</p>
+      <p id="listStatus" style="color:var(--mute);font-size:12.5px;line-height:1.5;margin:0">The list is kept under its name in Library &gt; Lists, so you can play it again. Give it a genre here, or label its songs later in Library &gt; Needs labels.</p>
       <div class="list" id="listRes"></div>
+      <div id="listSave" style="display:none;flex-direction:column;gap:8px">
+        <div class="field"><input type="text" id="listName" placeholder="Name of this list (leave empty to only add the songs)"></div>
+        <div class="set" style="padding:4px 0;border:0"><span style="font-size:13px">Genre for songs that have none</span><select id="listGenre"></select></div>
+      </div>
       <div class="field"><button class="btn" id="listAdd" style="display:none">Add</button><button class="btn ghost" id="listAll" style="display:none">Tick all / none</button></div>
     </div>
   </div>
@@ -261,7 +265,7 @@ body.mini .app{gap:6px}
   <!-- library -->
   <div class="sheet" id="shLib">
     <div class="hd"><h2>Library <span id="libCount" style="color:var(--mute);font-size:14px"></span></h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button><button data-v="unlabeled">Needs labels</button></div>
+    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button><button data-v="lists">Lists</button><button data-v="unlabeled">Needs labels</button></div>
     <div class="list" id="libList"></div>
   </div>
 
@@ -321,6 +325,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=97dbb4006a2c21fe"></script>
-<script src="app.js?v=2935b807c6d57c10"></script>
+<script src="app.js?v=3a41b9ddb8d40293"></script>
 </body>
 </html>

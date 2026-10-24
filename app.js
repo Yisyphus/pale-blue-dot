@@ -27,7 +27,7 @@ let HELPER = false, cloudAds = null;
 const NEEDS_PC = 'Searching YouTube needs the radio running on your PC (start.bat). Here you can still play, skip, choose favorites, and remove songs or ads.';
 function normalizeLib() {
   if (lib.cacheV !== 2) { lib.cache = {}; lib.cacheV = 2; } // earlier versions cached some wrong videos; search again with the stricter matching
-  lib.used = lib.used || {}; lib.b = lib.b || 0; lib.trim = lib.trim || {}; lib.disc = lib.disc || {}; lib.cache = lib.cache || {}; lib.user = lib.user || []; lib.removed = lib.removed || [];
+  lib.used = lib.used || {}; lib.b = lib.b || 0; lib.trim = lib.trim || {}; lib.disc = lib.disc || {}; lib.cache = lib.cache || {}; lib.user = lib.user || []; lib.removed = lib.removed || []; lib.lists = lib.lists || [];
   S = Object.assign(S, lib.settings || {});
   if (S.talk === 'low') S.talk = 'normal';
 }
@@ -50,7 +50,7 @@ function mergeLib(a, b) {
   const newer = (a.savedAt || 0) >= (b.savedAt || 0) ? a : b, older = newer === a ? b : a;
   const out = Object.assign({}, older, newer);   // settings, history, letter rotation...: from the newer copy
   const del = {};
-  ['fav', 'user', 'removed'].forEach(k => {
+  ['fav', 'user', 'removed', 'lists'].forEach(k => {
     del[k] = {};
     [older, newer].forEach(c => Object.entries((c.del || {})[k] || {}).forEach(([key, t]) => { if ((del[k][key] || 0) < t) del[k][key] = t; }));
   });
@@ -59,6 +59,7 @@ function mergeLib(a, b) {
   const byKey = (list, tsOf) => { const m = new Map(); list.forEach(x => { if (!x || !x.key) return; const p = m.get(x.key); if (!p || tsOf(x) >= tsOf(p)) m.set(x.key, x); }); return [...m.values()]; };
   out.fav = byKey([...(older.fav || []), ...(newer.fav || [])], x => x.ts || 0).filter(f => alive('fav', f.key, f.ts)).sort((x, y) => (x.ts || 0) - (y.ts || 0));
   out.user = byKey([...(older.user || []), ...(newer.user || [])], x => x.added || 0).filter(s => alive('user', s.key, s.added));
+  out.lists = byKey([...(older.lists || []), ...(newer.lists || [])], x => x.ts || 0).filter(l => alive('lists', l.key, l.ts)).sort((x, y) => (x.created || 0) - (y.created || 0));   // saved lists: per list, the most recently edited wins
   out.removedTs = Object.assign({}, older.removedTs, newer.removedTs);
   out.removed = [...new Set([...(older.removed || []), ...(newer.removed || [])])].filter(k => alive('removed', k, out.removedTs[k]));
   ['cache', 'trim', 'bad'].forEach(k => { out[k] = Object.assign({}, older[k], newer[k]); });
@@ -68,7 +69,7 @@ function mergeLib(a, b) {
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts)]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts)]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 async function syncWithCloud() {
   try {
@@ -121,6 +122,19 @@ function buildSongs() {
   });
 }
 const needsLabels = s => !s.genre;
+// a saved list's songs, in its order, leaving out the ones you removed since
+const listSongs = L => { const m = new Map(songs.map(s => [s.key, s])); return (L.keys || []).map(k => m.get(k)).filter(Boolean); };
+const genreOptions = first => `<option value="">${first}</option>` + Object.entries(R.genreMap || {}).sort((x, y) => x[1].name.localeCompare(y[1].name)).map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
+// gives a genre to the songs that have none yet (songs you already labelled keep theirs)
+function labelGenre(keys, genre) {
+  const now = Date.now(); let n = 0; lib.labels = lib.labels || {};
+  keys.forEach(k => {
+    const s = songs.find(x => x.key === k); if (!s || s.genre) return;
+    lib.labels[k] = Object.assign({}, lib.labels[k], { genre, ts: now }); n++;
+    const u = lib.user.find(x => x.key === k); if (u) u.genre = genre;
+  });
+  return n;
+}
 
 // ---------- ui helpers ----------
 function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 3200); }
@@ -1002,6 +1016,12 @@ function startRun(id) {
     if (!favList.length) return toast('No favorites yet. Press the heart on a song you love.');
     pack = { id: 'fav', label: 'Your favorites', short: 'Favorites', genres: [], langs: [], songs: [], tags: [], genre: '' };
   }
+  const L = id.startsWith('list:') && (lib.lists || []).find(x => 'list:' + x.key === id);
+  if (L) {   // one of your saved lists: all of it, shuffled
+    favList = listSongs(L);
+    if (!favList.length) return toast('That list has no songs left in the library.');
+    pack = { id, label: 'your list, ' + L.name, short: L.name, genres: [], langs: [], songs: [], tags: [], genre: '' };
+  }
   if (!pack) return;
   const size = Math.random() < 0.15 ? 40 : 20 + Math.floor(Math.random() * 11);
   const rs = recentSets();
@@ -1009,9 +1029,9 @@ function startRun(id) {
   const fresher = fits.filter(s => !rs.recentKeys.has(s.key));          // songs not heard lately come first
   const list = favList ? shuffle(favList) : [...shuffle(fresher), ...shuffle(fits.filter(s => rs.recentKeys.has(s.key)))];
   if (!list.length) return toast('No songs of that genre in the library yet.');
-  batch = { id, label: pack.label, short: pack.short, left: Math.min(size, list.length), list };
+  batch = { id, label: pack.label, short: pack.short, left: L ? list.length : Math.min(size, list.length), list };
   planned = null; preload = null; startAnnounce = pack.label; songsSinceBreak = 99; lastRunSong = null;
-  toast(`Genre run: ${pack.short}, about ${batch.left} songs. It starts after this song.`);
+  toast(L ? `Your list "${L.name}": ${batch.left} songs, shuffled. It starts after this song.` : `Genre run: ${pack.short}, about ${batch.left} songs. It starts after this song.`);
   updateRunUI();
 }
 function stopRun() { batch = null; startAnnounce = null; planned = null; preload = null; toast('Back to the normal mix.'); updateRunUI(); }
@@ -1035,6 +1055,7 @@ function openRun() {
   add('Off: normal mix', 'The usual wandering mix of everything', !batch, () => { if (batch) stopRun(); else toast('Already on the normal mix.'); });
   const nFav = (lib.fav || []).length;
   add('♥ Your favorites', nFav ? `${nFav} songs you hearted` : 'Press the heart on a song to add it here', batch && batch.id === 'fav', () => startRun('fav'));
+  (lib.lists || []).forEach(L => add('▶ ' + L.name, `your list · ${listSongs(L).length} songs, all of them`, batch && batch.id === 'list:' + L.key, () => startRun('list:' + L.key)));
   (R.runs || []).forEach(p => { const n = songs.filter(s => p.genres.includes(s.genre)).length; add(p.label, `${n} songs`, batch && batch.id === p.id, () => startRun(p.id)); });
   openSheet('shRun');
 }
@@ -1149,9 +1170,9 @@ document.querySelectorAll('#addTabs button').forEach(b => b.onclick = () => {
 });
 function listEntry(a, t, cands, line) {
   const k = (a + '|' + t).toLowerCase(), v = cands[0];
-  const inLib = songs.some(s => s.key === k || (s.cands || []).some(c => c.id === v.id));
+  const ex = songs.find(s => s.key === k) || songs.find(s => (s.cands || []).some(c => c.id === v.id));
   const removed = lib.removed.includes(k);
-  return { a, t, key: k, cands, line, ci: 0, inLib, removed, on: !inLib && !removed };
+  return { a, t, key: k, libKey: ex ? ex.key : k, cands, line, ci: 0, inLib: !!ex, removed, on: !removed };   // songs already in the library are ticked too: they belong to the list, and are not added twice
 }
 function renderListRes() {
   const box = $('listRes'); box.innerHTML = '';
@@ -1170,8 +1191,10 @@ function renderListRes() {
 }
 function updateListAdd() {
   const n = listItems.filter(x => x.on && !x.missing).length;
-  $('listAdd').style.display = n ? '' : 'none'; $('listAdd').textContent = `Add ${n} song${n === 1 ? '' : 's'}`;
+  const named = $('listName').value.trim();
+  $('listAdd').style.display = n ? '' : 'none'; $('listAdd').textContent = named ? `Save the list (${n} song${n === 1 ? '' : 's'})` : `Add ${n} song${n === 1 ? '' : 's'}`;
   $('listAll').style.display = listItems.some(x => !x.missing) ? '' : 'none';
+  $('listSave').style.display = listItems.some(x => !x.missing) ? 'flex' : 'none';
 }
 $('listAll').onclick = () => { const anyOff = listItems.some(x => !x.missing && !x.on); listItems.forEach(x => { if (!x.missing) x.on = anyOff; }); renderListRes(); };
 $('listGo').onclick = async () => {
@@ -1179,6 +1202,7 @@ $('listGo').onclick = async () => {
   if (!HELPER) { $('listStatus').textContent = NEEDS_PC; return; }
   const raw = $('listIn').value.trim(); if (!raw) return;
   listItems = []; renderListRes(); listBusy = true; $('listGo').textContent = 'Stop';
+  $('listGenre').innerHTML = genreOptions('none, I will label them later');
   try {
     const pl = raw.match(/[?&]list=([\w-]+)/) || (/^(PL|OL|UU|FL|RD)[\w-]{10,}$/.test(raw) ? [raw, raw] : null);
     if (pl) {
@@ -1186,10 +1210,12 @@ $('listGo').onclick = async () => {
       const r = await fetch('/api/playlist?list=' + encodeURIComponent(pl[1])); const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'the playlist could not be read');
       j.items.forEach(v => { const { a, t } = splitTitle(v); listItems.push(listEntry(a, t, [v], '')); });
+      if (j.title) $('listName').value = j.title;
       renderListRes();
       $('listStatus').textContent = `"${j.title}": ${listItems.length} songs. Untick any you don't want, or press "other" for another version.`;
     } else {
       const lines = raw.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      if (!$('listName').value.trim()) $('listName').value = 'My list, ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
       for (let i = 0; i < lines.length && listBusy; i++) {
         const line = lines[i]; $('listStatus').textContent = `Searching ${i + 1} of ${lines.length}: ${line}`;
         const parts = line.split(/\s+[-–—]\s+/), a = parts.length > 1 ? parts[0] : '', t = parts.length > 1 ? parts.slice(1).join(' - ') : line;
@@ -1207,21 +1233,34 @@ $('listGo').onclick = async () => {
   } catch (e) { $('listStatus').textContent = 'Could not read that: ' + (e.message || e); }
   listBusy = false; $('listGo').textContent = 'Read the list';
 };
+$('listName').oninput = updateListAdd;
 $('listAdd').onclick = () => {
   const chosen = listItems.filter(x => x.on && !x.missing); if (!chosen.length) return;
-  const now = Date.now(), keys = [];
+  const now = Date.now(), keys = [], added = chosen.filter(it => !it.inLib).length;
   chosen.forEach((it, i) => {
+    if (it.inLib) { if (!keys.includes(it.libKey)) keys.push(it.libKey); return; }   // already in the library: only joins the list
     const v = it.cands[it.ci], cands = [v, ...it.cands.filter(c => c.id !== v.id)];
     if (lib.removed.includes(it.key)) { lib.removed = lib.removed.filter(k => k !== it.key); markDeleted('removed', it.key); }   // you ticked a song you had removed: it comes back
     if (!lib.user.some(u => u.key === it.key)) lib.user.push({ a: it.a, t: it.t, q: it.line || `${it.a} - ${it.t}`, tags: [], genre: '', user: true, cands, added: now + i, key: it.key });
-    lib.cache[it.key] = cands; keys.push(it.key);
+    lib.cache[it.key] = cands; if (!keys.includes(it.key)) keys.push(it.key);
   });
-  buildSongs(); saveLib(); if (window.Cloud && Cloud.user) Cloud.push(lib, true);
+  buildSongs();
+  const genre = $('listGenre').value, name = $('listName').value.trim();
+  if (genre && labelGenre(keys, genre)) buildSongs();
+  let L = null;
+  if (name) {   // the same name again (a playlist read a second time) adds to that list instead of making a twin
+    lib.lists = lib.lists || [];
+    L = lib.lists.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (L) { L.keys = [...new Set([...L.keys, ...keys])]; L.ts = now; if (genre) L.genre = genre; }
+    else lib.lists.push(L = { key: 'l' + now.toString(36), name, keys, genre, created: now, ts: now });
+  }
+  saveLib(); if (window.Cloud && Cloud.user) Cloud.push(lib, true);
   const playNext = $('listPlayNext').checked;
   if (playNext) { planned = null; preload = null; keys.forEach(k => { const s = songs.find(x => x.key === k); if (s) upNext.push(s); }); }
-  rlog('list added', { songs: keys.length, playNext });
-  toast(`${keys.length} song${keys.length === 1 ? '' : 's'} added to your library${playNext ? ', playing next' : ''}. Label them in Library > Needs labels.`);
-  listItems = []; renderListRes(); $('listIn').value = ''; openSheet(null);
+  rlog('list added', { songs: keys.length, new: added, list: name, genre, playNext });
+  const left = keys.filter(k => { const s = songs.find(x => x.key === k); return s && !s.genre; }).length;
+  toast(`${L ? `List "${L.name}" saved, ${keys.length} songs (${added} new)` : `${added} song${added === 1 ? '' : 's'} added to your library`}${playNext ? ', playing next' : ''}.${left ? ` ${left} still need a genre.` : ''}`);
+  listItems = []; renderListRes(); $('listIn').value = ''; $('listName').value = ''; openSheet(null);
 };
 
 // ---------- labels for any song: genre, lyric themes, mood, energy (kept in lib.labels, synced through the cloud) ----------
@@ -1229,8 +1268,7 @@ const MOODS = ['calm', 'warm', 'dreamy', 'melancholic', 'dark', 'tense', 'playfu
 let labelKey = null, labelEnergy = 2;
 function openLabels(s) {
   labelKey = s.key; $('labelSong').textContent = `${s.a} - ${s.t}`;
-  const gs = Object.entries(R.genreMap || {}).sort((x, y) => x[1].name.localeCompare(y[1].name));
-  $('labelGenre').innerHTML = '<option value="">choose a genre</option>' + gs.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
+  $('labelGenre').innerHTML = genreOptions('choose a genre');
   $('labelGenre').value = s.genre || '';
   $('labelThemes').innerHTML = THEMES.map(t => `<label><input type="checkbox" value="${t}"${(s.tags || []).includes(t) ? ' checked' : ''}><span>${t}</span></label>`).join('');
   $('labelMood').innerHTML = MOODS.map(m => `<option>${m}</option>`).join(''); $('labelMood').value = MOODS.includes(s.mood) ? s.mood : 'calm';
@@ -1291,21 +1329,52 @@ function renderFav() {
     l.appendChild(d);
   });
 }
+function renderLists() {
+  const l = $('libList'); l.innerHTML = ''; const ls = lib.lists || [];
+  $('libCount').textContent = `· ${ls.length} list${ls.length === 1 ? '' : 's'}`;
+  if (!ls.length) { l.innerHTML = '<p style="color:var(--mute);font-size:13px;line-height:1.5">No saved lists yet. In Suggest &gt; A list, paste a playlist link or a few songs and give the list a name.</p>'; return; }
+  ls.slice().reverse().forEach(L => {
+    const n = listSongs(L).length, d = document.createElement('div'); d.className = 'item' + (batch && batch.id === 'list:' + L.key ? ' now' : '');
+    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Play this list (shuffled)">&#9654;</button><button class="mini-btn" title="Delete the list (its songs stay in the library)">&#10005;</button>`;
+    d.querySelector('b').textContent = L.name; d.querySelector('span').textContent = `${n} songs${L.genre ? ' · ' + (((R.genreMap || {})[L.genre] || {}).name || '') : ''}`;
+    const [pn, rm] = d.querySelectorAll('.mini-btn');
+    d.querySelector('.meta').onclick = () => { libTab = 'list:' + L.key; renderLib(); };
+    pn.onclick = () => { openSheet(null); startRun('list:' + L.key); };
+    rm.onclick = () => { if (!confirm(`Delete the list "${L.name}"? Its songs stay in your library.`)) return; lib.lists = lib.lists.filter(x => x !== L); markDeleted('lists', L.key); saveLib(); renderLib(); };
+    l.appendChild(d);
+  });
+}
 function renderLib() {
-  document.querySelectorAll('#libTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === libTab));
+  document.querySelectorAll('#libTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === libTab || (b.dataset.v === 'lists' && libTab.startsWith('list:'))));
   if (libTab === 'fav') return renderFav();
-  const shown = libTab === 'unlabeled' ? songs.filter(needsLabels) : songs;
-  $('libCount').textContent = libTab === 'unlabeled' ? `· ${shown.length} need labels` : `· ${songs.length} songs`;
+  if (libTab === 'lists') return renderLists();
+  const L = libTab.startsWith('list:') && (lib.lists || []).find(x => 'list:' + x.key === libTab);
+  if (libTab.startsWith('list:') && !L) { libTab = 'lists'; return renderLists(); }   // deleted on another device
+  const shown = L ? listSongs(L) : libTab === 'unlabeled' ? songs.filter(needsLabels) : songs;
+  $('libCount').textContent = L ? `· ${shown.length} songs` : libTab === 'unlabeled' ? `· ${shown.length} need labels` : `· ${songs.length} songs`;
   const l = $('libList'); l.innerHTML = '';
   if (libTab === 'unlabeled' && !shown.length) l.innerHTML = '<p style="color:var(--mute);font-size:13px">Every song has a genre. Songs you add from a list appear here until you label them.</p>';
+  if (L) {   // one list: back, play, and a genre for all its songs that have none
+    const unl = shown.filter(needsLabels).length, h = document.createElement('div');
+    h.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:4px';
+    h.innerHTML = `<div class="field" style="align-items:center"><button class="mini-btn" title="Back to your lists">&larr; Lists</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b><button class="btn">Play this list</button></div>` +
+      (unl ? `<div class="set" style="padding:4px 0;border:0"><span style="font-size:13px">${unl} without a genre: give them</span><select>${genreOptions('choose a genre')}</select></div>` : '');
+    h.querySelector('b').textContent = L.name;
+    h.querySelector('.mini-btn').onclick = () => { libTab = 'lists'; renderLib(); };
+    h.querySelector('.btn').onclick = () => { openSheet(null); startRun('list:' + L.key); };
+    const sel = h.querySelector('select');
+    if (sel) sel.onchange = () => { if (!sel.value) return; const n = labelGenre(L.keys, sel.value); L.genre = sel.value; L.ts = Date.now(); buildSongs(); saveLib(); toast(`${n} song${n === 1 ? '' : 's'} labelled ${((R.genreMap || {})[sel.value] || {}).name}.`); renderLib(); };
+    l.appendChild(h);
+  }
   shown.forEach(s => {
     const d = document.createElement('div'); d.className = 'item' + (current && current.key === s.key ? ' now' : '');
-    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Edit labels: genre, themes, mood, energy">✎</button><button class="mini-btn" title="Remove">✕</button>`;
+    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Edit labels: genre, themes, mood, energy">✎</button><button class="mini-btn" title="${L ? 'Take it out of this list (it stays in the library)' : 'Remove'}">✕</button>`;
     d.querySelector('b').textContent = s.t; d.querySelector('span').textContent = `${s.a} · ${(R.genreMap && R.genreMap[s.genre] || {}).name || 'needs labels'}${s.user ? ' · yours' : ''}`;
     d.querySelector('.meta').onclick = () => { openSheet(null); planned = null; preload = null; advance({ song: s, quick: true }); };
     const [ed, rm] = d.querySelectorAll('.mini-btn');
     ed.onclick = () => openLabels(s);
-    rm.onclick = () => { lib.removed.push(s.key); lib.removedTs = lib.removedTs || {}; lib.removedTs[s.key] = Date.now(); if (lib.user.some(x => x.key === s.key)) markDeleted('user', s.key); lib.user = lib.user.filter(x => x.key !== s.key); buildSongs(); saveLib(); renderLib(); };
+    if (L) rm.onclick = () => { L.keys = L.keys.filter(k => k !== s.key); L.ts = Date.now(); saveLib(); renderLib(); };
+    else rm.onclick = () => { lib.removed.push(s.key); lib.removedTs = lib.removedTs || {}; lib.removedTs[s.key] = Date.now(); if (lib.user.some(x => x.key === s.key)) markDeleted('user', s.key); lib.user = lib.user.filter(x => x.key !== s.key); buildSongs(); saveLib(); renderLib(); };
     l.appendChild(d);
   });
 }
