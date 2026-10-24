@@ -198,10 +198,34 @@ body.mini .app{gap:6px}
 
   <!-- add song -->
   <div class="sheet" id="shAdd">
-    <div class="hd"><h2>Suggest a song</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <div class="field"><input type="text" id="addq" placeholder="Artist - song title"><button class="btn" id="addGo">Search</button></div>
-    <div class="themes" id="addThemes"></div>
-    <div class="list" id="addRes"><p style="color:var(--mute);font-size:13px;line-height:1.5">Type what you want to hear and pick the right result. I will add just that song to the library and play it next. Optionally, tick the themes it belongs to.</p></div>
+    <div class="hd"><h2>Suggest</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="seg" id="addTabs" style="align-self:flex-start"><button data-v="one" class="on">One song</button><button data-v="list">A list</button></div>
+    <div id="addOne" style="display:contents">
+      <div class="field"><input type="text" id="addq" placeholder="Artist - song title"><button class="btn" id="addGo">Search</button></div>
+      <div class="themes" id="addThemes"></div>
+      <div class="list" id="addRes"><p style="color:var(--mute);font-size:13px;line-height:1.5">Type what you want to hear and pick the right result. I will add just that song to the library and play it next. Optionally, tick the themes it belongs to.</p></div>
+    </div>
+    <div id="addList" style="display:none;flex-direction:column;gap:12px;min-height:0">
+      <textarea id="listIn" rows="5" placeholder="Paste a YouTube playlist link, or one song per line:&#10;Pachyman - Destroy the Empire&#10;King Tubby - Mystical Dub" style="width:100%;box-sizing:border-box;resize:vertical;background:var(--bg2);color:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-size:13px"></textarea>
+      <div class="field" style="align-items:center;flex-wrap:wrap">
+        <button class="btn" id="listGo">Read the list</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mute);cursor:pointer"><input type="checkbox" id="listPlayNext"> Play these next</label>
+      </div>
+      <p id="listStatus" style="color:var(--mute);font-size:12.5px;line-height:1.5;margin:0">Songs from a list join your library without a genre. Give them one in Library &gt; Needs labels (or ask me to label them).</p>
+      <div class="list" id="listRes"></div>
+      <div class="field"><button class="btn" id="listAdd" style="display:none">Add</button><button class="btn ghost" id="listAll" style="display:none">Tick all / none</button></div>
+    </div>
+  </div>
+
+  <!-- labels for one song: genre, lyric themes, mood, energy -->
+  <div class="sheet" id="shLabel">
+    <div class="hd"><h2>Labels</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p id="labelSong" style="margin:0;font-weight:600"></p>
+    <div class="set"><span>Genre</span><select id="labelGenre"></select></div>
+    <div><span style="font-size:13px;color:var(--mute)">What the lyrics are about</span><div class="themes" id="labelThemes" style="margin-top:8px"></div></div>
+    <div class="set"><span>Mood</span><select id="labelMood"></select></div>
+    <div class="set"><span>Energy</span><div class="seg" id="labelEnergy"><button data-v="1">1 calm</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5 driving</button></div></div>
+    <button class="btn" id="labelSave" style="align-self:flex-start">Save labels</button>
   </div>
 
   <!-- playback report: the last events, to send when something does not play -->
@@ -237,7 +261,7 @@ body.mini .app{gap:6px}
   <!-- library -->
   <div class="sheet" id="shLib">
     <div class="hd"><h2>Library <span id="libCount" style="color:var(--mute);font-size:14px"></span></h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button></div>
+    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button><button data-v="unlabeled">Needs labels</button></div>
     <div class="list" id="libList"></div>
   </div>
 
@@ -297,6 +321,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=97dbb4006a2c21fe"></script>
-<script src="app.js?v=e9036e7dbf0f1a79"></script>
+<script src="app.js?v=2935b807c6d57c10"></script>
 </body>
 </html>

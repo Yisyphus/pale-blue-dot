@@ -167,23 +167,69 @@ const ADS_EXTRA = path.join(DATA, 'ads-extra.json');
 
 const durText = l => { let t = ''; walk(l, 'thumbnailBadgeViewModel', []).forEach(b => { if (b && b.text && /^\d+:\d+/.test(b.text)) t = b.text; }); return t; };
 
-async function extractPlaylist(idOrUrl) {
-  const m = String(idOrUrl).match(/[?&]list=([\w-]+)/); const id = m ? m[1] : idOrUrl;
+// Reads a whole public YouTube playlist: the first page, then every "load more" page until the end (no size limit).
+// Returns { id, title, items: [{ id, title, channel, seconds }] }.
+function playlistItems(node) {
+  const items = [];
+  walk(node, 'lockupViewModel', []).forEach(l => {                       // current YouTube layout
+    const md = l.metadata && l.metadata.lockupMetadataViewModel;
+    const rows = md && md.metadata && md.metadata.contentMetadataViewModel && md.metadata.contentMetadataViewModel.metadataRows;
+    const channel = rows && rows[0] && rows[0].metadataParts && rows[0].metadataParts[0] && rows[0].metadataParts[0].text ? rows[0].metadataParts[0].text.content : '';
+    items.push({ id: l.contentId, title: (md && md.title && md.title.content) || '', channel: channel || '', seconds: secs(durText(l)) });
+  });
+  walk(node, 'playlistVideoRenderer', []).forEach(v => items.push({ id: v.videoId, title: txt(v.title), channel: txt(v.shortBylineText), seconds: +v.lengthSeconds || 0 }));   // older layout
+  return items;
+}
+// The playlist's own list (not YouTube's suggestions beside it). On the page it is the itemSectionRenderer (newer
+// layout) or playlistVideoListRenderer (older) holding the most videos; in each "load more" answer it is
+// appendContinuationItemsAction. Its next-page token is the continuation item at the END of that list.
+function listNode(node, cont) {
+  if (cont) { const l = walk(node, 'appendContinuationItemsAction', []); return l.length ? l : [node]; }
+  const cands = [...walk(node, 'playlistVideoListRenderer', []), ...walk(node, 'itemSectionRenderer', [])];
+  let best = null, n = 0; cands.forEach(c => { const k = playlistItems(c).length; if (k > n) { n = k; best = c; } });
+  return best ? [best] : [node];
+}
+function nextToken(nodes) {
+  let tok = null;
+  nodes.forEach(n => {
+    const list = n.contents || n.continuationItems || [];
+    const last = Array.isArray(list) ? list[list.length - 1] : null;
+    const holder = last && (last.continuationItemViewModel || last.continuationItemRenderer);
+    if (holder) { const t = JSON.stringify(holder).match(/"token":"([^"]+)"/); if (t) tok = t[1]; }   // the token can sit a few levels deep
+  });
+  return tok;
+}
+async function readPlaylist(idOrUrl) {
+  const m = String(idOrUrl).match(/[?&]list=([\w-]+)/); const id = m ? m[1] : String(idOrUrl).trim();
+  if (!/^[\w-]{10,}$/.test(id)) throw new Error('That does not look like a YouTube playlist link.');
   const r = await fetch('https://www.youtube.com/playlist?list=' + encodeURIComponent(id), { headers: HEADERS });
   const html = await r.text();
   const data = extractJSON(html, 'var ytInitialData =') || extractJSON(html, 'ytInitialData = ');
-  if (!data) throw new Error('could not read the playlist page');
-  const items = [];
-  walk(data, 'lockupViewModel', []).forEach(l => {                       // current YouTube layout
-    const md = l.metadata && l.metadata.lockupMetadataViewModel;
-    items.push({ id: l.contentId, title: (md && md.title && md.title.content) || '', seconds: secs(durText(l)) });
-  });
-  walk(data, 'playlistVideoRenderer', []).forEach(v => items.push({ id: v.videoId, title: txt(v.title), seconds: +v.lengthSeconds || 0 }));   // older layout
+  if (!data) throw new Error('Could not read that playlist (is it public or unlisted?).');
+  const first = listNode(data, false);
+  const items = first.flatMap(n => playlistItems(n));
+  const key = (html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) || [])[1], ver = (html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/) || [])[1] || '2.20240101.00.00';
+  let tok = nextToken(first), pages = 0;
+  while (tok && pages < 500) {   // 100 videos per page; YouTube playlists stop at 5000
+    pages++;
+    const u = 'https://www.youtube.com/youtubei/v1/browse?prettyPrint=false' + (key ? '&key=' + key : '');
+    const res = await fetch(u, { method: 'POST', headers: { ...HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: ver, hl: 'en' } }, continuation: tok }) });
+    if (!res.ok) break;
+    const j = await res.json();
+    const nodes = listNode(j, true);
+    const more = nodes.flatMap(n => playlistItems(n)); if (!more.length) break;
+    items.push(...more); tok = nextToken(nodes);
+    await new Promise(r => setTimeout(r, 400));
+  }
   const seen = new Set();
   const out = items.filter(v => v.id && /^[\w-]{11}$/.test(v.id) && !seen.has(v.id) && seen.add(v.id));
-  const title = (data.header && JSON.stringify(data.header).match(/"pageTitle":"([^"]+)"/) || [])[1] || id;
-  fs.writeFileSync(ADS_PLAYLIST, JSON.stringify({ source: 'youtube playlist ' + id, title, extracted: new Date().toISOString().slice(0, 10), items: out }, null, 1));
-  return out;
+  const title = (data.header && JSON.stringify(data.header).match(/"pageTitle":"([^"]+)"/) || [])[1] || (JSON.stringify(data.metadata || {}).match(/"title":"([^"]+)"/) || [])[1] || id;
+  return { id, title, items: out };
+}
+async function extractPlaylist(idOrUrl) {   // the commercials snapshot (ads-playlist.json)
+  const p = await readPlaylist(idOrUrl);
+  fs.writeFileSync(ADS_PLAYLIST, JSON.stringify({ source: 'youtube playlist ' + p.id, title: p.title, extracted: new Date().toISOString().slice(0, 10), items: p.items.map(({ id, title, seconds }) => ({ id, title, seconds })) }, null, 1));
+  return p.items;
 }
 
 // Moroccan ad searches (French, Arabic and well-known Moroccan brands)
@@ -296,6 +342,7 @@ const server = http.createServer(async (req, res) => {
   if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname });
   try {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
+    if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
     if (u.pathname === '/api/ads/all') return send(res, 200, { items: adsAll() });

@@ -62,11 +62,13 @@ function mergeLib(a, b) {
   out.removedTs = Object.assign({}, older.removedTs, newer.removedTs);
   out.removed = [...new Set([...(older.removed || []), ...(newer.removed || [])])].filter(k => alive('removed', k, out.removedTs[k]));
   ['cache', 'trim', 'bad'].forEach(k => { out[k] = Object.assign({}, older[k], newer[k]); });
+  out.labels = Object.assign({}, older.labels);   // labels: per song, the most recently edited wins
+  Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
   out.b = Math.max(older.b || 0, newer.b || 0);
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts)]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 async function syncWithCloud() {
   try {
@@ -114,8 +116,11 @@ function buildSongs() {
   songs.forEach(s => {
     if (lib.cache[s.key]) s.cands = lib.cache[s.key];
     else if (R.catalogIds && R.catalogIds[s.key]) { const v = R.catalogIds[s.key]; s.cands = [{ id: v.id, title: v.title, channel: v.channel, seconds: 0 }]; }   // checked in advance: no search needed
+    const L = (lib.labels || {})[s.key];   // your own labels (Library > the pencil) win over the catalog's
+    if (L) { if (L.genre) s.genre = L.genre; if (L.tags) s.tags = L.tags.slice(); if (L.mood) s.mood = L.mood; if (L.energy) s.energy = L.energy; }
   });
 }
+const needsLabels = s => !s.genre;
 
 // ---------- ui helpers ----------
 function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 3200); }
@@ -1084,7 +1089,7 @@ async function tuneIn() {
 }
 
 // ---------- panels ----------
-const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport'];
+const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport', 'shLabel'];
 $('btnReport').onclick = () => {
   const head = [`device: ${/Android|iPhone|iPad/i.test(navigator.userAgent) ? (navigator.userAgent.match(/Android[^;)]*|iPhone|iPad/) || [''])[0] : 'computer'} · ${(navigator.userAgent.match(/(EdgA|Edg|Brave|SamsungBrowser|Firefox|Chrome)\/[\d.]+/) || ['browser'])[0]}`,
     `helper on this device: ${HELPER ? 'yes' : 'no'} · cloud: ${window.Cloud && Cloud.user ? 'signed in' : 'not signed in'} · now: ${current ? current.a + ' - ' + current.t : 'nothing'}`, ''];
@@ -1130,7 +1135,118 @@ function queueNext(song) {
   planned = null; preload = null; upNext.push(song);
 }
 $('addGo').onclick = doSearch; $('addq').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
-$('btnAdd').onclick = () => { openSheet('shAdd'); setTimeout(() => $('addq').focus(), 50); };
+$('btnAdd').onclick = () => { openSheet('shAdd'); setTimeout(() => (addTab === 'list' ? $('listIn') : $('addq')).focus(), 50); };
+
+// ---------- Suggest > A list: a YouTube playlist link, or one "Artist - Title" per line (no size limit) ----------
+// Every song is matched and shown with a tick box before anything is added. Added songs join the library
+// with no genre ("Needs labels" in the Library) and, if "Play these next" is ticked, play in order after this song.
+let addTab = 'one', listItems = [], listBusy = false;
+document.querySelectorAll('#addTabs button').forEach(b => b.onclick = () => {
+  addTab = b.dataset.v;
+  document.querySelectorAll('#addTabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('addOne').style.display = addTab === 'one' ? 'contents' : 'none';
+  $('addList').style.display = addTab === 'list' ? 'flex' : 'none';
+});
+function listEntry(a, t, cands, line) {
+  const k = (a + '|' + t).toLowerCase(), v = cands[0];
+  const inLib = songs.some(s => s.key === k || (s.cands || []).some(c => c.id === v.id));
+  const removed = lib.removed.includes(k);
+  return { a, t, key: k, cands, line, ci: 0, inLib, removed, on: !inLib && !removed };
+}
+function renderListRes() {
+  const box = $('listRes'); box.innerHTML = '';
+  listItems.forEach(it => {
+    const d = document.createElement('div'); d.className = 'item';
+    if (it.missing) { d.innerHTML = '<div class="meta"><b></b><span>not found on YouTube</span></div>'; d.querySelector('b').textContent = it.line; box.appendChild(d); return; }
+    const v = it.cands[it.ci];
+    d.innerHTML = `<input type="checkbox" style="margin:0 8px 0 0;flex:none"><img src="https://i.ytimg.com/vi/${v.id}/default.jpg" width="48" height="36" style="border-radius:6px;object-fit:cover;flex:none"><div class="meta"><b></b><span></span></div>${it.cands.length > 1 ? '<button class="mini-btn" title="Show the next YouTube result">other</button>' : ''}`;
+    const cb = d.querySelector('input'); cb.checked = it.on; cb.onchange = () => { it.on = cb.checked; updateListAdd(); };
+    d.querySelector('b').textContent = `${it.a} - ${it.t}`;
+    d.querySelector('span').textContent = `${cleanTitle(v.title || '')} · ${v.channel || ''}${it.inLib ? ' · already in your library' : ''}${it.removed ? ' · you removed this before' : ''}`;
+    const ob = d.querySelector('.mini-btn'); if (ob) ob.onclick = () => { it.ci = (it.ci + 1) % it.cands.length; renderListRes(); };
+    box.appendChild(d);
+  });
+  updateListAdd();
+}
+function updateListAdd() {
+  const n = listItems.filter(x => x.on && !x.missing).length;
+  $('listAdd').style.display = n ? '' : 'none'; $('listAdd').textContent = `Add ${n} song${n === 1 ? '' : 's'}`;
+  $('listAll').style.display = listItems.some(x => !x.missing) ? '' : 'none';
+}
+$('listAll').onclick = () => { const anyOff = listItems.some(x => !x.missing && !x.on); listItems.forEach(x => { if (!x.missing) x.on = anyOff; }); renderListRes(); };
+$('listGo').onclick = async () => {
+  if (listBusy) { listBusy = false; return; }   // the button reads "Stop" while searching
+  if (!HELPER) { $('listStatus').textContent = NEEDS_PC; return; }
+  const raw = $('listIn').value.trim(); if (!raw) return;
+  listItems = []; renderListRes(); listBusy = true; $('listGo').textContent = 'Stop';
+  try {
+    const pl = raw.match(/[?&]list=([\w-]+)/) || (/^(PL|OL|UU|FL|RD)[\w-]{10,}$/.test(raw) ? [raw, raw] : null);
+    if (pl) {
+      $('listStatus').textContent = 'Reading the playlist…';
+      const r = await fetch('/api/playlist?list=' + encodeURIComponent(pl[1])); const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'the playlist could not be read');
+      j.items.forEach(v => { const { a, t } = splitTitle(v); listItems.push(listEntry(a, t, [v], '')); });
+      renderListRes();
+      $('listStatus').textContent = `"${j.title}": ${listItems.length} songs. Untick any you don't want, or press "other" for another version.`;
+    } else {
+      const lines = raw.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      for (let i = 0; i < lines.length && listBusy; i++) {
+        const line = lines[i]; $('listStatus').textContent = `Searching ${i + 1} of ${lines.length}: ${line}`;
+        const parts = line.split(/\s+[-–—]\s+/), a = parts.length > 1 ? parts[0] : '', t = parts.length > 1 ? parts.slice(1).join(' - ') : line;
+        let r = [];
+        try { r = await (await fetch('/api/search?q=' + encodeURIComponent(line) + (a ? '&a=' + encodeURIComponent(a) + '&t=' + encodeURIComponent(t) : ''))).json(); } catch {}
+        if (!Array.isArray(r) || !r.length) { try { r = await (await fetch('/api/search?q=' + encodeURIComponent(line))).json(); } catch {} }   // a looser second try
+        const c = (Array.isArray(r) ? r : []).slice(0, 5);
+        if (c.length) { const s0 = splitTitle(c[0]); listItems.push(listEntry(a || s0.a, a ? t : s0.t, c, line)); } else listItems.push({ line, missing: true });
+        renderListRes();
+        await sleep(900);   // slowly, so YouTube keeps answering
+      }
+      const found = listItems.filter(x => !x.missing).length;
+      $('listStatus').textContent = `${found} of ${lines.length} found${listBusy ? '' : ' (stopped)'}. Untick any you don't want, or press "other" for another version.`;
+    }
+  } catch (e) { $('listStatus').textContent = 'Could not read that: ' + (e.message || e); }
+  listBusy = false; $('listGo').textContent = 'Read the list';
+};
+$('listAdd').onclick = () => {
+  const chosen = listItems.filter(x => x.on && !x.missing); if (!chosen.length) return;
+  const now = Date.now(), keys = [];
+  chosen.forEach((it, i) => {
+    const v = it.cands[it.ci], cands = [v, ...it.cands.filter(c => c.id !== v.id)];
+    if (lib.removed.includes(it.key)) { lib.removed = lib.removed.filter(k => k !== it.key); markDeleted('removed', it.key); }   // you ticked a song you had removed: it comes back
+    if (!lib.user.some(u => u.key === it.key)) lib.user.push({ a: it.a, t: it.t, q: it.line || `${it.a} - ${it.t}`, tags: [], genre: '', user: true, cands, added: now + i, key: it.key });
+    lib.cache[it.key] = cands; keys.push(it.key);
+  });
+  buildSongs(); saveLib(); if (window.Cloud && Cloud.user) Cloud.push(lib, true);
+  const playNext = $('listPlayNext').checked;
+  if (playNext) { planned = null; preload = null; keys.forEach(k => { const s = songs.find(x => x.key === k); if (s) upNext.push(s); }); }
+  rlog('list added', { songs: keys.length, playNext });
+  toast(`${keys.length} song${keys.length === 1 ? '' : 's'} added to your library${playNext ? ', playing next' : ''}. Label them in Library > Needs labels.`);
+  listItems = []; renderListRes(); $('listIn').value = ''; openSheet(null);
+};
+
+// ---------- labels for any song: genre, lyric themes, mood, energy (kept in lib.labels, synced through the cloud) ----------
+const MOODS = ['calm', 'warm', 'dreamy', 'melancholic', 'dark', 'tense', 'playful'];
+let labelKey = null, labelEnergy = 2;
+function openLabels(s) {
+  labelKey = s.key; $('labelSong').textContent = `${s.a} - ${s.t}`;
+  const gs = Object.entries(R.genreMap || {}).sort((x, y) => x[1].name.localeCompare(y[1].name));
+  $('labelGenre').innerHTML = '<option value="">choose a genre</option>' + gs.map(([id, g]) => `<option value="${id}">${g.name}</option>`).join('');
+  $('labelGenre').value = s.genre || '';
+  $('labelThemes').innerHTML = THEMES.map(t => `<label><input type="checkbox" value="${t}"${(s.tags || []).includes(t) ? ' checked' : ''}><span>${t}</span></label>`).join('');
+  $('labelMood').innerHTML = MOODS.map(m => `<option>${m}</option>`).join(''); $('labelMood').value = MOODS.includes(s.mood) ? s.mood : 'calm';
+  labelEnergy = s.energy || 2; paintEnergy();
+  openSheet('shLabel');
+}
+function paintEnergy() { document.querySelectorAll('#labelEnergy button').forEach(b => b.classList.toggle('on', +b.dataset.v === labelEnergy)); }
+document.querySelectorAll('#labelEnergy button').forEach(b => b.onclick = () => { labelEnergy = +b.dataset.v; paintEnergy(); });
+$('labelSave').onclick = () => {
+  const genre = $('labelGenre').value; if (!genre) return toast('Choose a genre first.');
+  const tags = [...document.querySelectorAll('#labelThemes input:checked')].map(i => i.value), mood = $('labelMood').value;
+  lib.labels = lib.labels || {}; lib.labels[labelKey] = { genre, tags, mood, energy: labelEnergy, ts: Date.now() };
+  const u = lib.user.find(x => x.key === labelKey); if (u) { u.genre = genre; u.tags = tags; u.mood = mood; u.energy = labelEnergy; }
+  buildSongs(); saveLib(); toast('Labels saved.');
+  openSheet('shLib'); renderLib();
+};
 
 // ---------- favorites ----------
 let libTab = 'all';
@@ -1178,14 +1294,17 @@ function renderFav() {
 function renderLib() {
   document.querySelectorAll('#libTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === libTab));
   if (libTab === 'fav') return renderFav();
-  $('libCount').textContent = `· ${songs.length} songs`;
+  const shown = libTab === 'unlabeled' ? songs.filter(needsLabels) : songs;
+  $('libCount').textContent = libTab === 'unlabeled' ? `· ${shown.length} need labels` : `· ${songs.length} songs`;
   const l = $('libList'); l.innerHTML = '';
-  songs.forEach(s => {
+  if (libTab === 'unlabeled' && !shown.length) l.innerHTML = '<p style="color:var(--mute);font-size:13px">Every song has a genre. Songs you add from a list appear here until you label them.</p>';
+  shown.forEach(s => {
     const d = document.createElement('div'); d.className = 'item' + (current && current.key === s.key ? ' now' : '');
-    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Remove">✕</button>`;
-    d.querySelector('b').textContent = s.t; d.querySelector('span').textContent = `${s.a} · ${(R.genreMap && R.genreMap[s.genre] || {}).name || 'genre not set'}${s.user ? ' · yours' : ''}`;
+    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Edit labels: genre, themes, mood, energy">✎</button><button class="mini-btn" title="Remove">✕</button>`;
+    d.querySelector('b').textContent = s.t; d.querySelector('span').textContent = `${s.a} · ${(R.genreMap && R.genreMap[s.genre] || {}).name || 'needs labels'}${s.user ? ' · yours' : ''}`;
     d.querySelector('.meta').onclick = () => { openSheet(null); planned = null; preload = null; advance({ song: s, quick: true }); };
-    const [rm] = d.querySelectorAll('.mini-btn');
+    const [ed, rm] = d.querySelectorAll('.mini-btn');
+    ed.onclick = () => openLabels(s);
     rm.onclick = () => { lib.removed.push(s.key); lib.removedTs = lib.removedTs || {}; lib.removedTs[s.key] = Date.now(); if (lib.user.some(x => x.key === s.key)) markDeleted('user', s.key); lib.user = lib.user.filter(x => x.key !== s.key); buildSongs(); saveLib(); renderLib(); };
     l.appendChild(d);
   });
