@@ -57,13 +57,48 @@
 
   const SEQ = (ctx, d, w, t0, list, fn, step, vel, dur) => list.forEach((m, i) => fn(ctx, d, w, t0 + i * step, m, vel, dur));
 
-  // ---------- the jingle: "Dawn Bell" (first version, about 4.2 seconds) ----------
+  // newsroom sounds: a short high tick (the wire machine), a low hit with a falling pitch, and a bright brass-like stab
+  function tick(ctx, dry, t, vel) {
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = 2100; f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 6;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    o.connect(f); f.connect(g); g.connect(dry); o.start(t); o.stop(t + 0.06);
+  }
+  function hit(ctx, dry, wet, t, midi, vel, dur) {
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sine'; o2.type = 'triangle';
+    o.frequency.setValueAtTime(hz(midi) * 2, t); o.frequency.exponentialRampToValueAtTime(hz(midi), t + 0.08);
+    o2.frequency.setValueAtTime(hz(midi + 12), t);
+    f.type = 'lowpass'; f.frequency.setValueAtTime(1800, t); f.frequency.exponentialRampToValueAtTime(220, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); o2.connect(f); f.connect(g); g.connect(dry); g.connect(wet);
+    o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+  }
+  function stab(ctx, dry, wet, t, notes, vel, dur) {
+    const f = ctx.createBiquadFilter(), g = ctx.createGain();
+    f.type = 'lowpass'; f.frequency.setValueAtTime(600, t); f.frequency.exponentialRampToValueAtTime(3800, t + 0.06); f.frequency.exponentialRampToValueAtTime(900, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.03); g.gain.setValueAtTime(vel, t + dur * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    f.connect(g); g.connect(dry); g.connect(wet);
+    notes.forEach(m => [-7, 0, 7].forEach(c => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(m); o.detune.value = c; o.connect(f); o.start(t); o.stop(t + dur + 0.05); }));
+  }
+
+  // ---------- the jingles: "Dawn Bell" for the commercial breaks, "News Desk" for the news ----------
   const LIST = [
     { id: 'dawn', name: 'Dawn Bell', length: 4.2, about: 'A bright rising pentatonic run that lands on a high bell. Hopeful, clean.',
       build(ctx, d, w, t) {
         pad(ctx, d, w, t, [48, 55, 64], 4.2, 0.05);
         SEQ(ctx, d, w, t + 0.05, [72, 76, 79, 81, 84], pluck, 0.16, 0.16, 0.5);
         bell(ctx, d, w, t + 0.95, 88, 0.14, 2.6); bell(ctx, d, w, t + 0.95, 76, 0.1, 2.8);
+      } },
+    // the news: serious and steady. A ticking wire under a low pulse in D minor, a rising four-note call, and a firm final chord.
+    { id: 'news', name: 'News Desk', length: 4.6, about: 'Ticking wire, low pulse, a rising call in D minor and a firm brass-like chord. Serious, for the news.',
+      build(ctx, d, w, t) {
+        for (let i = 0; i < 24; i++) tick(ctx, d, t + i * 0.125, i % 4 === 0 ? 0.05 : 0.025);
+        [0, 0.5, 1.0, 1.5, 2.0, 2.25, 2.5].forEach(x => hit(ctx, d, w, t + x, 38, 0.32, 0.45));
+        pad(ctx, d, w, t, [50, 57, 62, 65], 3.2, 0.035);
+        SEQ(ctx, d, w, t + 1.0, [62, 65, 69, 74], pluck, 0.25, 0.13, 0.45);
+        stab(ctx, d, w, t + 3.0, [50, 57, 62, 65, 69], 0.06, 1.5);
+        hit(ctx, d, w, t + 3.0, 38, 0.4, 1.2); bell(ctx, d, w, t + 3.0, 86, 0.06, 1.8);
       } },
   ];
   function play(ctx, id) {

@@ -9,7 +9,7 @@ const MAX_DISCOVERED = 220;
 
 // ---------- state ----------
 let lib = { user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} };
-let S = { talk: 'normal', rate: 90, voice: '', sleep: 0, deep: 30, vol: 80, trim: 5 };
+let S = { talk: 'normal', rate: 90, voice: '', sleep: 0, deep: 30, vol: 80, trim: 5, news: 'on' };
 let songs = [];
 let current = null, history = [], played = [], upNext = [], planned = null, preload = null;
 let batch = null, startAnnounce = null, lastRunSong = null; // genre run state
@@ -208,7 +208,13 @@ const VOICE_PREFS = {
   k: [/steffan.*natural/i, /eric.*natural/i, /guy.*natural/i],
   b: [/william.*natural/i, /connor.*natural/i, /andrew.*natural/i],
 };
+// the news is read in Arabic: a Moroccan natural voice (Edge: Jamal, Mouna) if there is one, then any Arabic voice
+function arabicVoice() {
+  const ar = voices.filter(v => /^ar/i.test(v.lang));
+  return ar.find(v => /ar-MA/i.test(v.lang) && /natural/i.test(v.name)) || ar.find(v => /natural/i.test(v.name)) || ar.find(v => /ar-MA/i.test(v.lang)) || ar[0] || null;
+}
 function voiceFor(code) {
+  if (code === 'ar') return arabicVoice();
   if (code === 'g') return guestVoice();
   const host = hostVoice(), en = voices.filter(v => isEn(v) && v !== host);
   for (const p of VOICE_PREFS[code] || []) { const v = en.find(v => p.test(v.name)); if (v) return v; }
@@ -217,31 +223,31 @@ function voiceFor(code) {
 speechSynthesis.onvoiceschanged = loadVoices;
 
 let curAudio = null;
-const splitParts = text => (text.match(/[^.!?…]+[.!?…]+["')\]]*\s*|[^.!?…]+$/g) || [text]).map(s => s.trim()).filter(Boolean);
+const splitParts = text => (text.match(/[^.!?…؟]+[.!?…؟]+["')\]]*\s*|[^.!?…؟]+$/g) || [text]).map(s => s.trim()).filter(Boolean);
 
 // Speak a block of text. All sentences are queued at once so there is no gap between them.
 function say(text, who = 'h') {
   return new Promise(res => {
     const id = runId, parts = splitParts(text);
-    const hv = hostVoice();
+    const hv = who === 'ar' ? arabicVoice() : hostVoice();
     speaking = true;
     let finished = false, guard;
     const done = () => { if (finished) return; finished = true; clearInterval(guard); speaking = false; res(); };
     let budget = parts.reduce((n, p) => n + Math.max(2500, p.length * 130), 6000);   // safety net; time spent paused does not count
     guard = setInterval(() => { if (!globalPaused && (budget -= 250) <= 0) done(); }, 250);
     if (!hv) { // online fallback, with the next sentences preloaded
-      const auds = parts.map(p => { const a = new Audio('/api/tts?q=' + encodeURIComponent(p)); a.preload = 'auto'; a.playbackRate = who !== 'h' ? 0.88 : 0.95; return a; });
+      const auds = parts.map(p => { const a = new Audio('/api/tts?q=' + encodeURIComponent(p) + (who === 'ar' ? '&tl=ar' : '')); a.preload = 'auto'; a.playbackRate = who === 'ar' ? 1 : who !== 'h' ? 0.88 : 0.95; return a; });
       let i = 0;
       const nextA = () => { if (id !== runId || i >= auds.length) return done(); const a = auds[i]; $('capText').textContent = parts[i]; i++; curAudio = a; a.onended = nextA; a.onerror = nextA; a.play().catch(nextA); };
       nextA(); return;
     }
-    const gv = who !== 'h' ? voiceFor(who) : null;
+    const gv = who !== 'h' && who !== 'ar' ? voiceFor(who) : null;
     const pitchFor = { g: 1.25, s: 1.3, y: 1.15, o: 0.85, r: 0.92, k: 1.05, b: 1.08 };
     parts.forEach((part, i) => {
       const u = new SpeechSynthesisUtterance(part);
-      u.lang = 'en-US'; u.voice = gv || hv;
-      u.rate = (S.rate || 90) / 100 * (who === 'o' ? 0.9 : who === 's' ? 0.92 : who !== 'h' && !gv ? 0.95 : 1);   // readings and the older you go a little slower
-      u.pitch = who !== 'h' && !gv ? (pitchFor[who] || 1.2) : 1;
+      u.lang = who === 'ar' ? hv.lang : 'en-US'; u.voice = gv || hv;
+      u.rate = who === 'ar' ? 0.95 : (S.rate || 90) / 100 * (who === 'o' ? 0.9 : who === 's' ? 0.92 : who !== 'h' && !gv ? 0.95 : 1);   // readings and the older you go a little slower
+      u.pitch = who !== 'h' && who !== 'ar' && !gv ? (pitchFor[who] || 1.2) : 1;
       u.onstart = () => { if (id === runId) $('capText').textContent = part; if (globalPaused) { try { speechSynthesis.pause(); } catch {} } };
       u.onend = () => { if (i === parts.length - 1 || id !== runId) done(); };
       u.onerror = () => { if (id !== runId || i === parts.length - 1) done(); };
@@ -283,6 +289,7 @@ window.onYouTubeIframeAPIReady = () => {
         if (i !== ai) return;
         if (e.data === YT.PlayerState.PLAYING) { clearTimeout(startWatch); playing = true; setPlayIcon(true); setLive(true); try { pl[i].unMute(); if (Number.isFinite(pl[i]._vol)) pl[i].setVolume(pl[i]._vol); } catch {} }
         else if (e.data === YT.PlayerState.PAUSED) {
+          if (newsOn) return;   // the news paused it on purpose
           // paused, but not by the radio's pause button: YouTube (or the phone) stopped it. Note it, and start it again twice at most.
           if (!globalPaused && current && !current._selfPauses) current._selfPauses = 0;
           if (!globalPaused && current) {
@@ -876,8 +883,10 @@ async function adGo() {
 function openAds() { $('adRes').innerHTML = ''; renderAds(); openSheet('shAds'); }
 
 async function runSegments(segs, id) {
-  for (const seg of segs) {
+  for (let si = 0; si < segs.length; si++) {
+    const seg = segs[si];
     if (id !== runId) return false;
+    if (curBreak && curBreak.segs === segs) curBreak.idx = si;   // where the news would pick this break up again
     $('vinyl').classList.add('talk');
     $('kind').textContent = seg.kind.toLowerCase();
     $('capKind').textContent = seg.title ? `${seg.kind} · ${seg.title}` : seg.kind;
@@ -898,10 +907,10 @@ async function runSegments(segs, id) {
   return id === runId;
 }
 
-// ---------- midnight podcast (00:00 to 01:00) ----------
-const forceHour = new URLSearchParams(location.search).get('hour'); // for testing: open /?hour=0
-const inMidnight = () => (forceHour !== null ? +forceHour : new Date().getHours()) === 0;
-let podDone = false;
+// ---------- podcast episodes (song 64 of every cycle) ----------
+// What is playing or being said right now, so the news can bring it back from the start: a break (from the part that
+// was interrupted, a talk from its first sentence), a podcast being introduced, or the song or episode itself.
+let curBreak = null, curPod = null;
 async function findPodcast() {
   lib.pod = lib.pod || [];
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -918,11 +927,11 @@ async function findPodcast() {
   return null;
 }
 async function playPodcast(pod, prev, opts, id) {
-  const midnight = !opts.scheduled;
-  if (midnight) podDone = true; // the end-of-cycle podcast does not use up the midnight one
+  const midnight = false;
+  curBreak = null; curPod = pod;
   const v = pod.v;
   const ep = { a: v.channel, t: cleanTitle(v.title), key: 'podcast|' + v.id, podcast: true, midnight, tags: [], genre: 'podcast', cands: [v, ...pod.alts] };
-  lib.pod.push(v.id); if (lib.pod.length > 300) lib.pod.shift(); saveLib();
+  if (!lib.pod.includes(v.id)) { lib.pod.push(v.id); if (lib.pod.length > 300) lib.pod.shift(); saveLib(); }
   const old = P();
   if (!opts.first) fadeP(old, 0, 3000).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
   bedOn();
@@ -931,11 +940,12 @@ async function playPodcast(pod, prev, opts, id) {
   else if (prev) segs.push({ kind: R.station, lines: [{ t: backFor(prev) }] });
   const extra = { min: Math.max(1, Math.round(v.seconds / 60)), topic: pod.topic.label };
   segs.push({ kind: midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: sub(midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
-  console.info('[radio] midnight podcast', ep.t, '|', ep.a, '|', extra.min + ' min');
+  console.info('[radio] podcast', ep.t, '|', ep.a, '|', extra.min + ' min');
   const ok = await runSegments(segs, id);
   if (!ok) return;
   const okEp = await startSong(ep, S.vol);
   if (id !== runId) return;
+  curPod = null;
   if (!okEp) { busy = false; bedOff(); return advance({ noCount: true }); }
   $('vinyl').classList.remove('talk');
   bedOff(2.5);
@@ -945,23 +955,18 @@ async function playPodcast(pod, prev, opts, id) {
 
 async function advance(opts = {}) {
   if (globalPaused) clearPause();   // anything new starts un-paused
+  if (newsOn) { newsOn = false; newsBack = null; }   // you chose something else during the news
   stopSpeech();
   const id = runId;
   busy = true;
   const prev = opts.prev !== undefined ? opts.prev : current;
   const afterPod = !!(prev && prev.podcast);
-  // between midnight and 1 a.m., once per time you open the radio, an episode replaces the normal plan
-  let pod = null;
-  if (started && inMidnight() && !podDone && !opts.silent && !opts.song && !afterPod) {
-    pod = await findPodcast();
-    if (id !== runId) return;
-  }
+  curBreak = null; curPod = null;
   nextPending = false; nextOverride = null;
-  let next = pod ? null : (opts.song || takePlanned());
-  if (!pod && !next) { busy = false; return; }
+  let next = opts.song || takePlanned();
+  if (!next) { busy = false; return; }
   if (prev && !afterPod) { if (opts.prev !== null) { history.push(prev); if (history.length > 60) history.shift(); } if (!played.includes(prev.key)) played.push(prev.key); }
   current = null; updateHeart();   // the heart is only active while a song is playing
-  if (pod) return playPodcast(pod, prev, opts, id);
   if (!opts.noCount && !afterPod) songsSinceBreak++;
   const endRunNow = !!(prev && lastRunSong && prev.key === lastRunSong.key);
   const talk = !opts.silent && (opts.first || afterPod || endRunNow || songsSinceBreak >= breakEvery() || opts.forceTalk);
@@ -981,11 +986,13 @@ async function advance(opts = {}) {
   bedOn();
   nextPending = true; // a song you suggest while the host is talking takes the place of this one
   resolve(next);
-  const segs = makeBreak(prev, next, opts.first);
+  const segs = opts.replaySegs || makeBreak(prev, next, opts.first);   // after the news: the rest of the interrupted break
   console.info('[radio] break', lib.b, segs.map(s => s.kind + (s.title ? ' · ' + s.title : '')));
+  curBreak = { segs, next, idx: 0 };
   const ok = await runSegments(segs, id);
   if (!ok) return;
   if (nextOverride) { planned = next; next = nextOverride; nextOverride = null; resolve(next); }
+  curBreak.next = next;
   if (podcastDue && !opts.first) { // the end of each 64-song cycle: an episode, then the planned song comes after
     const pod = await findPodcast();
     if (id !== runId) return;
@@ -994,6 +1001,7 @@ async function advance(opts = {}) {
   $('kind').textContent = 'up next';
   const okT = await startSong(next, 14);
   if (id !== runId) return;
+  curBreak = null;
   if (!okT) { busy = false; bedOff(); return advance({ noCount: true }); }
   nextPending = false;
   $('vinyl').classList.add('talk');
@@ -1005,6 +1013,122 @@ async function advance(opts = {}) {
   caption(R.host, '');
   busy = false;
   await fadeP(P(), S.vol, 3000);
+}
+
+// ---------- the news: every 2 hours on the hour (00:00, 02:00 … 22:00), in Arabic ----------
+// It interrupts whatever is on (a song, a talk, a commercial, a podcast), reads the headlines and the Marrakech weather,
+// then brings that back from the start: the song or episode from 0:00, a break from the part that was interrupted.
+// The headlines come from the PC helper (/api/news), so the news needs the radio running on the PC.
+let newsOn = false, newsBack = null, newsJingle = null, newsShown = null, lastNewsSlot = '';
+const NEWS_TOPIC_AR = { marrakech: 'من مراكش', morocco: 'في المغرب', world: 'من العالم', tech: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن والموسيقى' };
+const NEWS_IN = [
+  'It is {time}. Time for the news, read in Arabic, and the weather in Marrakech. Then we come straight back to what was playing.',
+  'It is {time} on {station}. Let us stop for a moment for the headlines, in Arabic. We will pick up again right after.',
+  'It is {time}, and that means the news. A few headlines in Arabic, the weather in Marrakech, and then back to where we were.',
+  'A short pause for the world outside. It is {time}, and here are the headlines, in Arabic.',
+];
+const NEWS_OUT = [
+  'That was the news. And now, back to where we were.',
+  'Those were the headlines. The world will keep turning; we go back to what was playing.',
+  'That is the news for now. Next one in two hours. Back to it.',
+  'Thank you for listening to the news. And now, we pick up where we left off.',
+];
+function resumeTarget() {
+  if (curPod) return { type: 'pod', pod: curPod };
+  if (curBreak) return { type: 'break', segs: curBreak.segs, idx: curBreak.idx || 0, next: curBreak.next };
+  if (current) return { type: 'song', song: current };
+  return null;
+}
+async function newsJingleRun() {
+  $('capKind').textContent = 'News'; $('capText').textContent = '♪';
+  newsJingle = Jingles.play(getCtx(), 'news');
+  await newsJingle.done; newsJingle = null;
+}
+function arabicBulletin(n) {
+  const h = new Date().getHours(), lines = [`أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
+  let topic = '';
+  (n.items || []).forEach(x => {
+    const head = (x.breaking ? 'عاجل: ' : '') + x.title.replace(/[.؟!]*$/, '') + '.';
+    lines.push(x.topic !== topic ? `${NEWS_TOPIC_AR[x.topic] || ''}: ${head}` : head);
+    topic = x.topic;
+  });
+  const w = n.weather;
+  if (w && w.now && Number.isFinite(w.now.temp)) {
+    lines.push(`وأخيرا، حالة الطقس في مراكش. حاليا ${w.now.sky || 'جو معتدل'}، ودرجة الحرارة ${w.now.temp} درجة.`);
+    if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push(`وغدا ${w.tomorrow.sky || 'جو معتدل'}، والحرارة بين ${w.tomorrow.min} و${w.tomorrow.max} درجة.`);
+  }
+  lines.push('وكانت هذه أبرز العناوين. شكرا لمتابعتكم.');
+  return lines;
+}
+async function runNews(manual) {
+  if (newsOn) return;
+  if (!started) { if (manual) toast('Press play first, then try the news.'); return; }
+  if (!HELPER) { if (manual) toast('The news needs the radio running on your PC: the headlines are read there.'); return; }
+  newsBack = resumeTarget();
+  newsShown = { kind: $('kind').textContent, title: $('title').textContent, artist: $('artist').textContent, chips: $('chips').innerHTML };
+  if (globalPaused) clearPause();
+  stopSpeech(); newsOn = true;
+  const id = runId;
+  busy = true; clearTimeout(startWatch); planned = null; preload = null;
+  pl.forEach(p => { if (!p) return; fadeP(p, 0, 1200).then(() => { try { if (newsOn) p.pauseVideo(); } catch {} }); });
+  bedOff(0.8);
+  $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
+  $('vinyl').classList.add('talk'); setLive(true);
+  rlog('news', { manual, back: newsBack && newsBack.type });
+  const fetched = fetch('/api/news' + (manual ? '?test=1' : '')).then(r => r.json()).catch(() => null);
+  await sleep(1300);
+  if (id !== runId) return;
+  $('capKind').textContent = R.host;
+  await say(sub(fresh('newsin', NEWS_IN)), 'h');
+  const n = await fetched;
+  if (id !== runId) return;
+  if (n && n.sources) { lastNewsSources = n.sources; paintNewsNote(); }
+  if (!n || (!(n.items || []).length && !(n.weather && n.weather.now))) {
+    await say('The news wires are not answering right now, so no headlines this time. Back to where we were.', 'h');
+    if (id === runId) finishNews();
+    return;
+  }
+  await newsJingleRun();
+  if (id !== runId) return;
+  $('capKind').textContent = 'الأخبار';
+  for (const line of arabicBulletin(n)) {
+    await say(line, 'ar');
+    if (id !== runId) return;
+    await sleep(350);
+  }
+  await newsJingleRun();
+  if (id !== runId) return;
+  $('capKind').textContent = R.host;
+  await say(sub(fresh('newsout', NEWS_OUT)), 'h');
+  if (id === runId) finishNews();
+}
+function endNews() {   // Next during the news
+  if (!newsOn) return;
+  stopSpeech(); if (newsJingle) { try { newsJingle.stop(); } catch {} newsJingle = null; }
+  finishNews();
+}
+function finishNews() {
+  const back = newsBack; newsOn = false; newsBack = null; busy = false;
+  $('vinyl').classList.remove('talk'); caption(R.host, '');
+  if (newsShown) { $('kind').textContent = newsShown.kind; $('title').textContent = newsShown.title; $('artist').textContent = newsShown.artist; $('chips').innerHTML = newsShown.chips; newsShown = null; }
+  if (!back) { setLive(false); return; }
+  if (back.type === 'break') return advance({ song: back.next, prev: null, replaySegs: back.segs.slice(back.idx), noCount: true, forceTalk: true });
+  if (back.type === 'pod') { busy = true; stopSpeech(); return playPodcast(back.pod, null, { scheduled: true }, runId); }
+  return advance({ song: back.song, prev: null, silent: true, noCount: true, quick: true });
+}
+// on the hour, every 2 hours; skipped while you have paused the radio
+setInterval(() => {
+  if (!started || S.news === 'off' || newsOn || globalPaused) return;
+  const d = new Date(); if (d.getMinutes() !== 0 || d.getHours() % 2) return;
+  const slot = d.toDateString() + ' ' + d.getHours(); if (slot === lastNewsSlot) return;
+  lastNewsSlot = slot; runNews(false);
+}, 5000);
+let lastNewsSources = null;
+function paintNewsNote() {
+  const n = $('newsNote'); if (!n) return;
+  if (!HELPER) { n.textContent = 'needs the radio on your PC'; return; }
+  if (!lastNewsSources) { n.textContent = 'every 2 hours on the hour, in Arabic'; return; }
+  n.textContent = lastNewsSources.map(x => `${x.name}${x.id === 'bbctech' ? ' tech' : x.id === 'bbcart' ? ' culture' : ''} ${x.ok ? '✓' : '✗ ' + x.error}`).join(' · ');
 }
 
 // ---------- genre runs: the next 20 to 40 songs come from one genre, then back to the normal mix ----------
@@ -1093,6 +1217,7 @@ async function togglePlay() {
 }
 function next() {
   if (!started) return;
+  if (newsOn) return endNews(true);   // Next during the news: stop it and go back to what was playing
   if (globalPaused) resumeAll();
   if (breakSkip) { const b = breakSkip; breakSkip = null; b(); return; }   // during a commercial break: skip the current jingle, ad or spoken line
   try { // learn where a silent tail begins: if you skip near the end, trim there from now on
@@ -1445,9 +1570,10 @@ $('libQ').onkeydown = e => { if (e.key === 'Escape' && $('libQ').value) { e.stop
 
 function seg(id, k, cast = v => v) { const el = $(id); const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(S[k]) === b.dataset.v)); el.querySelectorAll('button').forEach(b => b.onclick = () => { S[k] = cast(b.dataset.v); paint(); saveLib(); if (k === 'sleep') setSleep(); }); paint(); }
 function setSleep() { sleepAt = S.sleep ? Date.now() + S.sleep * 60000 : 0; if (S.sleep) toast(`Sleep timer set: ${S.sleep} minutes.`); }
-$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); $('rate').value = S.rate; loadVoices(); };
+$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segNews', 'news'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
+$('btnNews').onclick = () => { openSheet(null); runNews(true); };
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
 $('btnReset').onclick = () => { lib.removed.forEach(k => markDeleted('removed', k)); lib.removed = []; buildSongs(); saveLib(); toast('All songs restored.'); };
 
