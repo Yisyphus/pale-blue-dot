@@ -1524,6 +1524,53 @@ function renderLists() {
     l.appendChild(d);
   });
 }
+// ---------- Needs labels > Suggest: labels from your other songs by the same artist, saved only when you confirm ----------
+// For each song without a genre: the genre most of that artist's labelled songs have, their usual mood, their middle
+// energy and their most common themes. Artists change, so every suggestion shows what it is based on and can be edited.
+let labelDraft = null;   // key -> { genre, mood, energy, tags, n, on }
+const artistParts = a => String(a || '').split(/\s*(?:,|&|\+|\/|\bfeat\b\.?|\bft\b\.?|\s[x×]\s|\band\b|\bwith\b|\bvs\b\.?)\s*/i).map(x => fold(x).trim()).filter(x => x.length > 1);
+function suggestLabels(list) {
+  const byArtist = new Map();
+  songs.forEach(s => { if (!s.genre) return; artistParts(s.a).forEach(a => { if (!byArtist.has(a)) byArtist.set(a, []); byArtist.get(a).push(s); }); });
+  const top = (arr, n) => { const c = {}; arr.forEach(x => { if (x) c[x] = (c[x] || 0) + 1; }); return Object.entries(c).sort((x, y) => y[1] - x[1]).slice(0, n).map(x => x[0]); };
+  const out = new Map();
+  list.forEach(s => {
+    const parts = artistParts(s.a), main = parts[0];
+    let ref = (main && byArtist.get(main)) || [];
+    if (!ref.length) ref = [...new Set(parts.slice(1).flatMap(a => byArtist.get(a) || []))];   // a featured artist, if the main one is unknown
+    ref = ref.filter(x => x.key !== s.key);
+    if (!ref.length) return;
+    const en = ref.map(x => x.energy).filter(Boolean).sort((a, b) => a - b);
+    out.set(s.key, { genre: top(ref.map(x => x.genre), 1)[0], mood: top(ref.map(x => x.mood), 1)[0] || '', energy: en.length ? en[Math.floor(en.length / 2)] : 0, tags: top(ref.flatMap(x => x.tags || []), 3), n: ref.length, by: ref[0].a, on: true });
+  });
+  return out;
+}
+function renderDraft(l, list) {
+  const withS = list.filter(s => labelDraft.has(s.key)), ticked = withS.filter(s => labelDraft.get(s.key).on).length;
+  const h = document.createElement('div'); h.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:4px';
+  h.innerHTML = `<p style="color:var(--mute);font-size:12.5px;line-height:1.5;margin:0">${withS.length} of ${list.length} songs have a suggestion from the same artist. Nothing is saved yet: untick or change any, then save.</p><div class="field" style="flex-wrap:wrap"><button class="btn">Save ${ticked} ticked</button><button class="btn ghost">Tick all / none</button><button class="btn ghost">Cancel</button></div>`;
+  const [save, all, cancel] = h.querySelectorAll('button');
+  save.onclick = () => {
+    const now = Date.now(); let n = 0; lib.labels = lib.labels || {};
+    withS.forEach(s => { const d = labelDraft.get(s.key); if (!d.on || !d.genre) return; lib.labels[s.key] = { genre: d.genre, tags: d.tags, mood: d.mood, energy: d.energy || 2, ts: now }; const u = lib.user.find(x => x.key === s.key); if (u) Object.assign(u, { genre: d.genre, tags: d.tags, mood: d.mood, energy: d.energy || 2 }); n++; });
+    labelDraft = null; buildSongs(); saveLib(); toast(`${n} song${n === 1 ? '' : 's'} labelled.`); renderLib();
+  };
+  all.onclick = () => { const any = withS.some(s => !labelDraft.get(s.key).on); withS.forEach(s => { labelDraft.get(s.key).on = any; }); renderLib(); };
+  cancel.onclick = () => { labelDraft = null; renderLib(); };
+  l.appendChild(h);
+  const opts = genreOptions('choose a genre');
+  withS.forEach(s => {
+    const d = labelDraft.get(s.key), row = document.createElement('div'); row.className = 'item'; row.style.flexWrap = 'wrap';
+    row.innerHTML = `<input type="checkbox" style="margin:0 4px 0 0;flex:none"><div class="meta" style="cursor:default"><b></b><span></span></div><select style="flex:none;max-width:150px">${opts}</select>`;
+    const cb = row.querySelector('input'); cb.checked = d.on; cb.onchange = () => { d.on = cb.checked; save.textContent = `Save ${withS.filter(x => labelDraft.get(x.key).on).length} ticked`; };
+    row.querySelector('b').textContent = `${s.a} - ${s.t}`;
+    row.querySelector('span').textContent = `from ${d.n} song${d.n === 1 ? '' : 's'} by ${d.by}${d.mood ? ' · ' + d.mood : ''}${d.energy ? ' · energy ' + d.energy : ''}${d.tags.length ? ' · ' + d.tags.join(', ') : ''}`;
+    const sel = row.querySelector('select'); sel.value = d.genre; sel.onchange = () => { d.genre = sel.value; };
+    l.appendChild(row);
+  });
+  const none = list.filter(s => !labelDraft.has(s.key));
+  if (none.length) { const p = document.createElement('p'); p.style.cssText = 'color:var(--mute);font-size:12.5px;line-height:1.5;margin:6px 0 0'; p.textContent = none.length === 1 ? '1 has no other song by the same artist in your library, so no suggestion: label it with the pencil.' : `${none.length} have no other song by the same artist in your library, so no suggestion: label them with the pencil.`; l.appendChild(p); }
+}
 function renderLib() {
   document.querySelectorAll('#libTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === libTab || (b.dataset.v === 'lists' && libTab.startsWith('list:'))));
   if (libTab === 'fav') return renderFav();
@@ -1545,6 +1592,13 @@ function renderLib() {
     const sel = h.querySelector('select');
     if (sel) sel.onchange = () => { if (!sel.value) return; const n = labelGenre(L.keys, sel.value); L.genre = sel.value; L.ts = Date.now(); buildSongs(); saveLib(); toast(`${n} song${n === 1 ? '' : 's'} labelled ${((R.genreMap || {})[sel.value] || {}).name}.`); renderLib(); };
     l.appendChild(h);
+  }
+  if (libTab !== 'unlabeled') labelDraft = null;
+  if (libTab === 'unlabeled' && labelDraft) return renderDraft(l, shown);
+  if (libTab === 'unlabeled' && shown.length) {
+    const b = document.createElement('div'); b.innerHTML = '<button class="btn" style="width:100%;margin-bottom:4px">Suggest labels from the same artist</button>';
+    b.querySelector('button').onclick = () => { labelDraft = suggestLabels(shown); if (!labelDraft.size) { labelDraft = null; toast('None of these artists has another labelled song in your library yet.'); return; } renderLib(); };
+    l.appendChild(b);
   }
   if (all.length && !shown.length) l.insertAdjacentHTML('beforeend', noMatch());
   shown.forEach(s => {
