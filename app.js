@@ -338,6 +338,7 @@ function setVol(p, v) {
 function fadeP(p, to, ms) {
   return new Promise(res => {
     clearInterval(p._ft);
+    p._fadeTo = to;
     const from = Number.isFinite(p._vol) ? p._vol : 0;
     const n = Math.max(1, Math.round(ms / 100)); let i = 0;
     p._fading = true;
@@ -356,8 +357,11 @@ async function resolve(s) {
   } catch {}
   return [];
 }
-// Start a song on the idle player. startVol: initial volume. fadeInMs: ramp up to S.vol after starting.
-async function startSong(s, startVol, fadeInMs = 0) {
+// Every transition lets the old song fade from where it is down to silence, slowly, under the host's voice or the
+// next song, instead of cutting it off (OUT_MS; at the end of a song, the seconds that are left).
+const OUT_MS = 8000;
+// Start a song on the idle player. startVol: initial volume. fadeInMs: ramp up to S.vol after starting. outMs: the old song's fade.
+async function startSong(s, startVol, fadeInMs = 0, outMs = OUT_MS) {
   const run = runId;
   await waitYT();
   const c = await resolve(s);
@@ -372,7 +376,9 @@ async function startSong(s, startVol, fadeInMs = 0) {
   if (preload && preload.key === s.key && preload.idx === n) np.playVideo(); else np.loadVideoById(c[0].id);
   preload = null;
   rlog('start', { song: s.key, id: c[0].id });
-  fadeP(old, 0, 1200).then(() => { try { if (pl[ai] !== old) old.pauseVideo(); } catch {} });
+  const stopOld = () => { try { if (pl[ai] !== old) old.pauseVideo(); } catch {} };
+  if (old._fading && old._fadeTo === 0) { const w = setInterval(() => { if (!old._fading) { clearInterval(w); stopOld(); } }, 250); }   // already fading under the host: let it finish
+  else fadeP(old, 0, outMs).then(stopOld);
   setNow(s);
   clearTimeout(startWatch); startWatch = setTimeout(() => { if (!playing && !globalPaused) tryNextCand(); }, 14000);
   if (fadeInMs) fadeP(np, S.vol, fadeInMs);
@@ -954,7 +960,7 @@ async function playPodcast(pod, prev, opts, id) {
   const ep = { a: v.channel, t: cleanTitle(v.title), key: 'podcast|' + v.id, podcast: true, midnight, tags: [], genre: 'podcast', cands: [v, ...pod.alts] };
   if (!lib.pod.includes(v.id)) { lib.pod.push(v.id); if (lib.pod.length > 300) lib.pod.shift(); saveLib(); }
   const old = P();
-  if (!opts.first) fadeP(old, 0, 3000).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
+  if (!opts.first) fadeP(old, 0, opts.fadeOldMs || OUT_MS).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
   bedOn();
   const segs = [];
   if (opts.first) segs.push({ kind: R.station, lines: [{ t: sub(fresh('welcome:' + period(), R.welcomes[period()]), ep) }] });
@@ -997,13 +1003,13 @@ async function advance(opts = {}) {
   if (!talk) {
     // no commentary this time: crossfade straight into the next song
     $('kind').textContent = 'tuning'; caption(R.host, ''); $('vinyl').classList.remove('talk');
-    const okQ = await startSong(next, S.vol, opts.quick ? 1200 : 3500);
+    const okQ = await startSong(next, S.vol, opts.quick ? 2500 : 3500, opts.fadeOldMs || OUT_MS);
     if (id !== runId) return;
     if (!okQ) { busy = false; return advance({ noCount: true }); }
     busy = false; return;
   }
   // commentary: let the old song fade under the host, with a soft bed so the air is never empty
-  if (!opts.first) fadeP(old, 0, 3000).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
+  if (!opts.first) fadeP(old, 0, opts.fadeOldMs || OUT_MS).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
   bedOn();
   nextPending = true; // a song you suggest while the host is talking takes the place of this one
   resolve(next);
@@ -1674,7 +1680,7 @@ setInterval(() => {
       if (!isPod && d > 60 && rem <= 30) planPreload();
       const trimAt = lib.trim[current.key];
       // end the song a little early (and learn-trim) so trailing silence never reaches you
-      if (!isPod && d > 30 && ((S.trim > 0 && rem <= S.trim) || (trimAt && c >= trimAt))) { console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: 3000 }); }
+      if (!isPod && d > 30 && ((S.trim > 0 && rem <= S.trim) || (trimAt && c >= trimAt))) { console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: trimAt && c >= trimAt ? 4000 : Math.max(2000, Math.round(rem * 1000)) }); }   // fade over what is left of the song
     } catch {}
   }
   if (sleepAt && Date.now() > sleepAt) { sleepAt = 0; S.sleep = 0; stopSpeech(); bedOff(); busy = true; (async () => { try { await say('It is time to rest. Goodnight. The world will still be here in the morning, and so will you.', 'h'); await fadeP(P(), 0, 6000); if (current) current._selfPauses = 99; P().pauseVideo(); setVol(P(), S.vol); } catch {} busy = false; })(); }
