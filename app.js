@@ -1178,7 +1178,7 @@ function renderListRes() {
   const box = $('listRes'); box.innerHTML = '';
   listItems.forEach(it => {
     const d = document.createElement('div'); d.className = 'item';
-    if (it.missing) { d.innerHTML = '<div class="meta"><b></b><span>not found on YouTube</span></div>'; d.querySelector('b').textContent = it.line; box.appendChild(d); return; }
+    if (it.missing) { d.innerHTML = `<div class="meta"><b></b><span>${it.failed ? 'YouTube did not answer, try again later' : 'not found on YouTube'}</span></div>`; d.querySelector('b').textContent = it.line; box.appendChild(d); return; }
     const v = it.cands[it.ci];
     d.innerHTML = `<input type="checkbox" style="margin:0 8px 0 0;flex:none"><img src="https://i.ytimg.com/vi/${v.id}/default.jpg" width="48" height="36" style="border-radius:6px;object-fit:cover;flex:none"><div class="meta"><b></b><span></span></div>${it.cands.length > 1 ? '<button class="mini-btn" title="Show the next YouTube result">other</button>' : ''}`;
     const cb = d.querySelector('input'); cb.checked = it.on; cb.onchange = () => { it.on = cb.checked; updateListAdd(); };
@@ -1194,9 +1194,67 @@ function updateListAdd() {
   const named = $('listName').value.trim();
   $('listAdd').style.display = n ? '' : 'none'; $('listAdd').textContent = named ? `Save the list (${n} song${n === 1 ? '' : 's'})` : `Add ${n} song${n === 1 ? '' : 's'}`;
   $('listAll').style.display = listItems.some(x => !x.missing) ? '' : 'none';
+  const miss = listItems.filter(x => x.missing).length;
+  $('listRetry').style.display = miss && !listBusy ? '' : 'none'; $('listRetry').textContent = `Search the ${miss} missing again`;
   $('listSave').style.display = listItems.some(x => !x.missing) ? 'flex' : 'none';
 }
 $('listAll').onclick = () => { const anyOff = listItems.some(x => !x.missing && !x.on); listItems.forEach(x => { if (!x.missing) x.on = anyOff; }); renderListRes(); };
+// Searching a pasted list, quickly but politely: up to 3 lines at a time, with a shared pace between requests.
+// The pace speeds up while YouTube answers and slows right down when it refuses (too many searches in a row);
+// a refused line waits and is tried again instead of being called missing. Songs already in the library need no search.
+const pace = { gap: 300, next: 0 };
+async function slot() { const now = Date.now(), at = Math.max(now, pace.next); pace.next = at + pace.gap; if (at > now) await sleep(at - now); }
+const nrm = x => (x || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+let known = null;   // "artist|title" of every library song that already has a video, built once per search
+function findKnown(a, t) {
+  if (!known) { known = new Map(); songs.forEach(s => { if (s.cands && s.cands.length) known.set(nrm(s.a) + '|' + nrm(s.t), s); }); }
+  return a ? known.get(nrm(a) + '|' + nrm(t)) : null;
+}
+async function findLine(line) {
+  const parts = line.split(/\s+[-–—]\s+/), a = parts.length > 1 ? parts[0] : '', t = parts.length > 1 ? parts.slice(1).join(' - ') : line;
+  const ex = findKnown(a, t); if (ex) return listEntry(ex.a, ex.t, ex.cands, line);
+  const ask = async q => {
+    await slot();
+    const r = await fetch('/api/search?q=' + q); const j = r.ok ? await r.json() : null;
+    if (!Array.isArray(j)) { pace.gap = 2000; throw new Error('refused'); }
+    if (pace.gap > 300) pace.gap = Math.max(300, Math.round(pace.gap * 0.8));   // answering again: speed back up
+    return j;
+  };
+  for (const wait of [0, 10, 30, 60]) {
+    for (let w = wait; w > 0 && listBusy; w--) { $('listStatus').textContent = `YouTube is asking us to slow down. Trying again in ${w}s…`; await sleep(1000); }
+    if (!listBusy) break;
+    try {
+      let r = await ask(encodeURIComponent(line) + (a ? '&a=' + encodeURIComponent(a) + '&t=' + encodeURIComponent(t) : ''));
+      if (!r.length) r = await ask(encodeURIComponent(line));   // a looser second try
+      if (!r.length) return { line, missing: true };
+      const c = r.slice(0, 5), s0 = splitTitle(c[0]);
+      return listEntry(a || s0.a, a ? t : s0.t, c, line);
+    } catch {}
+  }
+  return { line, missing: true, failed: true };
+}
+// runs findLine over lines with 3 workers; results land in their own place so the list keeps your order
+async function searchLines(lines, put, label) {
+  known = null; let next = 0, done = 0;
+  const worker = async () => {
+    while (listBusy && next < lines.length) {
+      const i = next++, it = await findLine(lines[i]);
+      if (!listBusy && it.failed) return;   // stopped while waiting
+      put(i, it); done++; renderListRes();
+      if (!/slow down/.test($('listStatus').textContent) || done === lines.length) $('listStatus').textContent = `${label} ${done} of ${lines.length}…`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+}
+$('listRetry').onclick = async () => {
+  if (listBusy) return;
+  listBusy = true; $('listGo').textContent = 'Stop'; updateListAdd();
+  const todo = listItems.filter(x => x.missing);
+  await searchLines(todo.map(x => x.line), (i, it) => { listItems[listItems.indexOf(todo[i])] = it; }, 'Searching again:');
+  const miss = listItems.filter(x => x.missing).length;
+  $('listStatus').textContent = miss ? `${miss} still missing. Check the spelling, or try again later.` : 'All found.';
+  listBusy = false; $('listGo').textContent = 'Read the list'; updateListAdd();
+};
 $('listGo').onclick = async () => {
   if (listBusy) { listBusy = false; return; }   // the button reads "Stop" while searching
   if (!HELPER) { $('listStatus').textContent = NEEDS_PC; return; }
@@ -1216,22 +1274,13 @@ $('listGo').onclick = async () => {
     } else {
       const lines = raw.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
       if (!$('listName').value.trim()) $('listName').value = 'My list, ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-      for (let i = 0; i < lines.length && listBusy; i++) {
-        const line = lines[i]; $('listStatus').textContent = `Searching ${i + 1} of ${lines.length}: ${line}`;
-        const parts = line.split(/\s+[-–—]\s+/), a = parts.length > 1 ? parts[0] : '', t = parts.length > 1 ? parts.slice(1).join(' - ') : line;
-        let r = [];
-        try { r = await (await fetch('/api/search?q=' + encodeURIComponent(line) + (a ? '&a=' + encodeURIComponent(a) + '&t=' + encodeURIComponent(t) : ''))).json(); } catch {}
-        if (!Array.isArray(r) || !r.length) { try { r = await (await fetch('/api/search?q=' + encodeURIComponent(line))).json(); } catch {} }   // a looser second try
-        const c = (Array.isArray(r) ? r : []).slice(0, 5);
-        if (c.length) { const s0 = splitTitle(c[0]); listItems.push(listEntry(a || s0.a, a ? t : s0.t, c, line)); } else listItems.push({ line, missing: true });
-        renderListRes();
-        await sleep(900);   // slowly, so YouTube keeps answering
-      }
-      const found = listItems.filter(x => !x.missing).length;
-      $('listStatus').textContent = `${found} of ${lines.length} found${listBusy ? '' : ' (stopped)'}. Untick any you don't want, or press "other" for another version.`;
+      const slots = [];
+      await searchLines(lines, (i, it) => { slots[i] = it; listItems = slots.filter(Boolean); }, 'Searching:');
+      const found = listItems.filter(x => !x.missing).length, refused = listItems.filter(x => x.failed).length;
+      $('listStatus').textContent = `${found} of ${lines.length} found${listBusy ? '' : ' (stopped)'}.${refused ? ` YouTube did not answer for ${refused}: press "Search the missing again" in a few minutes.` : ''} Untick any you don't want, or press "other" for another version.`;
     }
   } catch (e) { $('listStatus').textContent = 'Could not read that: ' + (e.message || e); }
-  listBusy = false; $('listGo').textContent = 'Read the list';
+  listBusy = false; $('listGo').textContent = 'Read the list'; updateListAdd();
 };
 $('listName').oninput = updateListAdd;
 $('listAdd').onclick = () => {
@@ -1288,6 +1337,10 @@ $('labelSave').onclick = () => {
 
 // ---------- favorites ----------
 let libTab = 'all';
+// the Library search box: every word must appear in the artist or the title (accents and punctuation ignored)
+const fold = x => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
+const libMatch = (...fields) => { const ws = fold($('libQ').value).split(' ').filter(Boolean); if (!ws.length) return true; const h = ' ' + fields.map(fold).join(' ') + ' '; return ws.every(w => h.includes(w)); };
+const noMatch = () => `<p style="color:var(--mute);font-size:13px">Nothing here matches "${$('libQ').value.replace(/[<&"]/g, '')}".</p>`;
 const favIdx = k => (lib.fav || []).findIndex(f => f.key === k);
 function updateHeart() {
   const b = $('btnHeart'); if (!b) return;
@@ -1318,7 +1371,8 @@ function renderFav() {
   const run = document.createElement('div'); run.innerHTML = '<button class="btn" style="width:100%;margin-bottom:4px">Play my favorites</button>';
   run.querySelector('button').onclick = () => { openSheet(null); startRun('fav'); };
   l.appendChild(run);
-  f.slice().reverse().forEach(x => {
+  const fm = f.filter(x => libMatch(x.a, x.t)); if (!fm.length) l.insertAdjacentHTML('beforeend', noMatch());
+  fm.slice().reverse().forEach(x => {
     const d = document.createElement('div'); d.className = 'item' + (current && current.key === x.key ? ' now' : '');
     d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Play next">&#9654;</button><button class="mini-btn" title="Remove from favorites">&#10005;</button>`;
     d.querySelector('b').textContent = x.t; d.querySelector('span').textContent = x.a;
@@ -1333,7 +1387,8 @@ function renderLists() {
   const l = $('libList'); l.innerHTML = ''; const ls = lib.lists || [];
   $('libCount').textContent = `· ${ls.length} list${ls.length === 1 ? '' : 's'}`;
   if (!ls.length) { l.innerHTML = '<p style="color:var(--mute);font-size:13px;line-height:1.5">No saved lists yet. In Suggest &gt; A list, paste a playlist link or a few songs and give the list a name.</p>'; return; }
-  ls.slice().reverse().forEach(L => {
+  const lm = ls.filter(L => libMatch(L.name) || listSongs(L).some(s => libMatch(s.a, s.t))); if (!lm.length) l.innerHTML = noMatch();
+  lm.slice().reverse().forEach(L => {
     const n = listSongs(L).length, d = document.createElement('div'); d.className = 'item' + (batch && batch.id === 'list:' + L.key ? ' now' : '');
     d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Play this list (shuffled)">&#9654;</button><button class="mini-btn" title="Delete the list (its songs stay in the library)">&#10005;</button>`;
     d.querySelector('b').textContent = L.name; d.querySelector('span').textContent = `${n} songs${L.genre ? ' · ' + (((R.genreMap || {})[L.genre] || {}).name || '') : ''}`;
@@ -1350,12 +1405,12 @@ function renderLib() {
   if (libTab === 'lists') return renderLists();
   const L = libTab.startsWith('list:') && (lib.lists || []).find(x => 'list:' + x.key === libTab);
   if (libTab.startsWith('list:') && !L) { libTab = 'lists'; return renderLists(); }   // deleted on another device
-  const shown = L ? listSongs(L) : libTab === 'unlabeled' ? songs.filter(needsLabels) : songs;
-  $('libCount').textContent = L ? `· ${shown.length} songs` : libTab === 'unlabeled' ? `· ${shown.length} need labels` : `· ${songs.length} songs`;
+  const all = L ? listSongs(L) : libTab === 'unlabeled' ? songs.filter(needsLabels) : songs, shown = all.filter(s => libMatch(s.a, s.t));
+  $('libCount').textContent = (L ? `· ${all.length} songs` : libTab === 'unlabeled' ? `· ${all.length} need labels` : `· ${songs.length} songs`) + (shown.length < all.length ? `, ${shown.length} shown` : '');
   const l = $('libList'); l.innerHTML = '';
-  if (libTab === 'unlabeled' && !shown.length) l.innerHTML = '<p style="color:var(--mute);font-size:13px">Every song has a genre. Songs you add from a list appear here until you label them.</p>';
+  if (libTab === 'unlabeled' && !all.length) l.innerHTML = '<p style="color:var(--mute);font-size:13px">Every song has a genre. Songs you add from a list appear here until you label them.</p>';
   if (L) {   // one list: back, play, and a genre for all its songs that have none
-    const unl = shown.filter(needsLabels).length, h = document.createElement('div');
+    const unl = all.filter(needsLabels).length, h = document.createElement('div');
     h.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:4px';
     h.innerHTML = `<div class="field" style="align-items:center"><button class="mini-btn" title="Back to your lists">&larr; Lists</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b><button class="btn">Play this list</button></div>` +
       (unl ? `<div class="set" style="padding:4px 0;border:0"><span style="font-size:13px">${unl} without a genre: give them</span><select>${genreOptions('choose a genre')}</select></div>` : '');
@@ -1366,6 +1421,7 @@ function renderLib() {
     if (sel) sel.onchange = () => { if (!sel.value) return; const n = labelGenre(L.keys, sel.value); L.genre = sel.value; L.ts = Date.now(); buildSongs(); saveLib(); toast(`${n} song${n === 1 ? '' : 's'} labelled ${((R.genreMap || {})[sel.value] || {}).name}.`); renderLib(); };
     l.appendChild(h);
   }
+  if (all.length && !shown.length) l.insertAdjacentHTML('beforeend', noMatch());
   shown.forEach(s => {
     const d = document.createElement('div'); d.className = 'item' + (current && current.key === s.key ? ' now' : '');
     d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Edit labels: genre, themes, mood, energy">✎</button><button class="mini-btn" title="${L ? 'Take it out of this list (it stays in the library)' : 'Remove'}">✕</button>`;
@@ -1384,6 +1440,8 @@ $('btnAds').onclick = openAds; $('adGo').onclick = adGo; $('adq').onkeydown = e 
 document.querySelectorAll('#adTabs button').forEach(b => b.onclick = () => { adTab = b.dataset.v; renderAds(); });
 document.querySelectorAll('#libTabs button').forEach(b => b.onclick = () => { libTab = b.dataset.v; renderLib(); });
 $('btnLib').onclick = () => { renderLib(); openSheet('shLib'); };
+let libQT; $('libQ').oninput = () => { clearTimeout(libQT); libQT = setTimeout(renderLib, 120); };
+$('libQ').onkeydown = e => { if (e.key === 'Escape' && $('libQ').value) { e.stopPropagation(); $('libQ').value = ''; renderLib(); } };
 
 function seg(id, k, cast = v => v) { const el = $(id); const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(S[k]) === b.dataset.v)); el.querySelectorAll('button').forEach(b => b.onclick = () => { S[k] = cast(b.dataset.v); paint(); saveLib(); if (k === 'sleep') setSleep(); }); paint(); }
 function setSleep() { sleepAt = S.sleep ? Date.now() + S.sleep * 60000 : 0; if (S.sleep) toast(`Sleep timer set: ${S.sleep} minutes.`); }
