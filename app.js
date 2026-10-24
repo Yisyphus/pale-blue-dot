@@ -613,7 +613,22 @@ function fresh(name, arr) {
 }
 const seedByKey = new Map(R.songs.map(s => [key(s), s]));
 const scriptFor = s => (seedByKey.has(s.key) && R.songScripts) ? R.songScripts[s.t.toLowerCase()] : null;
-const tagOf = s => rnd(s.tags && s.tags.length ? s.tags : ['absurd']);
+const tagOf = s => s.tags && s.tags.length ? (Math.random() < 0.6 ? s.tags[0] : rnd(s.tags)) : 'absurd';   // the first theme is the song's main one
+// What the host knows about a song (content22.js): its own notes first, otherwise a word about the artist, now and then.
+let artistNoteMap = null;
+function noteFor(s, back) {
+  const own = (R.songNotes || {})[s.key];
+  if (own && own.length) return fresh((back ? 'noteb:' : 'note:') + s.key, own);
+  if (!artistNoteMap) { artistNoteMap = new Map(); Object.entries(R.artistNotes || {}).forEach(([k, v]) => artistNoteMap.set(fold(k).trim(), v)); }
+  const main = artistParts(s.a)[0], an = main && artistNoteMap.get(main);
+  return an && Math.random() < (back ? 0.25 : 0.5) ? fresh('anote:' + main, an) : '';
+}
+const moodLine = s => { const m = R.moodBy && R.moodBy[s.mood]; return m && m.length && Math.random() < 0.7 ? fresh('moodby:' + s.mood, m) : fresh('mood', R.moodLines); };
+function energyLine(prev, s) {   // only for a big change, and not every time
+  if (!prev || !prev.energy || !s.energy || prev.podcast || Math.random() > 0.7) return '';
+  const d = s.energy - prev.energy;
+  return d <= -2 && R.energyDown ? fresh('edown', R.energyDown) : d >= 2 && R.energyUp ? fresh('eup', R.energyUp) : '';
+}
 const themeLine = s => { const tg = tagOf(s); return fresh('theme:' + tg, R.themeLine[tg] || R.themeLine.absurd); };
 function genreNote(s) {
   const g = s.genre || ''; const base = R.genreNotes.find(x => x.g === g);
@@ -632,12 +647,16 @@ function introFor(s, prev) {
   const mine = s.user && !s.discovered;
   const parts = [];
   if (bridge) parts.push(bridge);
+  const el = energyLine(prev, s); if (el) parts.push(el);
   parts.push(sub(fresh(mine ? 'newsong' : 'opener', mine ? R.newSongTemplates : R.introTemplates), s));
-  if (s.fact) parts.push(s.fact);
+  const note = s.fact || noteFor(s);
+  s._said = '';
+  if (note && Math.random() < 0.85) { parts.push(note); s._said = note; }   // what this song is about comes first
   else {
-    const r = Math.random();
-    parts.push(r < 0.4 ? themeLine(s) : r < 0.78 && s.genre ? genreNote(s) : fresh('mood', R.moodLines));
-    if (Math.random() < 0.3) parts.push(fresh('mood', R.moodLines));
+    // otherwise its main theme, its genre (only when the genre changes), or a line that fits its mood
+    const r = Math.random(), newGenre = s.genre && (!prev || prev.genre !== s.genre);
+    parts.push(r < 0.4 ? themeLine(s) : r < 0.75 && newGenre ? genreNote(s) : moodLine(s));
+    if (Math.random() < 0.25) parts.push(moodLine(s));
   }
   return parts.join(' ');
 }
@@ -645,7 +664,9 @@ function backFor(s) {
   if (s.podcast) return sub(s.midnight ? fresh('podoutro', R.podcastOutros) : fresh('podoutroday', R.podcastOutrosDay), s);
   const sc = scriptFor(s);
   if (sc && sc.backs && sc.backs.length) return sub(fresh('back:' + s.key, sc.backs), s);
-  return sub(fresh('back', R.backTemplates), s) + (Math.random() < 0.6 ? ' ' + themeLine(s) : '');
+  let r = Math.random(), note = r < 0.3 ? noteFor(s, true) : '';
+  if (note && note === s._said) { note = ''; r = 0.5; }   // never the same note twice in a row for one song
+  return sub(fresh('back', R.backTemplates), s) + (note ? ' ' + note : r < 0.75 ? ' ' + themeLine(s) : '');
 }
 
 // The host speaks after every 2 songs (or after every song, if you choose that in Settings).
