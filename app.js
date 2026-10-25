@@ -1515,6 +1515,7 @@ function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-s
 // words; Marrakech when the headline names the city; the Moroccan and latest sections from any general news);
 // only then, if nothing new is left, the most important headlines already read (breaking and top stories first);
 // and last, older stories. No sport, ever.
+const srcRank = x => { const i = NEWS_SOURCES.findIndex(o => o.id === x.src); return i < 0 ? 99 : i; };
 const artRank = x => x.event ? 2 : x.src === 'hitradio' ? 1 : 0;
 function pickNews(results, test) {
   const now = Date.now(), served = servedNews();
@@ -1546,6 +1547,10 @@ function pickNews(results, test) {
       : topic === 'moroccoaj' ? MOROCCAN.flatMap(all)
       : GENERAL.flatMap(all);
     const tiers = [x => isNew(x) && recent(x), x => recent(x), () => true];   // new; then already read; then older
+    if (topic === 'moroccoaj') own.forEach(s => {   // fixed shares (royal 1, politics 2, economy 2): each from its own page, even an older headline, before anything else
+      const mine = () => picked.slice(start).filter(x => x.src === s.id).length;
+      tiers.forEach(tier => all(s.id).filter(tier).forEach(x => { if (mine() < s.take) take(x); }));
+    });
     tiers.forEach((tier, ti) => {
       if (ti === 0) own.forEach(s => all(s.id).filter(tier).slice(0, s.take).forEach(take));   // each source's share
       own.forEach(s => all(s.id).filter(tier).slice(0, s.events ? s.take : undefined).forEach(take));   // never more upcoming events than asked
@@ -1554,7 +1559,7 @@ function pickNews(results, test) {
   });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
   return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, src: x.src, breaking: x.breaking, event: x.event, date: x.date }))
-    .sort((p, q) => (p.topic === q.topic ? artRank(p) - artRank(q) : 0));   // art: BBC, then Hit Radio, then the upcoming event
+    .sort((p, q) => (p.topic !== q.topic ? 0 : p.topic === 'moroccoaj' ? srcRank(p) - srcRank(q) : artRank(p) - artRank(q)));   // art: BBC, then Hit Radio; أخبار المغرب: royal, politics, economy
 }
 const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
