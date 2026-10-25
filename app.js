@@ -901,9 +901,25 @@ async function addAd(idOrLink) {
   try { const r = await adsEditCall({ action: 'add', id: idOrLink }); toast(r.already ? `"${r.added.title}" is already in the list.` : `Added "${r.added.title}".`); $('adq').value = ''; $('adRes').innerHTML = ''; adTab = 'on'; renderAds(); }
   catch (e) { toast(e.message); }
 }
+// A playlist link: every video in it is added (the ones already playing are left as they are)
+async function addAdPlaylist(link) {
+  const st = m => { $('adRes').innerHTML = '<p style="color:var(--mute);font-size:13px"></p>'; $('adRes').querySelector('p').textContent = m; };
+  try {
+    st('Reading the playlist…');
+    const r = await fetch('/api/playlist?list=' + encodeURIComponent((link.match(/[?&]list=([\w-]+)/) || [, link])[1]));
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'The playlist could not be read.');
+    const have = new Set((await allAds()).filter(v => !v.removed).map(v => v.id));
+    const todo = (j.items || []).filter(v => v.id && !have.has(v.id));
+    let n = 0;
+    for (const v of todo) { st(`Adding ${n + 1} of ${todo.length}: ${v.title || v.id}`); try { await adsEditCall({ action: 'add', id: v.id }); n++; } catch {} }
+    $('adRes').innerHTML = ''; $('adq').value = ''; adTab = 'on'; renderAds();
+    toast(`"${j.title || 'Playlist'}": ${n} commercial${n === 1 ? '' : 's'} added${(j.items || []).length - todo.length ? `, ${(j.items || []).length - todo.length} ${(j.items || []).length - todo.length === 1 ? 'was' : 'were'} already playing` : ''}.`);
+  } catch (e) { st(e.message || String(e)); }
+}
 async function adGo() {
   const q = $('adq').value.trim(); if (!q) return;
   if (!HELPER) { $('adRes').innerHTML = `<p style="color:var(--mute)">${NEEDS_PC}</p>`; return; }
+  if (/[?&]list=|^(PL|OL|UU|FL)[\w-]{10,}$/.test(q)) return addAdPlaylist(q);   // a whole playlist
   if (/youtu|^[\w-]{11}$/.test(q)) return addAd(q);   // a link or a video id: add it directly
   $('adRes').innerHTML = '<p style="color:var(--mute)">Searching…</p>';
   try {
