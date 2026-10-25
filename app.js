@@ -267,15 +267,21 @@ function speakDevice(part, v, id) {   // true when the voice really spoke (it st
     try { speechSynthesis.speak(u); } catch { end(false); }
   });
 }
+// Phones only let a page start sound from a tap. So the online voices use ONE audio player, unlocked by your tap on
+// Play or on the news buttons (a tenth of a second of silence), and reused for every sentence after that.
+const ttsPlayer = new Audio(); ttsPlayer.preload = 'auto';
+const SILENT_WAV = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+function unlockAudio() { try { ttsPlayer.src = SILENT_WAV; const p = ttsPlayer.play(); if (p) p.catch(() => {}); } catch {} }
+let lastAudioError = '';
 function playOnline(url, id) {   // true when the audio really played
   return new Promise(res => {
-    const a = new Audio(url); let played = false, over = false; curAudio = a;
-    const end = ok => { if (over) return; over = true; clearInterval(t); a.onended = a.onerror = null; res(ok); };
+    const a = ttsPlayer; let played = false, over = false; curAudio = a;
+    const end = (ok, why) => { if (over) return; over = true; clearInterval(t); a.onplaying = a.onended = a.onerror = null; if (!ok && why) lastAudioError = why; res(ok); };
     a.onplaying = () => { played = true; };
-    a.onended = () => end(played && a.currentTime > 0.3);
-    a.onerror = () => end(false);
-    let left = 20000; const t = setInterval(() => { if (id !== runId) { try { a.pause(); } catch {} end(true); } else if (!globalPaused && !played && (left -= 250) <= 0) end(false); }, 250);
-    a.play().catch(() => end(false));
+    a.onended = () => end(played && a.currentTime > 0.3, 'ended without sound');
+    a.onerror = () => end(false, 'media error ' + (a.error ? a.error.code : '?') + (a.error && a.error.code === 4 ? ' (blocked or not audio)' : a.error && a.error.code === 2 ? ' (network)' : ''));
+    let left = 20000; const t = setInterval(() => { if (id !== runId) { try { a.pause(); } catch {} end(true); } else if (!globalPaused && !played && (left -= 250) <= 0) end(false, 'no answer in 20 s'); }, 250);
+    try { a.src = url; const p = a.play(); if (p) p.catch(e => end(false, (e && e.name) + (e && e.name === 'NotAllowedError' ? ' (the browser blocked sound that did not start from a tap)' : ''))); } catch (e) { end(false, String(e)); }
   });
 }
 async function sayArabic(text) {
@@ -295,7 +301,7 @@ async function sayArabic(text) {
       ok = true;
       for (const chunk of onlineChunks([part])) { if (id !== runId) break; if (!(await playOnline(src.url(chunk), id))) { ok = false; break; } }
       if (ok) arOnlineFirst = (arOnlineFirst + k) % AR_ONLINE.length;
-      else rlog('online arabic voice failed', { voice: src.name });
+      else rlog('online arabic voice failed', { voice: src.name, why: lastAudioError });
     }
     if (!ok && id === runId) { rlog('no arabic voice could speak', { part: part.slice(0, 40) }); toast('No Arabic voice could speak here. See Settings > Playback report.'); }
   }
@@ -1330,22 +1336,37 @@ function parseNews(text, pageUrl, feedOnly) {
   });
   return out;
 }
+// The relay that worked for a source last time is asked first, alone; only if it fails are the others asked, together.
+// That keeps the number of requests small, which matters on a phone (a browser sends only a few at a time per site).
+const relayMemo = () => { try { return JSON.parse(localStorage.getItem('pbd-relay2') || '{}'); } catch { return {}; } };
 async function readSourceHere(src) {
   let err = 'no answer';
+  const memo = relayMemo();
   for (const u of src.urls) {
+    const tryRelay = (ri, ms) => withTimeout((async () => {
+      const url = RELAYS[ri](u);
+      const r = await fetch(url);
+      if (url.startsWith('/api/fetch') && r.status === 404) helperNewsMissing = true;   // a helper that has not updated yet
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const it = parseNews(await r.text(), u, /\/feed$|rss|outboundfeeds/.test(u));
+      if (!it.length) throw new Error('no headlines');
+      return { it, ri };
+    })(), ms);
+    const all = RELAYS.map((f, i) => f(u) ? i : -1).filter(i => i >= 0), pref = memo[u];
     try {
-      const items = await Promise.any(RELAYS.map(relay => relay(u)).filter(Boolean).map(url => withTimeout((async () => {
-        const r = await fetch(url);
-        if (url.startsWith('/api/fetch') && r.status === 404) helperNewsMissing = true;   // a helper that has not updated yet
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const it = parseNews(await r.text(), u, /\/feed$|rss|outboundfeeds/.test(u));
-        if (!it.length) throw new Error('no headlines');
-        return it;
-      })(), 10000)));
-      return { ok: true, items: items.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
+      let got = null;
+      if (all.includes(pref)) { try { got = await tryRelay(pref, 9000); } catch {} }
+      if (!got) got = await Promise.any(all.filter(i => i !== pref).map(i => tryRelay(i, 15000)));
+      if (got.ri !== pref) { const m = relayMemo(); m[u] = got.ri; try { localStorage.setItem('pbd-relay2', JSON.stringify(m)); } catch {} }
+      return { ok: true, items: got.it.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
     } catch (e) { err = (e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e); }
   }
   return { ok: false, error: err, items: [] };
+}
+async function inBatches(list, size, fn) {   // fn over list, at most `size` at a time, results in order
+  const out = new Array(list.length); let next = 0;
+  await Promise.all(Array.from({ length: Math.min(size, list.length) }, async () => { while (next < list.length) { const i = next++; out[i] = await fn(list[i]); } }));
+  return out;
 }
 function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-served') || '{}'); } catch { return {}; } }
 // Every section is filled to its number. In this order: new headlines from its own sources, in their shares
@@ -1389,7 +1410,7 @@ const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغا
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
 async function weatherNow() {
   const u = 'https://api.open-meteo.com/v1/forecast?latitude=31.63&longitude=-8.01&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Africa%2FCasablanca&forecast_days=2';
-  const j = await (await withTimeout(fetch(u), 10000)).json();
+  const j = await (await withTimeout(fetch(u), 15000)).json();
   const c = j.current, d = j.daily, h = j.hourly, today = c.time.slice(0, 10), hourNow = +c.time.slice(11, 13);
   const later = h.time.map((t, i) => ({ t, temp: h.temperature_2m[i], code: h.weather_code[i] })).filter(x => x.t.slice(0, 10) === today && +x.t.slice(11, 13) > hourNow);
   const rest = later.length >= 2 ? { min: Math.round(Math.min(...later.map(x => x.temp))), max: Math.round(Math.max(...later.map(x => x.temp))), sky: WMO_AR[Math.max(...later.map(x => x.code))] || '', night: hourNow >= 18 } : null;
@@ -1399,7 +1420,7 @@ let helperNewsMissing = false;
 async function getNews(manual) {
   const wx = weatherNow().catch(() => null);
   helperNewsMissing = false;
-  const results = await Promise.all(NEWS_SOURCES.map(readSourceHere));
+  const results = await inBatches(NEWS_SOURCES, HELPER ? 12 : 6, readSourceHere);
   return { items: pickNews(results, manual), weather: await wx, via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
 }
 const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
@@ -1435,12 +1456,16 @@ async function runNews(manual) {
   $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
   $('vinyl').classList.add('talk'); setLive(true);
   rlog('news', { manual, back: newsBack && newsBack.type, arabicVoice: arWho() });
-  const fetched = withTimeout(getNews(manual), 45000).catch(() => null);
+  const fetched = withTimeout(getNews(manual), 75000).catch(() => null);
   await sleep(1300);
   if (id !== runId) return;
   $('capKind').textContent = R.host;
   await say(sub(fresh('newsin', NEWS_IN)), 'h');
+  let ready = false; fetched.then(() => { ready = true; });
+  await sleep(1500);
+  if (!ready && id === runId) { bedOn(); await say(fresh('newswait', ['The headlines are coming in. One moment.', 'One moment, the news is on its way.', 'The wires are still coming in. Bear with me.']), 'h'); }   // a slow connection: no silence
   const n = await fetched;
+  bedOff(0.8);
   if (id !== runId) return;
   if (n) { lastNewsSources = n.sources || null; lastNewsVia = n.via || ''; paintNewsNote(); }
   rlog('news fetched', { via: n && n.via, items: n && (n.items || []).length, weather: !!(n && n.weather), sources: n && n.sources && n.sources.map(s => s.id + (s.ok ? ':ok' : ':' + s.error)).join(' ') });
@@ -1588,7 +1613,7 @@ function next() {
 }
 function prev() { if (started && globalPaused) resumeAll(); if (!started || !history.length) return toast('No earlier song yet.'); const p = history.pop(); advance({ song: p, prev: null, silent: true, noCount: true, quick: true }); }
 async function tuneIn() {
-  started = true; $('tune').style.display = 'none';
+  started = true; $('tune').style.display = 'none'; unlockAudio();
   if (!voices.length) loadVoices();
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
   setPlayIcon(true);
@@ -1988,8 +2013,9 @@ function setSleep() { sleepAt = S.sleep ? Date.now() + S.sleep * 60000 : 0; if (
 $('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segFade', 'fade', Number); seg('segNews', 'news'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
-$('btnNews').onclick = () => { openSheet(null); runNews(true); };
-$('btnNewsNow').onclick = () => { if (newsOn) endNews(); else runNews(true); };
+$('btnNews').onclick = () => { unlockAudio(); openSheet(null); runNews(true); };
+$('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
+document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
 $('btnReset').onclick = () => { lib.removed.forEach(k => markDeleted('removed', k)); lib.removed = []; buildSongs(); saveLib(); toast('All songs restored.'); };
 
