@@ -815,15 +815,15 @@ function playAdVideo(v) {
   return new Promise(res => {
     const idx = 1 - ai, p = pl[idx]; let started = false, done = false, tick;
     const finish = ok => { if (done) return; done = true; clearInterval(tick); adHook = null; breakSkip = null; try { p.pauseVideo(); } catch {} res(ok); };
-    // YouTube's error codes 100, 101, 150 and 2: the video was deleted, made private, or may not be embedded
-    adHook = { idx, state: s => { if (s === YT.PlayerState.PLAYING) { started = true; setLive(true); } else if (s === YT.PlayerState.ENDED) finish(true); }, error: code => finish([2, 100, 101, 150].includes(code) ? 'gone' : false) };
+    // YouTube's error 100: the video was removed (or made private). Any other error only means it cannot play right now.
+    adHook = { idx, state: s => { if (s === YT.PlayerState.PLAYING) { started = true; setLive(true); } else if (s === YT.PlayerState.ENDED) finish(true); }, error: code => finish(code === 100 ? 'gone' : false) };
     breakSkip = () => finish(true);                       // the Next button skips this ad
     preload = null;
     try { p.unMute(); } catch {}
     setVol(p, Math.round(S.vol * 0.9)); p.loadVideoById(v.id);
     // not started within 8 s: the caller tries the next ad; a safety cap ends an ad that never ends. Paused time does not count.
     let waited = 0, ran = 0; const capMs = (Math.min(v.seconds || 90, 150) + 12) * 1000;
-    tick = setInterval(() => { if (globalPaused) return; waited += 500; ran += 500; if (!started && waited >= 8000) finish('slow'); else if (ran >= capMs) finish(started); }, 500);
+    tick = setInterval(() => { if (globalPaused) return; waited += 500; ran += 500; if (!started && waited >= 8000) finish(false); else if (ran >= capMs) finish(started); }, 500);
   });
 }
 async function runAd(id) {
@@ -836,25 +836,19 @@ async function runAd(id) {
     curAd = ad; $('btnAdRemove').style.display = '';
     const played = await playAdVideo(ad);
     curAd = null; $('btnAdRemove').style.display = 'none';
-    if (played === true) { if (lib.adFails && lib.adFails[ad.id]) { delete lib.adFails[ad.id]; saveLib(); } return; }
-    if (played === 'gone' || played === 'slow') adUnplayable(ad, played);
+    if (played === true) return;
+    if (played === 'gone') adRemovedFromYouTube(ad);   // anything else: just skipped this time, another one plays
     if (id !== runId) return;
   }
 }
 
-// A commercial YouTube no longer has is taken off the playing list at once, with a note in Removed; one that only
-// failed to start is given three chances (a slow connection is not its fault).
-function adUnplayable(ad, why) {
-  lib.adFails = lib.adFails || {}; lib.adFails[ad.id] = (lib.adFails[ad.id] || 0) + 1;
-  const gone = why === 'gone' || lib.adFails[ad.id] >= 3;
-  rlog('commercial would not play', { id: ad.id, title: ad.title, why, times: lib.adFails[ad.id], removed: gone });
-  if (gone) {
-    lib.adNotes = lib.adNotes || {}; lib.adNotes[ad.id] = why === 'gone' ? 'no longer on YouTube' : 'would not play 3 times';
-    delete lib.adFails[ad.id];
-    adPool = adPool.filter(v => v.id !== ad.id);
-    adsEditCall({ action: 'remove', id: ad.id }).catch(() => {});
-  }
-  saveLib();
+// A commercial that YouTube says was removed (error 100) leaves the playing list, with a note in Removed.
+// One that only fails to start, or that its owner will not let play here, is skipped for this break and stays.
+function adRemovedFromYouTube(ad) {
+  rlog('commercial removed from YouTube', { id: ad.id, title: ad.title });
+  lib.adNotes = lib.adNotes || {}; lib.adNotes[ad.id] = 'no longer on YouTube'; saveLib();
+  adPool = adPool.filter(v => v.id !== ad.id);
+  adsEditCall({ action: 'remove', id: ad.id }).catch(() => {});
 }
 
 // ---------- managing the commercials: remove some, add others ----------
