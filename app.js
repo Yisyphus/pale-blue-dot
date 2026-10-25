@@ -228,6 +228,23 @@ let curAudio = null;
 const splitParts = text => (text.match(/[^.!?…؟]+[.!?…؟]+["')\]]*\s*|[^.!?…؟]+$/g) || [text]).map(s => s.trim()).filter(Boolean);
 
 // Speak a block of text. All sentences are queued at once so there is no gap between them.
+// The online voice (Google): through the PC helper when there is one; on the web, the page asks Google directly.
+// It takes at most about 200 characters at a time, so long lines are cut at commas, then at spaces.
+const ttsUrl = (q, tl) => HELPER ? '/api/tts?q=' + encodeURIComponent(q) + (tl === 'ar' ? '&tl=ar' : '')
+  : 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' + tl + '&q=' + encodeURIComponent(q);
+function onlineChunks(parts) {
+  const out = [];
+  parts.forEach(p => {
+    while (p.length > 180) {
+      let cut = Math.max(p.lastIndexOf('،', 180), p.lastIndexOf(',', 180));
+      if (cut < 60) cut = p.lastIndexOf(' ', 180);
+      if (cut < 60) cut = 180;
+      out.push(p.slice(0, cut + 1).trim()); p = p.slice(cut + 1).trim();
+    }
+    if (p) out.push(p);
+  });
+  return out;
+}
 function say(text, who = 'h') {
   return new Promise(res => {
     const id = runId, parts = splitParts(text);
@@ -238,7 +255,8 @@ function say(text, who = 'h') {
     let budget = parts.reduce((n, p) => n + Math.max(2500, p.length * 130), 6000);   // safety net; time spent paused does not count
     guard = setInterval(() => { if (!globalPaused && (budget -= 250) <= 0) done(); }, 250);
     if (!hv) { // online fallback, with the next sentences preloaded
-      const auds = parts.map(p => { const a = new Audio('/api/tts?q=' + encodeURIComponent(p) + (who === 'ar' ? '&tl=ar' : '')); a.preload = 'auto'; a.playbackRate = who === 'ar' ? 1 : who !== 'h' ? 0.88 : 0.95; return a; });
+      const auds = onlineChunks(parts).map(p => { const a = new Audio(ttsUrl(p, who === 'ar' ? 'ar' : 'en-GB')); a.preload = 'auto'; a.playbackRate = who === 'ar' ? 1 : who !== 'h' ? 0.88 : 0.95; a._text = p; return a; });
+      parts.length = 0; auds.forEach(x => parts.push(x._text));
       let i = 0;
       const nextA = () => { if (id !== runId || i >= auds.length) return done(); const a = auds[i]; $('capText').textContent = parts[i]; i++; curAudio = a; a.onended = nextA; a.onerror = nextA; a.play().catch(nextA); };
       nextA(); return;
@@ -1359,7 +1377,8 @@ async function runNews(manual) {
   bedOff(0.8);
   $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
   $('vinyl').classList.add('talk'); setLive(true);
-  rlog('news', { manual, back: newsBack && newsBack.type });
+  const av = arabicVoice();
+  rlog('news', { manual, back: newsBack && newsBack.type, arabicVoice: av ? av.name + ' (' + av.lang + ')' : 'online (Google)' });
   const fetched = withTimeout(getNews(manual), 45000).catch(() => null);
   await sleep(1300);
   if (id !== runId) return;
