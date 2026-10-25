@@ -303,7 +303,7 @@ window.onYouTubeIframeAPIReady = () => {
         else if (e.data === YT.PlayerState.ENDED) { console.info('[radio] ENDED event, busy=' + busy); if (started && !busy) advance(); }
       },
       onError: e => {
-        if (adHook && adHook.idx === i) { adHook.error(); return; }
+        if (adHook && adHook.idx === i) { adHook.error(e && e.data); return; }
         if (i === ai) { const c = current && current.cands && current.cands[candIdx]; rlog('player error ' + (e && e.data), { song: current && current.key, id: c && c.id }); tryNextCand(e && e.data); }
         else preload = null;
       },
@@ -815,14 +815,15 @@ function playAdVideo(v) {
   return new Promise(res => {
     const idx = 1 - ai, p = pl[idx]; let started = false, done = false, tick;
     const finish = ok => { if (done) return; done = true; clearInterval(tick); adHook = null; breakSkip = null; try { p.pauseVideo(); } catch {} res(ok); };
-    adHook = { idx, state: s => { if (s === YT.PlayerState.PLAYING) { started = true; setLive(true); } else if (s === YT.PlayerState.ENDED) finish(true); }, error: () => finish(false) };
+    // YouTube's error codes 100, 101, 150 and 2: the video was deleted, made private, or may not be embedded
+    adHook = { idx, state: s => { if (s === YT.PlayerState.PLAYING) { started = true; setLive(true); } else if (s === YT.PlayerState.ENDED) finish(true); }, error: code => finish([2, 100, 101, 150].includes(code) ? 'gone' : false) };
     breakSkip = () => finish(true);                       // the Next button skips this ad
     preload = null;
     try { p.unMute(); } catch {}
     setVol(p, Math.round(S.vol * 0.9)); p.loadVideoById(v.id);
-    // not started within 14 s: the caller tries the next ad; a safety cap ends an ad that never ends. Paused time does not count.
+    // not started within 8 s: the caller tries the next ad; a safety cap ends an ad that never ends. Paused time does not count.
     let waited = 0, ran = 0; const capMs = (Math.min(v.seconds || 90, 150) + 12) * 1000;
-    tick = setInterval(() => { if (globalPaused) return; waited += 500; ran += 500; if (!started && waited >= 14000) finish(false); else if (ran >= capMs) finish(started); }, 500);
+    tick = setInterval(() => { if (globalPaused) return; waited += 500; ran += 500; if (!started && waited >= 8000) finish('slow'); else if (ran >= capMs) finish(started); }, 500);
   });
 }
 async function runAd(id) {
@@ -835,9 +836,25 @@ async function runAd(id) {
     curAd = ad; $('btnAdRemove').style.display = '';
     const played = await playAdVideo(ad);
     curAd = null; $('btnAdRemove').style.display = 'none';
-    if (played) return;
+    if (played === true) { if (lib.adFails && lib.adFails[ad.id]) { delete lib.adFails[ad.id]; saveLib(); } return; }
+    if (played === 'gone' || played === 'slow') adUnplayable(ad, played);
     if (id !== runId) return;
   }
+}
+
+// A commercial YouTube no longer has is taken off the playing list at once, with a note in Removed; one that only
+// failed to start is given three chances (a slow connection is not its fault).
+function adUnplayable(ad, why) {
+  lib.adFails = lib.adFails || {}; lib.adFails[ad.id] = (lib.adFails[ad.id] || 0) + 1;
+  const gone = why === 'gone' || lib.adFails[ad.id] >= 3;
+  rlog('commercial would not play', { id: ad.id, title: ad.title, why, times: lib.adFails[ad.id], removed: gone });
+  if (gone) {
+    lib.adNotes = lib.adNotes || {}; lib.adNotes[ad.id] = why === 'gone' ? 'no longer on YouTube' : 'would not play 3 times';
+    delete lib.adFails[ad.id];
+    adPool = adPool.filter(v => v.id !== ad.id);
+    adsEditCall({ action: 'remove', id: ad.id }).catch(() => {});
+  }
+  saveLib();
 }
 
 // ---------- managing the commercials: remove some, add others ----------
@@ -891,13 +908,17 @@ async function renderAds() {
   shown.forEach(v => {
     const d = document.createElement('div'); d.className = 'item';
     d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn"></button>`;
-    d.querySelector('b').textContent = v.title; d.querySelector('span').textContent = `${fmtSec(v.seconds)} · ${badge[v.src] || v.src}`;
+    d.querySelector('b').textContent = v.title; d.querySelector('span').textContent = `${fmtSec(v.seconds)} · ${badge[v.src] || v.src}${v.removed && (lib.adNotes || {})[v.id] ? ' · ' + lib.adNotes[v.id] : ''}`;
     const b = d.querySelector('.mini-btn'); b.textContent = adTab === 'on' ? '✕' : 'Restore'; b.title = adTab === 'on' ? 'Never play this ad' : 'Play this ad again';
     b.onclick = async () => { try { await adsEditCall({ action: adTab === 'on' ? 'remove' : 'restore', id: v.id }); renderAds(); } catch (e) { toast(e.message); } };
     l.appendChild(d);
   });
 }
+const ytId = s => { const m = String(s).match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/) || String(s).trim().match(/^([\w-]{11})$/); return m ? m[1] : ''; };
+const adTitleKey = t => fold(t).replace(/\b(pub|publicite|publicité|spot|tv|maroc|morocco|ad|commercial|اشهار|إشهار|إعلان|اعلان)\b/gi, '').replace(/\s+/g, ' ').trim();
 async function addAd(idOrLink) {
+  const id = ytId(idOrLink), have = id ? (await allAds()).find(v => v.id === id) : null;
+  if (have && !have.removed) { toast(`"${have.title}" is already playing. Not added again.`); $('adq').value = ''; $('adRes').innerHTML = ''; return; }
   try { const r = await adsEditCall({ action: 'add', id: idOrLink }); toast(r.already ? `"${r.added.title}" is already in the list.` : `Added "${r.added.title}".`); $('adq').value = ''; $('adRes').innerHTML = ''; adTab = 'on'; renderAds(); }
   catch (e) { toast(e.message); }
 }
@@ -906,13 +927,15 @@ async function adsFromPlaylist(link, progress = () => {}) {   // returns { title
   progress('Reading the playlist…');
   const r = await fetch('/api/playlist?list=' + encodeURIComponent((link.match(/[?&]list=([\w-]+)/) || [, link])[1]));
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'The playlist could not be read.');
-  const have = new Set((await allAds()).filter(v => !v.removed).map(v => v.id));
-  const todo = (j.items || []).filter(v => v.id && !have.has(v.id));
+  // nothing that is already in the list (playing, or removed by you), and no second copy of a title already playing
+  // (titles are compared only when long enough to tell ads apart: "pub maroc telecom" could be any of them)
+  const list = await allAds(), have = new Set(list.map(v => v.id)), titles = new Set(list.filter(v => !v.removed).map(v => adTitleKey(v.title)).filter(Boolean));
+  const todo = (j.items || []).filter(v => { if (!v.id || have.has(v.id)) return false; const k = adTitleKey(v.title || ''); if (k.length >= 12 && titles.has(k)) return false; if (k.length >= 12) titles.add(k); have.add(v.id); return true; });
   let n = 0;
   for (const v of todo) { progress(`Adding ${n + 1} of ${todo.length}: ${v.title || v.id}`); try { await adsEditCall({ action: 'add', id: v.id }); n++; } catch {} }
   return { title: j.title || 'Playlist', added: n, already: (j.items || []).length - todo.length };
 }
-const playlistToast = x => `"${x.title}": ${x.added} commercial${x.added === 1 ? '' : 's'} added${x.already ? `, ${x.already} ${x.already === 1 ? 'was' : 'were'} already playing` : ''}.`;
+const playlistToast = x => `"${x.title}": ${x.added} commercial${x.added === 1 ? '' : 's'} added${x.already ? `, ${x.already} ${x.already === 1 ? 'was' : 'were'} already in the list` : ''}.`;
 async function addAdPlaylist(link) {
   const st = m => { $('adRes').innerHTML = '<p style="color:var(--mute);font-size:13px"></p>'; $('adRes').querySelector('p').textContent = m; };
   try {
