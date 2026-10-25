@@ -902,18 +902,23 @@ async function addAd(idOrLink) {
   catch (e) { toast(e.message); }
 }
 // A playlist link: every video in it is added (the ones already playing are left as they are)
+async function adsFromPlaylist(link, progress = () => {}) {   // returns { title, added, already }
+  progress('Reading the playlist…');
+  const r = await fetch('/api/playlist?list=' + encodeURIComponent((link.match(/[?&]list=([\w-]+)/) || [, link])[1]));
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'The playlist could not be read.');
+  const have = new Set((await allAds()).filter(v => !v.removed).map(v => v.id));
+  const todo = (j.items || []).filter(v => v.id && !have.has(v.id));
+  let n = 0;
+  for (const v of todo) { progress(`Adding ${n + 1} of ${todo.length}: ${v.title || v.id}`); try { await adsEditCall({ action: 'add', id: v.id }); n++; } catch {} }
+  return { title: j.title || 'Playlist', added: n, already: (j.items || []).length - todo.length };
+}
+const playlistToast = x => `"${x.title}": ${x.added} commercial${x.added === 1 ? '' : 's'} added${x.already ? `, ${x.already} ${x.already === 1 ? 'was' : 'were'} already playing` : ''}.`;
 async function addAdPlaylist(link) {
   const st = m => { $('adRes').innerHTML = '<p style="color:var(--mute);font-size:13px"></p>'; $('adRes').querySelector('p').textContent = m; };
   try {
-    st('Reading the playlist…');
-    const r = await fetch('/api/playlist?list=' + encodeURIComponent((link.match(/[?&]list=([\w-]+)/) || [, link])[1]));
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'The playlist could not be read.');
-    const have = new Set((await allAds()).filter(v => !v.removed).map(v => v.id));
-    const todo = (j.items || []).filter(v => v.id && !have.has(v.id));
-    let n = 0;
-    for (const v of todo) { st(`Adding ${n + 1} of ${todo.length}: ${v.title || v.id}`); try { await adsEditCall({ action: 'add', id: v.id }); n++; } catch {} }
+    const x = await adsFromPlaylist(link, st);
     $('adRes').innerHTML = ''; $('adq').value = ''; adTab = 'on'; renderAds();
-    toast(`"${j.title || 'Playlist'}": ${n} commercial${n === 1 ? '' : 's'} added${(j.items || []).length - todo.length ? `, ${(j.items || []).length - todo.length} ${(j.items || []).length - todo.length === 1 ? 'was' : 'were'} already playing` : ''}.`);
+    toast(playlistToast(x));
   } catch (e) { st(e.message || String(e)); }
 }
 async function adGo() {
@@ -951,11 +956,26 @@ const AD_CLEANUPS = [
     'pvHoqZ_idZI', 'xAtuB6T7JeI', 'DRApcrEyyCM', 'JKzxHtV-ex8', '0DAXd5Te1h8', 'z7MDSWv7_lU', '-pmL6aZQRMM', '0Zn-K2Jjkf0',
     'pjk3G3K9UUc',   // the second "Colorado pub" (0:34): "Colorado pub 2m" stays
   ] },
+  { id: '2026-10-25-playlist', addPlaylist: 'PLe8DdggI3F7k' },   // reading a playlist needs the PC; tried at 3 openings at most
 ];
 async function runAdCleanups() {
-  const todo = AD_CLEANUPS.filter(c => !(lib.adCleanups || []).includes(c.id));
+  const tries = lib.adCleanupTries = lib.adCleanupTries || {};
+  const todo = AD_CLEANUPS.filter(c => !(lib.adCleanups || []).includes(c.id) && (tries[c.id] || 0) < 3);
   if (!todo.length || !(HELPER || (window.Cloud && Cloud.user && cloudAds))) return;
   for (const c of todo) {
+    if (c.addPlaylist) {
+      if (!HELPER) continue;
+      tries[c.id] = (tries[c.id] || 0) + 1; saveLib();
+      try {
+        const x = await adsFromPlaylist(c.addPlaylist);
+        lib.adCleanups = [...(lib.adCleanups || []), c.id]; saveLib();
+        rlog('commercials playlist added', { playlist: c.addPlaylist, ...x }); toast(playlistToast(x));
+      } catch (e) {
+        rlog('commercials playlist failed', { playlist: c.addPlaylist, error: e.message, attempt: tries[c.id] });
+        toast(`Could not add the commercials playlist: ${e.message}${tries[c.id] < 3 ? ' I will try again next time.' : ''}`);
+      }
+      continue;
+    }
     let items = await allAds(); if (!items.length) return;
     let n = 0;
     for (const id of c.remove) { const v = items.find(x => x.id === id); if (v && !v.removed) { try { await adsEditCall({ action: 'remove', id }); n++; } catch {} } }
