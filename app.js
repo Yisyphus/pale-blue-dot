@@ -1090,9 +1090,13 @@ const NEWS_SOURCES = [
   { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
   { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
-  { id: 'bbctrend', name: 'BBC Arabic trending', topic: 'trend', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/trending/rss.xml'] },
-  // what people in Morocco are searching for right now: used last, so the trending section is never empty
-  { id: 'gtrends', name: 'Google Trends Morocco', topic: 'trend', take: 2, fallback: true, urls: ['https://trends.google.com/trending/rss?geo=MA', 'https://trends.google.com/trends/trendingsearches/daily/rss?geo=MA'] },
+  // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
+  { id: 'bbctrend', name: 'BBC Arabic trending', topic: 'trend', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/trending/rss.xml', 'https://www.bbc.com/arabic/trending'] },
+  { id: 'hessocial', name: 'Hespress social media', topic: 'trend', take: 1, urls: ['https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/feed', 'https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a'] },
+  { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/'] },
+  // …and from the full Hespress and Kech24 feeds, only searched for viral stories (these two are in no section of their own)
+  { id: 'hesall', name: 'Hespress (all)', topic: 'pool', take: 0, local: true, urls: ['https://www.hespress.com/feed'] },
+  { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
 const NEWS_PLAN = [['marrakech', 6], ['morocco', 6], ['world', 3], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 2]];   // tech: Moroccan stories; techworld: international
@@ -1107,7 +1111,7 @@ const SPORT_RX = /رياض[ةي]|كرة|مباراة|مباريات|المنتخ
 const TECH_RX = /ذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|التقني|تقنية|رقمي|إنترنت|هواتف ذكية|هاتف ذكي|الهاتف الذكي|آبل|أبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيقات|روبوت|شات ?جي ?بي ?تي|سيبراني|البرمجيات|حاسوب|رقائق|أشباه الموصلات|وكالة الفضاء|الفضاء الخارجي|ناسا|سبيس ?إكس|\/tech(nology)?\/|\/science\/|technolog/i;   // whole words where a shorter one would also match ordinary news
 const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنون|لفن(?![؀-ۿ])|سينما|سينمائي|فيلم|أفلام|مهرجان|معرض فني|معرض تشكيلي|تشكيلي|لمسرح(?! الجريمة)|مسرحي|ثقاف|رواية|روائي|لشعر(?![؀-ۿ])|شاعر|قصيدة|ألبوم|حفل غنائي|حفلا غنائيا|\/culture\/|\/arts?\/|\/art-?and-?culture/i;
 // trending on social media: viral videos, trends and online debates
-const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|مقطع فيديو|فيديو يوثق|فيديو يظهر|انتشار واسع|ينتشر بسرعة|يثير جدلا|يثير الجدل|جدل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|نشطاء|مؤثر|مؤثرة|بلوغر|يوتيوبر|\/trending/i;
+const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|مؤثر|مؤثرة|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
 const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
 const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
@@ -1124,8 +1128,6 @@ function parseNews(text, pageUrl, feedOnly) {
     return [...doc.querySelectorAll('item, entry')].map(el => {
       const g = n => { const e = el.getElementsByTagName(n)[0]; return e ? e.textContent.trim() : ''; };
       const linkEl = el.getElementsByTagName('link')[0];
-      const story = g('ht:news_item_title');   // Google Trends: the term people search for, and a news story about it
-      if (el.getElementsByTagName('ht:approx_traffic').length) return { title: /[\u0600-\u06FF]/.test(story) ? story : g('title'), term: g('title'), searched: !/[\u0600-\u06FF]/.test(story), link: '', cats: '', when: 0 };
       return { title: g('title'), link: (linkEl && (linkEl.getAttribute('href') || linkEl.textContent)) || '', cats: [...el.getElementsByTagName('category')].map(c => c.textContent || c.getAttribute('term') || '').join(' '), when: Date.parse(g('pubDate') || g('published') || g('updated') || g('dc:date')) || 0 };
     }).filter(x => x.title);
   }
@@ -1167,13 +1169,13 @@ function pickNews(results, test) {
   const now = Date.now(), served = servedNews();
   Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
   const seen = new Set(), fresh1 = x => test || !served[headKey(x.title)];
-  const ok = x => x.title.length > (x.searched ? 1 : 12) && !SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3) && fresh1(x);
+  const ok = x => x.title.length > 12 && !SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3) && fresh1(x);
   const lists = {};
   results.forEach((r, i) => { lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) })).filter(x => { if (!ok(x)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; }); });
   const used = new Set(), picked = [];
   const take = (x, topic) => { used.add(x); picked.push({ ...x, topic }); };
   NEWS_PLAN.forEach(([topic, n]) => {
-    const srcs = NEWS_SOURCES.filter(s => s.topic === topic && !s.fallback), start = picked.length;
+    const srcs = NEWS_SOURCES.filter(s => s.topic === topic), start = picked.length;
     srcs.forEach(s => lists[s.id].filter(x => !used.has(x)).slice(0, s.take).forEach(x => take(x, topic)));
     for (const s of srcs) for (const x of lists[s.id]) { if (picked.length - start >= n) break; if (!used.has(x)) take(x, topic); }
     const rx = { tech: TECH_RX, techworld: TECH_RX, art: ART_RX, trend: SOCIAL_RX }[topic];
@@ -1181,11 +1183,10 @@ function pickNews(results, test) {
       const pool = NEWS_SOURCES.filter(s => topic !== 'tech' || s.local).flatMap(s => lists[s.id]);
       for (const x of pool) { if (picked.length - start >= n) break; if (!used.has(x) && rx.test(x.title + ' ' + x.cats + ' ' + x.link)) take(x, topic); }
     }
-    for (const s of NEWS_SOURCES.filter(s => s.topic === topic && s.fallback)) for (const x of lists[s.id].slice().sort((p, q) => !!p.searched - !!q.searched)) { if (picked.length - start >= n) break; if (!used.has(x)) take(x, topic); }
     picked.splice(start + n);
   });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
-  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking, searched: x.searched }));
+  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking }));
 }
 const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
@@ -1210,7 +1211,7 @@ function arabicBulletin(n) {
   let label = '';   // a heading is said once, when it changes
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
-    const head = x.searched ? `يبحث كثيرون في المغرب اليوم عن: ${title}.` : (x.breaking ? 'عاجل: ' : '') + title.replace(/[.؟!]*$/, '') + '.', l = NEWS_TOPIC_AR[x.topic] || '';
+    const head = (x.breaking ? 'عاجل: ' : '') + title.replace(/[.؟!]*$/, '') + '.', l = NEWS_TOPIC_AR[x.topic] || '';
     lines.push(l && l !== label ? `${l}: ${head}` : head);
     label = l;
   });
