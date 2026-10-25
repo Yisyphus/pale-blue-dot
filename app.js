@@ -245,6 +245,63 @@ function onlineChunks(parts) {
   });
   return out;
 }
+// ---------- the news voice: Arabic, checked sentence by sentence ----------
+// Phones often list an Arabic voice whose data is not installed: it "finishes" at once, without a sound. So each
+// sentence is spoken alone, and a voice that ends instantly or fails is dropped for the session and the next one is
+// tried: the device's Arabic voice, then Google's online voice, then StreamElements' Zeina (Amazon's Arabic voice).
+// The one that works is kept and tried first after that. The Playback report says what happened.
+const AR_ONLINE = [
+  { name: 'Google', url: q => ttsUrl(q, 'ar') },
+  { name: 'Zeina (StreamElements)', url: q => 'https://api.streamelements.com/kappa/v2/speech?voice=Zeina&text=' + encodeURIComponent(q) },
+];
+let arDeviceBroken = false, arOnlineFirst = 0;
+const arWho = () => { const v = !arDeviceBroken && arabicVoice(); return v ? v.name : AR_ONLINE[arOnlineFirst].name; };
+function speakDevice(part, v, id) {   // true when the voice really spoke (it started, and took a plausible time)
+  return new Promise(res => {
+    let u; try { u = new SpeechSynthesisUtterance(part); u.voice = v; u.lang = v.lang; u.rate = 0.95; } catch { return res(false); }
+    let began = 0, over = false; const end = ok => { if (over) return; over = true; clearInterval(t); res(ok); };
+    let left = Math.max(4000, part.length * 200); const t = setInterval(() => { if (id !== runId) { speechSynthesis.cancel(); end(true); } else if (!globalPaused && (left -= 250) <= 0) end(!!began); }, 250);
+    u.onstart = () => { began = Date.now(); if (globalPaused) { try { speechSynthesis.pause(); } catch {} } };
+    u.onend = () => end(!!began && (Date.now() - began > Math.min(600, part.length * 25)));
+    u.onerror = () => end(false);
+    try { speechSynthesis.speak(u); } catch { end(false); }
+  });
+}
+function playOnline(url, id) {   // true when the audio really played
+  return new Promise(res => {
+    const a = new Audio(url); let played = false, over = false; curAudio = a;
+    const end = ok => { if (over) return; over = true; clearInterval(t); a.onended = a.onerror = null; res(ok); };
+    a.onplaying = () => { played = true; };
+    a.onended = () => end(played && a.currentTime > 0.3);
+    a.onerror = () => end(false);
+    let left = 20000; const t = setInterval(() => { if (id !== runId) { try { a.pause(); } catch {} end(true); } else if (!globalPaused && !played && (left -= 250) <= 0) end(false); }, 250);
+    a.play().catch(() => end(false));
+  });
+}
+async function sayArabic(text) {
+  const id = runId; speaking = true;
+  for (const part of splitParts(text)) {
+    if (id !== runId) break;
+    $('capText').textContent = part;
+    const v = !arDeviceBroken && arabicVoice();
+    if (v) {
+      if (await speakDevice(part, v, id)) continue;
+      if (id !== runId) break;
+      arDeviceBroken = true; speechSynthesis.cancel(); rlog('arabic voice on this device is silent, using an online voice', { voice: v.name + ' (' + v.lang + ')' });
+    }
+    let ok = false;
+    for (let k = 0; k < AR_ONLINE.length && !ok && id === runId; k++) {
+      const src = AR_ONLINE[(arOnlineFirst + k) % AR_ONLINE.length];
+      ok = true;
+      for (const chunk of onlineChunks([part])) { if (id !== runId) break; if (!(await playOnline(src.url(chunk), id))) { ok = false; break; } }
+      if (ok) arOnlineFirst = (arOnlineFirst + k) % AR_ONLINE.length;
+      else rlog('online arabic voice failed', { voice: src.name });
+    }
+    if (!ok && id === runId) { rlog('no arabic voice could speak', { part: part.slice(0, 40) }); toast('No Arabic voice could speak here. See Settings > Playback report.'); }
+  }
+  speaking = false;
+}
+
 function say(text, who = 'h') {
   return new Promise(res => {
     const id = runId, parts = splitParts(text);
@@ -1377,8 +1434,7 @@ async function runNews(manual) {
   bedOff(0.8);
   $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
   $('vinyl').classList.add('talk'); setLive(true);
-  const av = arabicVoice();
-  rlog('news', { manual, back: newsBack && newsBack.type, arabicVoice: av ? av.name + ' (' + av.lang + ')' : 'online (Google)' });
+  rlog('news', { manual, back: newsBack && newsBack.type, arabicVoice: arWho() });
   const fetched = withTimeout(getNews(manual), 45000).catch(() => null);
   await sleep(1300);
   if (id !== runId) return;
@@ -1397,7 +1453,7 @@ async function runNews(manual) {
   if (id !== runId) return;
   $('capKind').textContent = 'الأخبار';
   for (const line of arabicBulletin(n)) {
-    await say(line, 'ar');
+    await sayArabic(line);
     if (id !== runId) return;
     await sleep(350);
   }
