@@ -1166,27 +1166,39 @@ async function readSourceHere(src) {
   return { ok: false, error: err, items: [] };
 }
 function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-served') || '{}'); } catch { return {}; } }
-// Each topic takes its sources' share in order (Kech24 4, Marrakech Alaan 2…); a source with too little leaves its
-// places to the other sources of the same topic. Tech and art also take any headline whose words fit. No sport.
+// Every section is filled to its number. In this order: new headlines from its own sources, in their shares
+// (Kech24 4, Marrakech Alaan 2…); then new headlines from elsewhere that fit it (tech, art and trending by their
+// words; Marrakech when the headline names the city; the Moroccan and latest sections from any general news);
+// only then, if nothing new is left, the most important headlines already read (breaking and top stories first);
+// and last, older stories. No sport, ever.
 function pickNews(results, test) {
   const now = Date.now(), served = servedNews();
   Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
-  const seen = new Set(), fresh1 = x => test || !served[headKey(x.title)];
-  const ok = x => x.title.length > 12 && !SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3) && fresh1(x);
+  const seen = new Set(), isNew = x => test || !served[headKey(x.title)], recent = x => !x.when || now - x.when < 36 * 3600e3;
   const lists = {};
-  results.forEach((r, i) => { lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) })).filter(x => { if (!ok(x)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; }); });
+  results.forEach((r, i) => {
+    lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
+      .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((p, q) => q.breaking - p.breaking);   // breaking first, then the order the source gives (its top stories)
+  });
+  const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
+  const GENERAL = NEWS_SOURCES.filter(s => ['moroccoaj', 'morocco', 'world'].includes(s.topic)).map(s => s.id);
   const used = new Set(), picked = [];
-  const take = (x, topic) => { used.add(x); picked.push({ ...x, topic }); };
   NEWS_PLAN.forEach(([topic, n]) => {
-    const srcs = NEWS_SOURCES.filter(s => s.topic === topic), start = picked.length;
-    srcs.forEach(s => lists[s.id].filter(x => !used.has(x)).slice(0, s.take).forEach(x => take(x, topic)));
-    for (const s of srcs) for (const x of lists[s.id]) { if (picked.length - start >= n) break; if (!used.has(x)) take(x, topic); }
+    const start = picked.length, room = () => picked.length - start < n;
+    const take = x => { if (room() && !used.has(x)) { used.add(x); picked.push({ ...x, topic }); } };
+    const own = NEWS_SOURCES.filter(s => s.topic === topic);
     const rx = { tech: TECH_RX, techworld: TECH_RX, art: ART_RX, trend: SOCIAL_RX }[topic];
-    if (rx && picked.length - start < n) {   // words that fit, from any source (Moroccan tech: from the Moroccan sources)
-      const pool = NEWS_SOURCES.filter(s => topic !== 'tech' || s.local).flatMap(s => lists[s.id]);
-      for (const x of pool) { if (picked.length - start >= n) break; if (!used.has(x) && rx.test(x.title + ' ' + x.cats + ' ' + x.link)) take(x, topic); }
-    }
-    picked.splice(start + n);
+    // headlines from elsewhere that fit this section
+    const elsewhere = () => rx ? NEWS_SOURCES.filter(s => topic !== 'tech' || s.local).flatMap(s => all(s.id)).filter(x => rx.test(text(x)))
+      : topic === 'marrakech' ? Object.values(lists).flat().filter(x => /مراكش/.test(x.title))
+      : GENERAL.flatMap(all);
+    const tiers = [x => isNew(x) && recent(x), x => recent(x), () => true];   // new; then already read; then older
+    tiers.forEach((tier, ti) => {
+      if (ti === 0) own.forEach(s => all(s.id).filter(tier).slice(0, s.take).forEach(take));   // each source's share
+      own.forEach(s => all(s.id).filter(tier).forEach(take));
+      elsewhere().filter(tier).forEach(take);
+    });
   });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
   return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking }));
