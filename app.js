@@ -1581,13 +1581,20 @@ const AR_UNIT = { 'كلغ': 'كيلوغرام', 'كغ': 'كيلوغرام', 'ك�
 const spokenArabic = l => l.replace(/مراكش/g, 'مُرّاكُش')
   .replace(/(^|[^\u0600-\u06FF])(بال|لل|ال|ب|ل|و)?(كلغ|كغ|كلم|ملم|سنتم)(?=$|[^\u0600-\u06FF])/g, (m, pre, pfx, u) => pre + (pfx || '') + AR_UNIT[u])
   .replace(/(\d)\s*[%٪]/g, '$1 في المائة').replace(/(\d)\s*°/g, '$1 درجة');
+const NEWS_SECTION_TAG = { marrakech: 'مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'التكنولوجيا والذكاء الاصطناعي', techworld: 'التكنولوجيا والذكاء الاصطناعي', art: 'الفن', trend: 'الأكثر تداولا على مواقع التواصل' };
+function newsTag(x) {   // "أخبار المغرب · Hespress", the site's name without the page it came from
+  const site = (x.name || (NEWS_SOURCES.find(o => o.id === x.src) || {}).name || x.src || '').replace(/\s+(Marrakech|royal activities|politics|economy|24h|world|tech|culture|social media|trending|upcoming events|\(all\))$/i, '');
+  return [NEWS_SECTION_TAG[x.topic] || '', site + (/news\.google\./.test(x.link || '') ? ' (via Google News)' : '')].filter(Boolean).join(' · ');
+}
 function arabicBulletin(n) {
   const h = new Date().getHours(), lines = [h === 0 ? 'أهلا بكم في نشرة أخبار منتصف الليل.' : `أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
   let label = '';   // a heading is said once, when it changes
+  const tags = [''];   // shown in cyan under each headline: its section · its source
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
     const head = x.event ? `ومن المواعيد الثقافية القادمة: ${x.title.replace(/\s*(\.{2,}|…)\s*/g, '، ')}${x.date ? '، ' + x.date : ''}.` : (x.breaking ? 'عاجل: ' : '') + title.replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
     lines.push(l && l !== label ? `${l}: ${head}` : head);
+    tags.push(newsTag(x));
     label = l;
   });
   const w = n.weather;
@@ -1596,8 +1603,10 @@ function arabicBulletin(n) {
     if (w.rest) lines.push((w.rest.night ? 'وفي ما تبقى من الليلة، ' : 'وفي ما تبقى من اليوم، ') + wxLine(w.rest, w.rest.sky));
     if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push('وغدا، ' + wxLine(w.tomorrow, w.tomorrow.sky));
   }
+  while (tags.length < lines.length) tags.push('الطقس · Open-Meteo');   // the weather lines
   lines.push('كانت هذه أبرز العناوين. شكرا لمتابعتكم.');
-  return lines.map(spokenArabic);   // voweled, so the voice says Murrākush, not Marākish
+  const out = lines.map(spokenArabic); out.tags = tags;
+  return out;   // voweled, so the voice says Murrākush, not Marākish
 }
 async function runNews(manual) {
   if (newsOn) return;
@@ -1639,7 +1648,7 @@ async function runNews(manual) {
   let jumped = false;
   for (let li = 0; li < lines.length; ) {
     newsAt = li; newsJump = 0; const tok = ++newsLineTok;
-    $('capText').textContent = lines[li];   // shown at once, also right after an arrow
+    $('capText').textContent = lines[li]; $('capSrc').textContent = (lines.tags || [])[li] || '';   // shown at once, also right after an arrow
     if (jumped) { jumped = false; await sleep(250); try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch {} await sleep(100); if (id !== runId) break; if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); jumped = true; continue; } }   // let the voice settle after the cancel (an arrow pressed meanwhile moves on again)
     await Promise.race([mobileWeb() ? sayArabic(lines[li]) : sayNewsComputer(lines[li]), new Promise(r => { newsSkipTo = r; })]);
     if (id !== runId) { newsArrows(false); return; }
@@ -1656,7 +1665,7 @@ async function runNews(manual) {
 }
 // ‹ and › in the caption box, only while the headlines are read: the previous headline, or the next one
 let newsAt = 0, newsJump = 0, newsLineTok = 0, newsSkipTo = null;
-function newsArrows(on) { ['newsPrev', 'newsNext'].forEach(i => { const b = $(i); if (b) b.style.display = on ? '' : 'none'; }); $('cap').classList.toggle('arrows', !!on); }
+function newsArrows(on) { ['newsPrev', 'newsNext'].forEach(i => { const b = $(i); if (b) b.style.display = on ? '' : 'none'; }); $('cap').classList.toggle('arrows', !!on); if (!on) $('capSrc').textContent = ''; }
 function newsStep(d) {
   if (!newsOn) return;
   newsJump = d; newsLineTok++;

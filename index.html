@@ -68,7 +68,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .cap.idle div{color:var(--mute)}
 .cap-arrow{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:40px;border-radius:6px;color:var(--amber);font-size:20px;line-height:1;opacity:.75;z-index:1}
 .cap-arrow:hover{opacity:1;background:var(--panel)}
-.cap.arrows{padding-left:28px;padding-right:28px}
+.cap.arrows{padding-left:28px;padding-right:28px;max-height:none}
+#capSrc{display:block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:#4fe3f0;direction:rtl;text-align:right}
+#capSrc:empty{display:none}
 
 /* progress */
 .bar{height:3px;background:var(--line);border-radius:3px;overflow:hidden;cursor:pointer}
@@ -178,7 +180,7 @@ body.mini .app{gap:6px}
   </div>
 
   <div class="run-info" id="runInfo" style="display:none"></div>
-  <div class="cap idle" id="cap"><button class="mini-btn" id="btnAdRemove" style="display:none;position:absolute;right:8px;bottom:6px">&#10005; never play this ad</button><button class="cap-arrow" id="newsPrev" style="display:none;left:2px" aria-label="Previous headline" title="Previous headline">&#8249;</button><button class="cap-arrow" id="newsNext" style="display:none;right:2px" aria-label="Next headline" title="Next headline">&#8250;</button><small id="capKind">Pale Blue Dot</small><div id="capText">He will be with you in a moment.</div></div>
+  <div class="cap idle" id="cap"><button class="mini-btn" id="btnAdRemove" style="display:none;position:absolute;right:8px;bottom:6px">&#10005; never play this ad</button><button class="cap-arrow" id="newsPrev" style="display:none;left:2px" aria-label="Previous headline" title="Previous headline">&#8249;</button><button class="cap-arrow" id="newsNext" style="display:none;right:2px" aria-label="Next headline" title="Next headline">&#8250;</button><small id="capKind">Pale Blue Dot</small><div id="capText">He will be with you in a moment.</div><span id="capSrc"></span></div>
 
   <div>
     <div class="bar" id="bar"><i id="barfill"></i></div>
@@ -334,6 +336,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=97dbb4006a2c21fe"></script>
-<script src="app.js?v=d5fb2ef1d4b0ec88"></script>
+<script src="app.js?v=b2bedf62827167c5"></script>
 </body>
 </html>
