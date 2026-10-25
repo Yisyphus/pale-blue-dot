@@ -157,95 +157,13 @@ async function podcast(q) {
     return { ...v, score: s };
   }).filter(v => v.score > -5).sort((a, b) => b.score - a.score).slice(0, 10);
 }
-// ---------- news: headlines in Arabic from RSS feeds, and the weather in Marrakech ----------
-// Every source has a few possible feed addresses: the first one that answers is used, and /api/news reports which
-// worked, so a feed that moves shows up in Settings. Sport is left out. A headline read once is not read again for 12 hours.
-const NEWS_SOURCES = [
-  { id: 'kech24', name: 'Kech24', group: 'marrakech', urls: ['https://kech24.com/feed/', 'https://www.kech24.com/feed/', 'https://kech24.com/feed'] },
-  { id: 'hespress', name: 'Hespress', group: 'morocco', urls: ['https://www.hespress.com/feed', 'https://www.hespress.com/feed/', 'https://hespress.com/feed'] },
-  { id: 'le360', name: 'Le360', group: 'morocco', urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/rss', 'https://ar.le360.ma/feed'] },
-  { id: 'bbc', name: 'BBC Arabic', group: 'world', urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
-  { id: 'bbctech', name: 'BBC Arabic', group: 'tech', urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
-  { id: 'bbcart', name: 'BBC Arabic', group: 'art', urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
-  { id: 'aljazeera', name: 'Al Jazeera', group: 'world', urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9', 'https://www.aljazeera.net/rss'] },
-  { id: 'france24', name: 'France 24', group: 'world', urls: ['https://www.france24.com/ar/rss', 'https://www.france24.com/ar/rss/'] },
-];
-const NEWS_PLAN = [['marrakech', 2], ['morocco', 2], ['world', 2], ['tech', 1], ['art', 1]];
-const SPORT = /رياض[ةي]|كرة|مباراة|مباريات|المنتخب|الدوري|البطولة|بطولة|لاعب|الوداد|الرجاء|أسود الأطلس|كأس|الركراكي|فيفا|الكاف|الأولمبي|ملعب|هدف|أهداف|ميركاتو|\/sports?\/|\bsport|football/i;
-const TECH = /الذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|تقني|رقمي|الإنترنت|إنترنت|هاتف|هواتف|آبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيق|روبوت|شات ?جي ?بي ?تي|سيبراني|برمج|حاسوب|رقائق|أشباه الموصلات|فضاء|ناسا|\/tech|technolog|science/i;
-const ART = /موسيق|أغني|غناء|مطرب|فنان|الفن|فني|مهرجان|سينما|فيلم|أفلام|معرض|مسرح|ثقاف|رواية|روائي|كتاب|شاعر|شعر|تشكيلي|ألبوم|حفل|\/culture|\/art|\barts?\b|culture/i;
-const decodeX = t => String(t || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '')
-  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
-  .replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const tagX = (xml, name) => { const m = xml.match(new RegExp('<' + name + '(?:\\s[^>]*)?>([\\s\\S]*?)</' + name + '>', 'i')); return m ? decodeX(m[1]) : ''; };
-function parseFeed(xml) {
-  const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) || [];
-  return blocks.map(b => {
-    const link = tagX(b, 'link') || ((b.match(/<link[^>]*href="([^"]+)"/i) || [])[1] || '');
-    const cats = (b.match(/<category[^>]*>[\s\S]*?<\/category>/gi) || []).map(c => decodeX(c)).concat((b.match(/<category[^>]*term="([^"]+)"/gi) || []).map(c => c.replace(/.*term="|"$/g, '')));
-    const when = Date.parse(tagX(b, 'pubDate') || tagX(b, 'published') || tagX(b, 'updated') || tagX(b, 'dc:date')) || 0;
-    return { title: tagX(b, 'title'), link, cats: cats.join(' '), when };
-  }).filter(x => x.title);
-}
-// the end of a headline that only names the site ("... - BBC News عربي", "| فرانس 24"), and a "breaking" label
-const cleanHead = t => t.replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*)$/i, '').replace(/^(عاجل|بالفيديو|فيديو|صور)\s*[:|-]\s*/, '').trim();
-async function getText(url) {
-  const r = await fetch(url, { headers: { 'User-Agent': HEADERS['User-Agent'], 'Accept': 'application/rss+xml, application/xml, text/xml, */*' }, signal: AbortSignal.timeout(9000) });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.text();
-}
-const workingUrl = {};   // the address that answered last time, tried first
-async function readSource(src) {
-  const urls = [...new Set([workingUrl[src.id], ...src.urls].filter(Boolean))];
-  let err = '';
-  for (const u of urls) {
-    try {
-      const items = parseFeed(await getText(u));
-      if (!items.length) { err = 'no headlines in the feed'; continue; }
-      workingUrl[src.id] = u;
-      return { ok: true, url: u, items: items.map(x => ({ ...x, src: src.id, name: src.name, group: src.group })) };
-    } catch (e) { err = e.name === 'TimeoutError' ? 'no answer' : (e.message || String(e)); }
-  }
-  return { ok: false, error: err, items: [] };
-}
-const servedNews = new Map();   // normalized headline -> when it was read
-const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
-const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'غائم جزئيا', 3: 'غائم', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
-async function weather() {
-  const u = 'https://api.open-meteo.com/v1/forecast?latitude=31.63&longitude=-8.01&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Africa%2FCasablanca&forecast_days=2';
-  const j = JSON.parse(await getText(u));
-  const d = j.daily || {}, c = j.current || {};
-  return { now: { temp: Math.round(c.temperature_2m), sky: WMO_AR[c.weather_code] || '' }, tomorrow: { min: Math.round(d.temperature_2m_min[1]), max: Math.round(d.temperature_2m_max[1]), sky: WMO_AR[d.weather_code[1]] || '' } };
-}
-async function news(test) {   // test: a bulletin from the Settings button, which does not use headlines up
-  const now = Date.now();
-  for (const [k, t] of servedNews) if (now - t > 12 * 3600e3) servedNews.delete(k);
-  const [results, wx] = await Promise.all([Promise.all(NEWS_SOURCES.map(readSource)), weather().catch(e => ({ error: e.message }))]);
-  const seen = new Set();
-  const all = results.flatMap(r => r.items).map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
-    .filter(x => x.title.length > 12 && !SPORT.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3))
-    .filter(x => { const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => (b.breaking - a.breaking) || (b.when - a.when));
-  // a headline counts for a topic by its feed, or by its words (a Hespress story about AI is a tech story)
-  const fits = (x, g) => g === 'tech' ? (x.group === 'tech' || TECH.test(x.title + ' ' + x.cats + ' ' + x.link))
-    : g === 'art' ? (x.group === 'art' || ART.test(x.title + ' ' + x.cats + ' ' + x.link))
-    : g === 'marrakech' ? (x.group === 'marrakech' || /مراكش/.test(x.title)) : x.group === g;
-  const picked = [], used = new Set(), fresh = x => test || !servedNews.has(headKey(x.title));
-  for (const [g, n] of NEWS_PLAN) {
-    const pool = all.filter(x => !used.has(x) && fits(x, g));
-    const take = pool.filter(fresh).slice(0, n);   // never a headline already read in the last 12 hours
-    take.forEach(x => { used.add(x); picked.push({ ...x, topic: g }); });
-  }
-  const total = NEWS_PLAN.reduce((a, [, n]) => a + n, 0);   // a topic with nothing new: the newest other headlines fill its place
-  for (const x of all.filter(fresh)) { if (picked.length >= total) break; if (!used.has(x)) { used.add(x); picked.push({ ...x, topic: x.group }); } }
-  if (!test) picked.forEach(x => servedNews.set(headKey(x.title), now));
-  const order = NEWS_PLAN.map(([g]) => g);
-  picked.sort((a, b) => order.indexOf(a.topic) - order.indexOf(b.topic));
-  return {
-    items: picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking })),
-    weather: wx,
-    sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, url: results[i].url || '', error: results[i].error || '' })),
-  };
+// ---------- news: the radio page reads the news sites through here (only these sites), and picks the headlines itself ----------
+const NEWS_HOSTS = /(^|\.)(kech24\.com|marrakechalaan\.com|hespress\.com|le360\.ma|map\.ma|bbci\.co\.uk|aljazeera\.net|france24\.com)$/i;
+async function newsFetch(url) {
+  const u = new URL(url);
+  if (!/^https?:$/.test(u.protocol) || !NEWS_HOSTS.test(u.hostname)) throw new Error('not a news site');
+  const r = await fetch(u, { headers: { 'User-Agent': HEADERS['User-Agent'], 'Accept-Language': 'ar,fr;q=0.8,en;q=0.6', 'Accept': 'text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8' }, redirect: 'follow', signal: AbortSignal.timeout(10000) });
+  return { status: r.status, body: await r.text() };
 }
 
 // ---------- commercials ----------
@@ -434,7 +352,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
     if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
-    if (u.pathname === '/api/news') return send(res, 200, await news(u.searchParams.get('test') === '1'));
+    if (u.pathname === '/api/fetch') { try { const x = await newsFetch(u.searchParams.get('url') || ''); return send(res, x.status === 200 ? 200 : 502, x.body, 'text/plain; charset=utf-8'); } catch (e) { return send(res, 502, String(e.message || e), 'text/plain'); } }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
     if (u.pathname === '/api/ads/all') return send(res, 200, { items: adsAll() });

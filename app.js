@@ -1071,81 +1071,109 @@ async function newsJingleRun() {
   newsJingle = Jingles.play(getCtx(), 'news');
   await newsJingle.done; newsJingle = null;
 }
-// Where the headlines come from: the PC helper (/api/news) when it has them; otherwise the radio reads the feeds
-// itself, through public relays that let a web page read another site (so the news also works on the phone, and with
-// a helper that has not updated yet). The weather comes straight from Open-Meteo, which any page may read.
+// Where the headlines come from: the radio reads each source itself, its RSS feed when it has one, otherwise the
+// headlines on the page. Pages are fetched by the PC helper (/api/fetch) and, at the same time, through public relays
+// that let a web page read another site, and the first good answer wins. So the news also works on the phone, and with
+// a helper that has not updated yet. The weather comes straight from Open-Meteo, which any page may read.
+// take: how many headlines that source gives its topic; a source that fails leaves its place to the others of the topic.
 const NEWS_SOURCES = [
-  { id: 'kech24', name: 'Kech24', group: 'marrakech', urls: ['https://kech24.com/feed/', 'https://www.kech24.com/feed/'] },
-  { id: 'hespress', name: 'Hespress', group: 'morocco', urls: ['https://www.hespress.com/feed', 'https://hespress.com/feed'] },
-  { id: 'le360', name: 'Le360', group: 'morocco', urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/rss'] },
-  { id: 'bbc', name: 'BBC Arabic', group: 'world', urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
-  { id: 'bbctech', name: 'BBC Arabic tech', group: 'tech', urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
-  { id: 'bbcart', name: 'BBC Arabic culture', group: 'art', urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
-  { id: 'aljazeera', name: 'Al Jazeera', group: 'world', urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
-  { id: 'france24', name: 'France 24', group: 'world', urls: ['https://www.france24.com/ar/rss'] },
+  { id: 'kech24', name: 'Kech24 Marrakech', topic: 'marrakech', take: 4, urls: ['https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4/feed', 'https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4'] },
+  { id: 'alaan', name: 'Marrakech Alaan', topic: 'marrakech', take: 2, urls: ['https://www.marrakechalaan.com/article-category/news-marrakech/feed', 'https://www.marrakechalaan.com/article-category/news-marrakech'] },
+  { id: 'hespress', name: 'Hespress 24h', topic: 'morocco', take: 4, urls: ['https://www.hespress.com/tag/24heures/feed', 'https://www.hespress.com/tag/24heures'] },
+  { id: 'le360', name: 'Le360', topic: 'morocco', take: 1, urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/'] },
+  { id: 'map', name: 'MAP', topic: 'morocco', take: 1, urls: ['https://www.map.ma/ar/rss.xml', 'https://www.map.ma/ar/'] },
+  { id: 'bbc', name: 'BBC Arabic', topic: 'world', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
+  { id: 'aljazeera', name: 'Al Jazeera', topic: 'world', take: 1, urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
+  { id: 'france24', name: 'France 24', topic: 'world', take: 1, urls: ['https://www.france24.com/ar/rss'] },
+  { id: 'bbctech', name: 'BBC Arabic tech', topic: 'tech', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
+  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
 ];
-const NEWS_PLAN = [['marrakech', 2], ['morocco', 2], ['world', 2], ['tech', 1], ['art', 1]];
+// in this order; tech and art can also come from any other source, by their words
+const NEWS_PLAN = [['marrakech', 6], ['morocco', 6], ['world', 3], ['tech', 2], ['art', 2]];
 const RELAYS = [
+  u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
   u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
   u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
-  u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u),
+  u => /feed|rss/.test(u) ? 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) : null,
 ];
-const SPORT_RX = /رياض[ةي]|كرة|مباراة|مباريات|المنتخب|الدوري|البطولة|بطولة|لاعب|الوداد|الرجاء|أسود الأطلس|كأس|الركراكي|فيفا|الكاف|الأولمبي|ملعب|هدف|أهداف|ميركاتو|\/sports?\/|\bsport|football/i;
-const TECH_RX = /الذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|تقني|رقمي|الإنترنت|إنترنت|هاتف|هواتف|آبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيق|روبوت|شات ?جي ?بي ?تي|سيبراني|برمج|حاسوب|رقائق|أشباه الموصلات|فضاء|ناسا|\/tech|technolog|science/i;
-const ART_RX = /موسيق|أغني|غناء|مطرب|فنان|الفن|فني|مهرجان|سينما|فيلم|أفلام|معرض|مسرح|ثقاف|رواية|روائي|كتاب|شاعر|شعر|تشكيلي|ألبوم|حفل|\/culture|\/art|\barts?\b|culture/i;
-const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*)$/i, '').replace(/^(عاجل|بالفيديو|فيديو|صور)\s*[:|-]\s*/, '').trim();
+const SPORT_RX = /رياض[ةي]|كرة|مباراة|مباريات|المنتخب|الدوري|البطولة|بطولة|لاعب|الوداد|الرجاء|أسود الأطلس|كأس|الركراكي|فيفا|الكاف|الأولمبي|ملعب|هدف|أهداف|ميركاتو|مدرب|نادي|فريق|الجامعة الملكية المغربية لكرة|\/sports?\b|\/sport\/|\bsport|football/i;
+const TECH_RX = /ذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|التقني|تقنية|رقمي|إنترنت|هواتف ذكية|هاتف ذكي|الهاتف الذكي|آبل|أبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيقات|روبوت|شات ?جي ?بي ?تي|سيبراني|البرمجيات|حاسوب|رقائق|أشباه الموصلات|وكالة الفضاء|الفضاء الخارجي|ناسا|سبيس ?إكس|\/tech(nology)?\/|\/science\/|technolog/i;   // whole words where a shorter one would also match ordinary news
+const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنون|لفن(?![؀-ۿ])|سينما|سينمائي|فيلم|أفلام|مهرجان|معرض فني|معرض تشكيلي|تشكيلي|لمسرح(?! الجريمة)|مسرحي|ثقاف|رواية|روائي|لشعر(?![؀-ۿ])|شاعر|قصيدة|ألبوم|حفل غنائي|حفلا غنائيا|\/culture\/|\/arts?\/|\/art-?and-?culture/i;
+const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش الآن.*|و\.م\.ع.*)$/i, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
 const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
-function parseFeedText(text) {
+// A feed (RSS, Atom, or rss2json), or else a news page: its headlines are the links whose text reads like one
+// (mostly Arabic, a real sentence, pointing to an article on the same site), in the order the page shows them.
+function parseNews(text, pageUrl, feedOnly) {
   if (/^\s*\{/.test(text)) {   // rss2json
     const j = JSON.parse(text); if (j.status !== 'ok') throw new Error(j.message || 'relay refused');
     return (j.items || []).map(x => ({ title: x.title, link: x.link || '', cats: (x.categories || []).join(' '), when: Date.parse((x.pubDate || '').replace(' ', 'T') + 'Z') || 0 }));
   }
-  const doc = new DOMParser().parseFromString(text, 'text/xml');
-  if (doc.querySelector('parsererror')) throw new Error('not a feed');
-  return [...doc.querySelectorAll('item, entry')].map(el => {
-    const g = n => { const e = el.getElementsByTagName(n)[0]; return e ? e.textContent.trim() : ''; };
-    const linkEl = el.getElementsByTagName('link')[0];
-    return { title: g('title'), link: (linkEl && (linkEl.getAttribute('href') || linkEl.textContent)) || '', cats: [...el.getElementsByTagName('category')].map(c => c.textContent || c.getAttribute('term') || '').join(' '), when: Date.parse(g('pubDate') || g('published') || g('updated') || g('dc:date')) || 0 };
-  }).filter(x => x.title);
+  if (/^\s*(<\?xml|<rss|<feed)/i.test(text)) {
+    const doc = new DOMParser().parseFromString(text, 'text/xml');
+    if (doc.querySelector('parsererror')) throw new Error('broken feed');
+    return [...doc.querySelectorAll('item, entry')].map(el => {
+      const g = n => { const e = el.getElementsByTagName(n)[0]; return e ? e.textContent.trim() : ''; };
+      const linkEl = el.getElementsByTagName('link')[0];
+      return { title: g('title'), link: (linkEl && (linkEl.getAttribute('href') || linkEl.textContent)) || '', cats: [...el.getElementsByTagName('category')].map(c => c.textContent || c.getAttribute('term') || '').join(' '), when: Date.parse(g('pubDate') || g('published') || g('updated') || g('dc:date')) || 0 };
+    }).filter(x => x.title);
+  }
+  if (feedOnly) throw new Error('no feed at this address');   // never read headlines off an error page
+  if (!/<html|<body|<a\s/i.test(text)) throw new Error('not a page');
+  const doc = new DOMParser().parseFromString(text, 'text/html'), host = new URL(pageUrl).hostname.replace(/^www\./, ''), seen = new Set(), out = [];
+  doc.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"]').forEach(el => {
+    const aEl = el.tagName === 'A' ? el : el.closest('a'); if (!aEl) return;
+    const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    let href = ''; try { href = new URL(aEl.getAttribute('href') || '', pageUrl).href; } catch { return; }
+    const arabic = (t.match(/[؀-ۿ]/g) || []).length;
+    if (t.length < 25 || t.length > 220 || arabic < t.replace(/\s/g, '').length * 0.6 || t.split(' ').length < 4) return;
+    if (!href.includes(host) || /\/(tag|cat|category|article-category|author|page)\//.test(href) || seen.has(href) || seen.has(t)) return;
+    seen.add(href); seen.add(t); out.push({ title: t, link: href, cats: '', when: 0 });
+  });
+  return out;
 }
-// every relay is asked at once and the first good answer wins, so one slow relay or source never holds up the news
 async function readSourceHere(src) {
   let err = 'no answer';
   for (const u of src.urls) {
     try {
-      const items = await Promise.any(RELAYS.map(relay => withTimeout((async () => {
-        const r = await fetch(relay(u));
+      const items = await Promise.any(RELAYS.map(relay => relay(u)).filter(Boolean).map(url => withTimeout((async () => {
+        const r = await fetch(url);
+        if (url.startsWith('/api/fetch') && r.status === 404) helperNewsMissing = true;   // a helper that has not updated yet
         if (!r.ok) throw new Error('HTTP ' + r.status);
-        const it = parseFeedText(await r.text());
+        const it = parseNews(await r.text(), u, /\/feed$|rss|outboundfeeds/.test(u));
         if (!it.length) throw new Error('no headlines');
         return it;
-      })(), 9000)));
-      return { ok: true, items: items.map(x => ({ ...x, src: src.id, name: src.name, group: src.group })) };
+      })(), 10000)));
+      return { ok: true, items: items.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
     } catch (e) { err = (e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e); }
   }
   return { ok: false, error: err, items: [] };
 }
 function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-served') || '{}'); } catch { return {}; } }
+// Each topic takes its sources' share in order (Kech24 4, Marrakech Alaan 2…); a source with too little leaves its
+// places to the other sources of the same topic. Tech and art also take any headline whose words fit. No sport.
 function pickNews(results, test) {
   const now = Date.now(), served = servedNews();
   Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
-  const seen = new Set();
-  const all = results.flatMap(r => r.items).map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
-    .filter(x => x.title.length > 12 && !SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3))
-    .filter(x => { const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => (b.breaking - a.breaking) || (b.when - a.when));
-  const fits = (x, g) => g === 'tech' ? (x.group === 'tech' || TECH_RX.test(x.title + ' ' + x.cats + ' ' + x.link))
-    : g === 'art' ? (x.group === 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))
-    : g === 'marrakech' ? (x.group === 'marrakech' || /مراكش/.test(x.title)) : x.group === g;
-  const picked = [], used = new Set(), fresh1 = x => test || !served[headKey(x.title)];
-  NEWS_PLAN.forEach(([g, n]) => all.filter(x => !used.has(x) && fits(x, g) && fresh1(x)).slice(0, n).forEach(x => { used.add(x); picked.push({ ...x, topic: g }); }));
-  const total = NEWS_PLAN.reduce((s, [, n]) => s + n, 0);
-  for (const x of all.filter(fresh1)) { if (picked.length >= total) break; if (!used.has(x)) { used.add(x); picked.push({ ...x, topic: x.group }); } }
+  const seen = new Set(), fresh1 = x => test || !served[headKey(x.title)];
+  const ok = x => x.title.length > 12 && !SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3) && fresh1(x);
+  const lists = {};
+  results.forEach((r, i) => { lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) })).filter(x => { if (!ok(x)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; }); });
+  const used = new Set(), picked = [];
+  const take = (x, topic) => { used.add(x); picked.push({ ...x, topic }); };
+  NEWS_PLAN.forEach(([topic, n]) => {
+    const srcs = NEWS_SOURCES.filter(s => s.topic === topic), start = picked.length;
+    srcs.forEach(s => lists[s.id].filter(x => !used.has(x)).slice(0, s.take).forEach(x => take(x, topic)));
+    for (const s of srcs) for (const x of lists[s.id]) { if (picked.length - start >= n) break; if (!used.has(x)) take(x, topic); }
+    if ((topic === 'tech' || topic === 'art') && picked.length - start < n) {   // words that fit, from any source
+      const rx = topic === 'tech' ? TECH_RX : ART_RX;
+      for (const x of Object.values(lists).flat()) { if (picked.length - start >= n) break; if (!used.has(x) && rx.test(x.title + ' ' + x.cats + ' ' + x.link)) take(x, topic); }
+    }
+    picked.splice(start + n);
+  });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
-  const order = NEWS_PLAN.map(([g]) => g);
-  return picked.sort((a, b) => order.indexOf(a.topic) - order.indexOf(b.topic)).map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking }));
+  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking }));
 }
 const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
@@ -1160,21 +1188,9 @@ async function weatherNow() {
 let helperNewsMissing = false;
 async function getNews(manual) {
   const wx = weatherNow().catch(() => null);
-  let n = null;
-  if (HELPER) {
-    try {
-      const r = await withTimeout(fetch('/api/news' + (manual ? '?test=1' : '')), 15000);
-      helperNewsMissing = r.status === 404;   // a helper that has not updated yet
-      if (r.ok) { n = await r.json(); n.via = 'your PC'; }
-    } catch {}
-  }
-  if (!n || !(n.items || []).length) {   // the helper could not: read the feeds from here
-    const results = await Promise.all(NEWS_SOURCES.map(readSourceHere));
-    const items = pickNews(results, manual);
-    if (items.length || !n) n = { items, via: 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
-  }
-  n.weather = await wx;
-  return n;
+  helperNewsMissing = false;
+  const results = await Promise.all(NEWS_SOURCES.map(readSourceHere));
+  return { items: pickNews(results, manual), weather: await wx, via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
 }
 const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
 function arabicBulletin(n) {
@@ -1192,7 +1208,7 @@ function arabicBulletin(n) {
     if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push('وغدا، ' + wxLine(w.tomorrow, w.tomorrow.sky));
   }
   lines.push('وكانت هذه أبرز العناوين. شكرا لمتابعتكم.');
-  return lines;
+  return lines.map(l => l.replace(/مراكش/g, 'مُرّاكُش'));   // voweled, so the voice says Murrākush, not Marākish
 }
 async function runNews(manual) {
   if (newsOn) return;
@@ -1260,9 +1276,9 @@ setInterval(() => {
 let lastNewsSources = null, lastNewsVia = '';
 function paintNewsNote() {
   const n = $('newsNote'); if (!n) return;
-  const old = HELPER && helperNewsMissing ? 'Your PC helper is an older version: close the radio completely and open it again to update it. Meanwhile the headlines come through the web. ' : '';
+  const old = HELPER && helperNewsMissing ? 'Your PC helper is an older version: close the radio completely and open it again (twice) to update it. Meanwhile the headlines come through the web. ' : '';
   if (!lastNewsSources) { n.textContent = old + 'every 2 hours on the hour, in Arabic'; return; }
-  n.textContent = old + (lastNewsVia ? `last news via ${lastNewsVia}: ` : '') + lastNewsSources.map(x => `${x.name}${x.id === 'bbctech' && !/tech/.test(x.name) ? ' tech' : x.id === 'bbcart' && !/culture/.test(x.name) ? ' culture' : ''} ${x.ok ? '✓' : '✗ ' + x.error}`).join(' · ');
+  n.textContent = old + (lastNewsVia ? `last news via ${lastNewsVia}: ` : '') + lastNewsSources.map(x => `${x.name} ${x.ok ? '✓' : '✗ ' + x.error}`).join(' · ');
 }
 
 // ---------- genre runs: the next 20 to 40 songs come from one genre, then back to the normal mix ----------
