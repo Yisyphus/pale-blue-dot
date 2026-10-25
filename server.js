@@ -158,7 +158,7 @@ async function podcast(q) {
   }).filter(v => v.score > -5).sort((a, b) => b.score - a.score).slice(0, 10);
 }
 // ---------- news: the radio page reads the news sites through here (only these sites), and picks the headlines itself ----------
-const NEWS_HOSTS = /(^|\.)(kech24\.com|marrakechalaan\.com|hespress\.com|le360\.ma|map\.ma|bbci\.co\.uk|aljazeera\.net|france24\.com|aitnews\.com|cnn\.com|bbc\.com|alarabiya\.net|snrtnews\.com|hitradio\.ma)$/i;
+const NEWS_HOSTS = /(^|\.)(kech24\.com|marrakechalaan\.com|hespress\.com|le360\.ma|map\.ma|bbci\.co\.uk|aljazeera\.net|france24\.com|aitnews\.com|cnn\.com|bbc\.com|alarabiya\.net|snrtnews\.com|hitradio\.ma|news\.google\.com)$/i;
 async function newsFetch(url) {
   const u = new URL(url);
   if (!/^https?:$/.test(u.protocol) || !NEWS_HOSTS.test(u.hostname)) throw new Error('not a news site');
@@ -352,7 +352,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
     if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
-    if (u.pathname === '/api/fetch') { try { const x = await newsFetch(u.searchParams.get('url') || ''); return send(res, x.status === 200 ? 200 : 502, x.body, 'text/plain; charset=utf-8'); } catch (e) { return send(res, 502, String(e.message || e), 'text/plain'); } }
+    if (u.pathname === '/api/fetch') { try { const x = await newsFetch(u.searchParams.get('url') || ''); return x.status === 200 ? send(res, 200, x.body, 'text/plain; charset=utf-8') : send(res, 502, 'the site answered ' + x.status + (/cloudflare|cf-chl|just a moment/i.test(x.body) ? ' (bot wall)' : ''), 'text/plain');  } catch (e) { return send(res, 502, e.name === 'TimeoutError' ? 'the site took too long' : String((e.cause && e.cause.code) || e.message || e), 'text/plain'); } }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
     if (u.pathname === '/api/ads/all') return send(res, 200, { items: adsAll() });

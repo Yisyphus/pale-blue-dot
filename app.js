@@ -343,6 +343,33 @@ function say(text, who = 'h') {
     });
   });
 }
+// The news on a computer: one sentence at a time, so an arrow can stop it cleanly. A sentence that does not start
+// within 3 seconds (Chrome and Edge sometimes drop one spoken right after a cancel) is tried once more, then left,
+// so the bulletin never freezes.
+function speakOnce(part, v, alive) {
+  return new Promise(res => {
+    let began = false, over = false; const end = r => { if (over) return; over = true; clearInterval(t); res(r); };
+    const u = new SpeechSynthesisUtterance(part); u.voice = v; u.lang = v.lang; u.rate = 0.95;
+    u.onstart = () => { began = true; $('capText').textContent = part; if (globalPaused) { try { speechSynthesis.pause(); } catch {} } };
+    u.onend = () => end('ok'); u.onerror = () => end(began ? 'ok' : 'nostart');
+    let wait = 3000, left = Math.max(5000, part.length * 180);
+    const t = setInterval(() => { if (!alive()) return end('abort'); if (globalPaused) return; if (!began && (wait -= 200) <= 0) end('nostart'); else if (began && (left -= 200) <= 0) end('ok'); }, 200);
+    try { speechSynthesis.speak(u); } catch { end('nostart'); }
+  });
+}
+async function sayNewsComputer(text) {
+  const v = arabicVoice(); if (!v) return say(text, 'ar');   // no Arabic voice here: the online voice, as before
+  const id = runId, tok = newsLineTok, alive = () => id === runId && tok === newsLineTok;
+  speaking = true;
+  for (const part of splitParts(text)) {
+    if (!alive()) break;
+    $('capText').textContent = part;
+    let r = await speakOnce(part, v, alive);
+    if (r === 'nostart' && alive()) { try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch {} await sleep(200); r = await speakOnce(part, v, alive); }
+    if (r === 'nostart') rlog('a news sentence would not start, moving on', { part: part.slice(0, 40) });
+  }
+  speaking = false;
+}
 function stopSpeech() { runId++; if (breakSkip) { const b = breakSkip; breakSkip = null; try { b(); } catch {} } speechSynthesis.cancel(); try { if (curAudio) { curAudio.onended = null; curAudio.pause(); curAudio = null; } } catch {} speaking = false; }
 
 
@@ -1269,18 +1296,21 @@ async function newsJingleRun() {
 // that let a web page read another site, and the first good answer wins. So the news also works on the phone, and with
 // a helper that has not updated yet. The weather comes straight from Open-Meteo, which any page may read.
 // take: how many headlines that source gives its topic; a source that fails leaves its place to the others of the topic.
+// A backup for a site that turns readers away (SNRT, Hit Radio, Al Arabiya sit behind a bot wall): the same site's
+// recent headlines as Google News lists them, found by the site's address and words of the section.
+const GN = (q, days = 3) => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:' + days + 'd') + '&hl=ar&gl=MA&ceid=MA:ar';
 const NEWS_SOURCES = [
   { id: 'kech24', name: 'Kech24 Marrakech', topic: 'marrakech', take: 4, local: true, urls: ['https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4/feed', 'https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4'] },
   { id: 'alaan', name: 'Marrakech Alaan', topic: 'marrakech', take: 2, local: true, urls: ['https://www.marrakechalaan.com/article-category/news-marrakech/feed', 'https://www.marrakechalaan.com/article-category/news-marrakech'] },
   // أخبار المغرب: SNRT, royal activities 1, politics 2, economy 2
-  { id: 'snrtroyal', name: 'SNRT royal activities', topic: 'moroccoaj', take: 1, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%84%D8%A3%D9%86%D8%B4%D8%B7%D8%A9-%D8%A7%D9%84%D9%85%D9%84%D9%83%D9%8A%D8%A9'] },
-  { id: 'snrtpolitics', name: 'SNRT politics', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%B3%D9%8A%D8%A7%D8%B3%D8%A9'] },
-  { id: 'snrteconomy', name: 'SNRT economy', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF'] },
+  { id: 'snrtroyal', name: 'SNRT royal activities', topic: 'moroccoaj', take: 1, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%84%D8%A3%D9%86%D8%B4%D8%B7%D8%A9-%D8%A7%D9%84%D9%85%D9%84%D9%83%D9%8A%D8%A9', GN('site:snrtnews.com الملك OR جلالة OR ولي العهد')] },
+  { id: 'snrtpolitics', name: 'SNRT politics', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%B3%D9%8A%D8%A7%D8%B3%D8%A9', GN('site:snrtnews.com الحكومة OR البرلمان OR حزب OR وزير OR مجلس')] },
+  { id: 'snrteconomy', name: 'SNRT economy', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF', GN('site:snrtnews.com اقتصاد OR استثمار OR صادرات OR بنك OR التضخم OR السياحة')] },
   { id: 'hespress', name: 'Hespress 24h', topic: 'morocco', take: 4, local: true, urls: ['https://www.hespress.com/tag/24heures/feed', 'https://www.hespress.com/tag/24heures'] },
   { id: 'le360', name: 'Le360', topic: 'morocco', take: 1, local: true, urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/'] },
   { id: 'bbc', name: 'BBC Arabic', topic: 'world', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
   { id: 'aljazeera', name: 'Al Jazeera', topic: 'world', take: 1, urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
-  { id: 'snrtworld', name: 'SNRT world', topic: 'world', take: 1, urls: ['https://snrtnews.com/thematique/%D8%B9%D8%A7%D9%84%D9%85'] },
+  { id: 'snrtworld', name: 'SNRT world', topic: 'world', take: 1, urls: ['https://snrtnews.com/thematique/%D8%B9%D8%A7%D9%84%D9%85', GN('site:snrtnews.com الأمم المتحدة OR دولي OR غزة OR أوكرانيا OR الاتحاد الأوروبي OR واشنطن')] },
   { id: 'france24', name: 'France 24', topic: 'world', take: 1, urls: ['https://www.france24.com/ar/rss'] },
   { id: 'aitnews', name: 'AIT News', topic: 'techworld', take: 2, urls: ['https://aitnews.com/feed/', 'https://aitnews.com/'] },
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
@@ -1290,14 +1320,14 @@ const NEWS_SOURCES = [
   { id: 'snrtevents', name: 'SNRT upcoming events', topic: 'art', take: 2, events: true, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
   // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days), and only about
   // art (songs, films, festivals, culture): it also posts politics and sport, which are left out
-  { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, only: 'art', noPolitics: true, urls: ['https://hitradio.ma/news'] },
+  { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, only: 'art', noPolitics: true, urls: ['https://hitradio.ma/news', GN('site:hitradio.ma', 10)] },
   { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
-  { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
+  { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media', GN('site:alarabiya.net مواقع التواصل OR متداول OR فيديو OR تفاعل')] },
   { id: 'bbctopic', name: 'BBC Arabic social media', topic: 'trend', take: 2, urls: ['https://www.bbc.com/arabic/topics/c6vzyk7dg8zt'] },
   { id: 'bbctrend', name: 'BBC Arabic trending', topic: 'trend', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/trending/rss.xml', 'https://www.bbc.com/arabic/trending'] },
   { id: 'hessocial', name: 'Hespress social media', topic: 'trend', take: 1, urls: ['https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/feed', 'https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a'] },
-  { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/'] },
+  { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/', GN('site:aljazeera.net مواقع التواصل OR منصات التواصل OR متداول OR تفاعل')] },
   // …and from the full Hespress and Kech24 feeds, only searched for viral stories (these two are in no section of their own)
   { id: 'hesall', name: 'Hespress (all)', topic: 'pool', take: 0, local: true, urls: ['https://www.hespress.com/feed'] },
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
@@ -1365,7 +1395,11 @@ function cardDate(t) {   // the date written on a news card, or 0
 }
 function newsScope(doc) {
   doc.querySelectorAll('nav, footer, aside, body > header, [class*="ticker"], [id*="ticker"], [class*="breaking"], [class*="urgent"], [class*="marquee"], [class*="menu"]').forEach(el => el.remove());
-  [...doc.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong,a')].filter(el => NOISE_LABELS.test((el.textContent || '').trim())).forEach(el => { const box = el.parentElement; if (box && box !== doc.body) box.remove(); });
+  const LATEST = /^(آخر|أخر|اخر) الأخبار$/;
+  [...doc.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong,a')].filter(el => NOISE_LABELS.test((el.textContent || '').trim())).forEach(el => {
+    const box = el.parentElement;   // the box under a label like "ملف الشهر", unless it also holds the latest news
+    if (box && box !== doc.body && box.isConnected && ![...box.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong')].some(x => LATEST.test((x.textContent || '').trim()))) box.remove();
+  });
   const latest = [...doc.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong')].find(el => /^(آخر|أخر|اخر) الأخبار$/.test((el.textContent || '').trim()));
   if (!latest) return doc;
   let box = latest.parentElement;
@@ -1444,14 +1478,14 @@ async function uncut(items, get) {
   return items.filter(x => !CUT.test(x.title));
 }
 async function readSourceHere(src) {
-  let err = 'no answer';
+  const errs = [];
   const memo = relayMemo();
   for (const u of src.urls) {
     const tryRelay = (ri, ms) => withTimeout((async () => {
       const url = RELAYS[ri](u);
       const r = await fetch(url);
       if (url.startsWith('/api/fetch') && r.status === 404) helperNewsMissing = true;   // a helper that has not updated yet
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) throw new Error(url.startsWith('/api/fetch') ? 'your PC: ' + ((await r.text()).slice(0, 60) || 'HTTP ' + r.status) : 'HTTP ' + r.status);
       const body = await r.text(), it = src.events ? parseEvents(body, u) : parseNews(body, u, /\/feed$|rss|outboundfeeds/.test(u));
       if (!it.length) throw new Error('no headlines');
       return { it, ri };
@@ -1465,11 +1499,12 @@ async function readSourceHere(src) {
         if (!got) got = await Promise.any(all.filter(i => i !== pref).map(i => tryRelay(i, 15000)));
       }
       if (mobileWeb() && got.ri !== pref) { const m = relayMemo(); m[u] = got.ri; try { localStorage.setItem('pbd-relay2', JSON.stringify(m)); } catch {} }
+      if (/news\.google\./.test(u)) got.it = got.it.map(x => ({ ...x, title: x.title.replace(/\s+[-–|]\s+[^-–|]{2,40}$/, '').trim() }));   // "headline - SNRTnews"
       const it = await uncut(got.it, url => tryRelayFor(url, got.ri));
       return { ok: true, items: it.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
-    } catch (e) { err = (e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e); }
+    } catch (e) { errs.push((/news\.google\./.test(u) ? 'backup via Google News: ' : '') + ((e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e))); }
   }
-  return { ok: false, error: err, items: [] };
+  return { ok: false, error: errs.join(' · ') || 'no answer', items: [] };
 }
 async function inBatches(list, size, fn) {   // fn over list, at most `size` at a time, results in order
   const out = new Array(list.length); let next = 0;
@@ -1601,11 +1636,14 @@ async function runNews(manual) {
   $('capKind').textContent = 'الأخبار';
   const lines = arabicBulletin(n);
   newsArrows(true);
+  let jumped = false;
   for (let li = 0; li < lines.length; ) {
     newsAt = li; newsJump = 0; const tok = ++newsLineTok;
-    await Promise.race([mobileWeb() ? sayArabic(lines[li]) : say(lines[li], 'ar'), new Promise(r => { newsSkipTo = r; })]);
+    $('capText').textContent = lines[li];   // shown at once, also right after an arrow
+    if (jumped) { jumped = false; await sleep(250); try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch {} await sleep(100); if (id !== runId) break; if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); jumped = true; continue; } }   // let the voice settle after the cancel (an arrow pressed meanwhile moves on again)
+    await Promise.race([mobileWeb() ? sayArabic(lines[li]) : sayNewsComputer(lines[li]), new Promise(r => { newsSkipTo = r; })]);
     if (id !== runId) { newsArrows(false); return; }
-    if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); continue; }   // an arrow: that headline right away
+    if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); jumped = true; continue; }   // an arrow: that headline right away, then on from there
     if (tok !== newsLineTok) continue;
     li++; await sleep(350);
   }
