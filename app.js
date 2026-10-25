@@ -1093,6 +1093,7 @@ const NEWS_SOURCES = [
   { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
   { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
+  { id: 'bbctopic', name: 'BBC Arabic social media', topic: 'trend', take: 2, urls: ['https://www.bbc.com/arabic/topics/c6vzyk7dg8zt'] },
   { id: 'bbctrend', name: 'BBC Arabic trending', topic: 'trend', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/trending/rss.xml', 'https://www.bbc.com/arabic/trending'] },
   { id: 'hessocial', name: 'Hespress social media', topic: 'trend', take: 1, urls: ['https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/feed', 'https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a'] },
   { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/'] },
@@ -1101,7 +1102,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 4], ['morocco', 6], ['world', 3], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 2]];   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 4], ['morocco', 6], ['world', 3], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 4]];   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
@@ -1213,7 +1214,7 @@ function arabicBulletin(n) {
   let label = '';   // a heading is said once, when it changes
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
-    const head = (x.breaking ? 'عاجل: ' : '') + title.replace(/[.؟!]*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ') + '.', l = NEWS_TOPIC_AR[x.topic] || '';   // "المغرب والجزائر.. اتصالات": a pause, not the end
+    const head = (x.breaking ? 'عاجل: ' : '') + title.replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
     lines.push(l && l !== label ? `${l}: ${head}` : head);
     label = l;
   });
