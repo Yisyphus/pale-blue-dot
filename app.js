@@ -719,6 +719,18 @@ function letterSeg(L, long) {
   return { kind: long ? 'A Long Letter to You' : 'Letters to the Absurd, and to You', title: L.title, lines };
 }
 
+// a commercial break: announced, then jingle, ad, jingle, ad, jingle, and a closing line
+function adBreakSegs() {
+  return [
+    { kind: 'Commercial break', adGroup: true, lines: [{ t: sub(fresh('breakintro', R.breakIntros)) }] },
+    { kind: 'Jingle', adGroup: true, jingle: true },
+    { kind: 'Commercial', adGroup: true, ad: true },
+    { kind: 'Jingle', adGroup: true, jingle: true },
+    { kind: 'Commercial', adGroup: true, ad: true },
+    { kind: 'Jingle', adGroup: true, jingle: true },
+    { kind: 'Commercial break', adGroup: true, lines: [{ t: sub(fresh('breakoutro', R.breakOutros)) }] },
+  ];
+}
 function makeBreak(prev, next, first) {
   const out = [], station = R.station;
   podcastDue = false;
@@ -732,15 +744,7 @@ function makeBreak(prev, next, first) {
   const big = bigPartAt(n);
   podcastDue = big === 'podcast';
   const wantAd = big === 'ads';
-  if (wantAd) { // announce the break, then: jingle, ad, jingle, ad, jingle, and a closing line
-    out.push({ kind: 'Commercial break', adGroup: true, lines: [{ t: sub(fresh('breakintro', R.breakIntros)) }] });
-    out.push({ kind: 'Jingle', adGroup: true, jingle: true });
-    out.push({ kind: 'Commercial', adGroup: true, ad: true });
-    out.push({ kind: 'Jingle', adGroup: true, jingle: true });
-    out.push({ kind: 'Commercial', adGroup: true, ad: true });
-    out.push({ kind: 'Jingle', adGroup: true, jingle: true });
-    out.push({ kind: 'Commercial break', adGroup: true, lines: [{ t: sub(fresh('breakoutro', R.breakOutros)) }] });
-  }
+  if (wantAd) out.push(...adBreakSegs());
   if (big === 'talk') {
     const tg = next.tags || [];
     const match = R.talks.filter(t => t.tags.some(x => tg.includes(x)));
@@ -1002,6 +1006,14 @@ async function runAdCleanups() {
     if (n) toast(`${n} commercials removed, as you asked.`);
   }
 }
+// Manage commercials > Play commercials: a break right now; the song that was playing fades out under it, then the next one
+$('adPlayNow').onclick = () => {
+  if (!started) return toast('Press play first, then try the commercials.');
+  if (!adPool.length) return toast('No commercials are playing. Add some first.');
+  if (newsOn) return toast('The news is on. Try again after it.');
+  openSheet(null); planned = null; preload = null;
+  advance({ forceTalk: true, noCount: true, replaySegs: adBreakSegs() });
+};
 function openAds() { $('adRes').innerHTML = ''; renderAds(); openSheet('shAds'); }
 
 async function runSegments(segs, id) {
