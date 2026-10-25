@@ -1047,7 +1047,7 @@ async function advance(opts = {}) {
 // then brings that back from the start: the song or episode from 0:00, a break from the part that was interrupted.
 // The headlines come from the PC helper (/api/news), so the news needs the radio running on the PC.
 let newsOn = false, newsBack = null, newsJingle = null, newsShown = null, lastNewsSlot = '';
-const NEWS_TOPIC_AR = { marrakech: 'من مراكش', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
+const NEWS_TOPIC_AR = { marrakech: 'من مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
 const NEWS_IN = [
   'It is {time}. Time for the news. Then we come straight back to what was playing.',
   'It is {time} on {station}. Let us stop for a moment for the headlines. We will pick up again right after.',
@@ -1079,6 +1079,7 @@ async function newsJingleRun() {
 const NEWS_SOURCES = [
   { id: 'kech24', name: 'Kech24 Marrakech', topic: 'marrakech', take: 4, local: true, urls: ['https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4/feed', 'https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4'] },
   { id: 'alaan', name: 'Marrakech Alaan', topic: 'marrakech', take: 2, local: true, urls: ['https://www.marrakechalaan.com/article-category/news-marrakech/feed', 'https://www.marrakechalaan.com/article-category/news-marrakech'] },
+  { id: 'ajmorocco', name: 'Al Jazeera Morocco', topic: 'moroccoaj', take: 4, urls: ['https://www.aljazeera.net/where/mideast/arab/morocco/'] },
   { id: 'hespress', name: 'Hespress 24h', topic: 'morocco', take: 4, local: true, urls: ['https://www.hespress.com/tag/24heures/feed', 'https://www.hespress.com/tag/24heures'] },
   { id: 'le360', name: 'Le360', topic: 'morocco', take: 1, local: true, urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/'] },
   { id: 'map', name: 'MAP', topic: 'morocco', take: 1, local: true, urls: ['https://www.map.ma/ar/rss.xml', 'https://www.map.ma/ar/'] },
@@ -1091,6 +1092,7 @@ const NEWS_SOURCES = [
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
   { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
+  { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
   { id: 'bbctrend', name: 'BBC Arabic trending', topic: 'trend', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/trending/rss.xml', 'https://www.bbc.com/arabic/trending'] },
   { id: 'hessocial', name: 'Hespress social media', topic: 'trend', take: 1, urls: ['https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/feed', 'https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a'] },
   { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/'] },
@@ -1099,7 +1101,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['morocco', 6], ['world', 3], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 2]];   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 4], ['morocco', 6], ['world', 3], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 2]];   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
@@ -1134,7 +1136,7 @@ function parseNews(text, pageUrl, feedOnly) {
   if (feedOnly) throw new Error('no feed at this address');   // never read headlines off an error page
   if (!/<html|<body|<a\s/i.test(text)) throw new Error('not a page');
   const doc = new DOMParser().parseFromString(text, 'text/html'), host = new URL(pageUrl).hostname.replace(/^www\./, ''), seen = new Set(), out = [];
-  doc.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"]').forEach(el => {
+  doc.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"], a [class*="title"], article a').forEach(el => {
     const aEl = el.tagName === 'A' ? el : el.closest('a'); if (!aEl) return;
     const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
     let href = ''; try { href = new URL(aEl.getAttribute('href') || '', pageUrl).href; } catch { return; }
@@ -1211,7 +1213,7 @@ function arabicBulletin(n) {
   let label = '';   // a heading is said once, when it changes
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
-    const head = (x.breaking ? 'عاجل: ' : '') + title.replace(/[.؟!]*$/, '') + '.', l = NEWS_TOPIC_AR[x.topic] || '';
+    const head = (x.breaking ? 'عاجل: ' : '') + title.replace(/[.؟!]*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ') + '.', l = NEWS_TOPIC_AR[x.topic] || '';   // "المغرب والجزائر.. اتصالات": a pause, not the end
     lines.push(l && l !== label ? `${l}: ${head}` : head);
     label = l;
   });
