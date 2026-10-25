@@ -1296,28 +1296,26 @@ async function newsJingleRun() {
 // that let a web page read another site, and the first good answer wins. So the news also works on the phone, and with
 // a helper that has not updated yet. The weather comes straight from Open-Meteo, which any page may read.
 // take: how many headlines that source gives its topic; a source that fails leaves its place to the others of the topic.
-// A backup for a site that turns readers away (SNRT, Hit Radio, Al Arabiya sit behind a bot wall): the same site's
+// A backup for a site that turns readers away (Hit Radio and Al Arabiya sit behind a bot wall): the same site's
 // recent headlines as Google News lists them, found by the site's address and words of the section.
 const GN = (q, days = 3) => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:' + days + 'd') + '&hl=ar&gl=MA&ceid=MA:ar';
 const NEWS_SOURCES = [
   { id: 'kech24', name: 'Kech24 Marrakech', topic: 'marrakech', take: 4, local: true, urls: ['https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4/feed', 'https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4'] },
   { id: 'alaan', name: 'Marrakech Alaan', topic: 'marrakech', take: 2, local: true, urls: ['https://www.marrakechalaan.com/article-category/news-marrakech/feed', 'https://www.marrakechalaan.com/article-category/news-marrakech'] },
-  // أخبار المغرب: SNRT, royal activities 1, politics 2, economy 2
-  { id: 'snrtroyal', name: 'SNRT royal activities', topic: 'moroccoaj', take: 1, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%84%D8%A3%D9%86%D8%B4%D8%B7%D8%A9-%D8%A7%D9%84%D9%85%D9%84%D9%83%D9%8A%D8%A9', GN('site:snrtnews.com الملك OR جلالة OR ولي العهد')] },
-  { id: 'snrtpolitics', name: 'SNRT politics', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%B3%D9%8A%D8%A7%D8%B3%D8%A9', GN('site:snrtnews.com الحكومة OR البرلمان OR حزب OR وزير OR مجلس')] },
-  { id: 'snrteconomy', name: 'SNRT economy', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF', GN('site:snrtnews.com اقتصاد OR استثمار OR صادرات OR بنك OR التضخم OR السياحة')] },
+  // أخبار المغرب: MAP (the national news agency), royal activities 1, politics 2, economy 2
+  { id: 'maproyal', name: 'MAP royal activities', topic: 'moroccoaj', take: 1, local: true, urls: ['https://www.mapnews.ma/ar/activites_royales', GN('site:mapnews.ma الملك OR جلالة OR ولي العهد')] },
+  { id: 'mappolitics', name: 'MAP politics', topic: 'moroccoaj', take: 2, local: true, urls: ['https://www.mapnews.ma/ar/actualites/politique', GN('site:mapnews.ma الحكومة OR البرلمان OR حزب OR وزير OR مجلس')] },
+  { id: 'mapeconomy', name: 'MAP economy', topic: 'moroccoaj', take: 2, local: true, urls: ['https://www.mapnews.ma/ar/actualites/economie', GN('site:mapnews.ma اقتصاد OR استثمار OR صادرات OR بنك OR التضخم OR السياحة')] },
   { id: 'hespress', name: 'Hespress 24h', topic: 'morocco', take: 4, local: true, urls: ['https://www.hespress.com/tag/24heures/feed', 'https://www.hespress.com/tag/24heures'] },
   { id: 'le360', name: 'Le360', topic: 'morocco', take: 1, local: true, urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/'] },
   { id: 'bbc', name: 'BBC Arabic', topic: 'world', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
   { id: 'aljazeera', name: 'Al Jazeera', topic: 'world', take: 1, urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
-  { id: 'snrtworld', name: 'SNRT world', topic: 'world', take: 1, urls: ['https://snrtnews.com/thematique/%D8%B9%D8%A7%D9%84%D9%85', GN('site:snrtnews.com الأمم المتحدة OR دولي OR غزة OR أوكرانيا OR الاتحاد الأوروبي OR واشنطن')] },
+  { id: 'mapworld', name: 'MAP world', topic: 'world', take: 1, urls: ['https://www.mapnews.ma/ar/actualites/monde', GN('site:mapnews.ma الأمم المتحدة OR دولي OR غزة OR أوكرانيا OR الاتحاد الأوروبي OR واشنطن')] },
   { id: 'france24', name: 'France 24', topic: 'world', take: 1, urls: ['https://www.france24.com/ar/rss'] },
   { id: 'aitnews', name: 'AIT News', topic: 'techworld', take: 2, urls: ['https://aitnews.com/feed/', 'https://aitnews.com/'] },
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
   { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
-  // from SNRT's cultural page, only its "المواعيد القادمة" (upcoming events): two, with their dates
-  { id: 'snrtevents', name: 'SNRT upcoming events', topic: 'art', take: 2, events: true, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
   // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days), and only about
   // art (songs, films, festivals, culture): it also posts politics and sport, which are left out
   { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, only: 'art', noPolitics: true, urls: ['https://hitradio.ma/news', GN('site:hitradio.ma', 10)] },
@@ -1333,7 +1331,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 10], ['trend', 4]];   // art: BBC 4, Hit Radio 4, two upcoming events   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 8], ['trend', 4]];   // art: BBC 4, Hit Radio 4   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
@@ -1380,7 +1378,7 @@ function parseEvents(text, pageUrl) {
 }
 // What on a news page is NOT the section's own news: menus, the page footer, side boxes, and the breaking-news ticker
 // (on SNRT it mixes every topic, sport included). If the page has a "آخر الأخبار" heading, only that block is read.
-const NOISE_LABELS = /^(الأخبار العاجلة|أخبار عاجلة|ملف الشهر|الأكثر قراءة|الأكثر مشاهدة|اقرأ أيضا|مواضيع ذات صلة)$/;   // not "عاجل": that is also a badge on real articles
+const NOISE_LABELS = /^(الأخبار العاجلة|أخبار عاجلة|ملف الشهر|ملفات|الأخبار الزائفة|الأكثر قراءة|الأكثر مشاهدة|اقرأ أيضا|مواضيع ذات صلة)$/;   // not "عاجل": that is also a badge on real articles
 const FR_MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const AR_MONTH_ALL = [['يناير'], ['فبراير'], ['مارس'], ['أبريل', 'ابريل'], ['ماي', 'مايو'], ['يونيو'], ['يوليوز', 'يوليو'], ['غشت', 'أغسطس', 'اغسطس'], ['شتنبر', 'سبتمبر'], ['أكتوبر', 'اكتوبر'], ['نونبر', 'نوفمبر'], ['دجنبر', 'ديسمبر']];
 function cardDate(t) {   // the date written on a news card, or 0
