@@ -9,7 +9,7 @@ const MAX_DISCOVERED = 220;
 
 // ---------- state ----------
 let lib = { user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} };
-let S = { talk: 'normal', rate: 90, voice: '', sleep: 0, deep: 30, vol: 80, trim: 5, news: 'on' };
+let S = { talk: 'normal', rate: 90, voice: '', sleep: 0, deep: 30, vol: 80, trim: 5, news: 'on', fade: 8 };
 let songs = [];
 let current = null, history = [], played = [], upNext = [], planned = null, preload = null;
 let batch = null, startAnnounce = null, lastRunSong = null; // genre run state
@@ -358,10 +358,10 @@ async function resolve(s) {
   return [];
 }
 // Every transition lets the old song fade from where it is down to silence, slowly, under the host's voice or the
-// next song, instead of cutting it off (OUT_MS; at the end of a song, the seconds that are left).
-const OUT_MS = 8000;
+// next song, instead of cutting it off (Settings > Fade between songs; at the end of a song, the seconds that are left).
+const fadeMs = () => (S.fade || 8) * 1000;
 // Start a song on the idle player. startVol: initial volume. fadeInMs: ramp up to S.vol after starting. outMs: the old song's fade.
-async function startSong(s, startVol, fadeInMs = 0, outMs = OUT_MS) {
+async function startSong(s, startVol, fadeInMs = 0, outMs = fadeMs()) {
   const run = runId;
   await waitYT();
   const c = await resolve(s);
@@ -960,7 +960,7 @@ async function playPodcast(pod, prev, opts, id) {
   const ep = { a: v.channel, t: cleanTitle(v.title), key: 'podcast|' + v.id, podcast: true, midnight, tags: [], genre: 'podcast', cands: [v, ...pod.alts] };
   if (!lib.pod.includes(v.id)) { lib.pod.push(v.id); if (lib.pod.length > 300) lib.pod.shift(); saveLib(); }
   const old = P();
-  if (!opts.first) fadeP(old, 0, opts.fadeOldMs || OUT_MS).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
+  if (!opts.first) fadeP(old, 0, opts.fadeOldMs || fadeMs()).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
   bedOn();
   const segs = [];
   if (opts.first) segs.push({ kind: R.station, lines: [{ t: sub(fresh('welcome:' + period(), R.welcomes[period()]), ep) }] });
@@ -1003,13 +1003,13 @@ async function advance(opts = {}) {
   if (!talk) {
     // no commentary this time: crossfade straight into the next song
     $('kind').textContent = 'tuning'; caption(R.host, ''); $('vinyl').classList.remove('talk');
-    const okQ = await startSong(next, S.vol, opts.quick ? 2500 : 3500, opts.fadeOldMs || OUT_MS);
+    const okQ = await startSong(next, S.vol, opts.quick ? 2500 : 3500, opts.fadeOldMs || fadeMs());
     if (id !== runId) return;
     if (!okQ) { busy = false; return advance({ noCount: true }); }
     busy = false; return;
   }
   // commentary: let the old song fade under the host, with a soft bed so the air is never empty
-  if (!opts.first) fadeP(old, 0, opts.fadeOldMs || OUT_MS).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
+  if (!opts.first) fadeP(old, 0, opts.fadeOldMs || fadeMs()).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
   bedOn();
   nextPending = true; // a song you suggest while the host is talking takes the place of this one
   resolve(next);
@@ -1049,7 +1049,7 @@ async function advance(opts = {}) {
 let newsOn = false, newsBack = null, newsJingle = null, newsShown = null, lastNewsSlot = '';
 const NEWS_TOPIC_AR = { marrakech: 'من مراكش', morocco: 'في المغرب', world: 'من العالم', tech: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن والموسيقى' };
 const NEWS_IN = [
-  'It is {time}. Time for the news, read in Arabic, and the weather in Marrakech. Then we come straight back to what was playing.',
+  'It is {time}. Time for the news in Arabic, and the weather in Marrakech. Then we come straight back to what was playing.',
   'It is {time} on {station}. Let us stop for a moment for the headlines, in Arabic. We will pick up again right after.',
   'It is {time}, and that means the news. A few headlines in Arabic, the weather in Marrakech, and then back to where we were.',
   'A short pause for the world outside. It is {time}, and here are the headlines, in Arabic.',
@@ -1071,8 +1071,114 @@ async function newsJingleRun() {
   newsJingle = Jingles.play(getCtx(), 'news');
   await newsJingle.done; newsJingle = null;
 }
+// Where the headlines come from: the PC helper (/api/news) when it has them; otherwise the radio reads the feeds
+// itself, through public relays that let a web page read another site (so the news also works on the phone, and with
+// a helper that has not updated yet). The weather comes straight from Open-Meteo, which any page may read.
+const NEWS_SOURCES = [
+  { id: 'kech24', name: 'Kech24', group: 'marrakech', urls: ['https://kech24.com/feed/', 'https://www.kech24.com/feed/'] },
+  { id: 'hespress', name: 'Hespress', group: 'morocco', urls: ['https://www.hespress.com/feed', 'https://hespress.com/feed'] },
+  { id: 'le360', name: 'Le360', group: 'morocco', urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/rss'] },
+  { id: 'bbc', name: 'BBC Arabic', group: 'world', urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
+  { id: 'bbctech', name: 'BBC Arabic tech', group: 'tech', urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
+  { id: 'bbcart', name: 'BBC Arabic culture', group: 'art', urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
+  { id: 'aljazeera', name: 'Al Jazeera', group: 'world', urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
+  { id: 'france24', name: 'France 24', group: 'world', urls: ['https://www.france24.com/ar/rss'] },
+];
+const NEWS_PLAN = [['marrakech', 2], ['morocco', 2], ['world', 2], ['tech', 1], ['art', 1]];
+const RELAYS = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+  u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u),
+];
+const SPORT_RX = /رياض[ةي]|كرة|مباراة|مباريات|المنتخب|الدوري|البطولة|بطولة|لاعب|الوداد|الرجاء|أسود الأطلس|كأس|الركراكي|فيفا|الكاف|الأولمبي|ملعب|هدف|أهداف|ميركاتو|\/sports?\/|\bsport|football/i;
+const TECH_RX = /الذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|تقني|رقمي|الإنترنت|إنترنت|هاتف|هواتف|آبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيق|روبوت|شات ?جي ?بي ?تي|سيبراني|برمج|حاسوب|رقائق|أشباه الموصلات|فضاء|ناسا|\/tech|technolog|science/i;
+const ART_RX = /موسيق|أغني|غناء|مطرب|فنان|الفن|فني|مهرجان|سينما|فيلم|أفلام|معرض|مسرح|ثقاف|رواية|روائي|كتاب|شاعر|شعر|تشكيلي|ألبوم|حفل|\/culture|\/art|\barts?\b|culture/i;
+const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*)$/i, '').replace(/^(عاجل|بالفيديو|فيديو|صور)\s*[:|-]\s*/, '').trim();
+const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
+function parseFeedText(text) {
+  if (/^\s*\{/.test(text)) {   // rss2json
+    const j = JSON.parse(text); if (j.status !== 'ok') throw new Error(j.message || 'relay refused');
+    return (j.items || []).map(x => ({ title: x.title, link: x.link || '', cats: (x.categories || []).join(' '), when: Date.parse((x.pubDate || '').replace(' ', 'T') + 'Z') || 0 }));
+  }
+  const doc = new DOMParser().parseFromString(text, 'text/xml');
+  if (doc.querySelector('parsererror')) throw new Error('not a feed');
+  return [...doc.querySelectorAll('item, entry')].map(el => {
+    const g = n => { const e = el.getElementsByTagName(n)[0]; return e ? e.textContent.trim() : ''; };
+    const linkEl = el.getElementsByTagName('link')[0];
+    return { title: g('title'), link: (linkEl && (linkEl.getAttribute('href') || linkEl.textContent)) || '', cats: [...el.getElementsByTagName('category')].map(c => c.textContent || c.getAttribute('term') || '').join(' '), when: Date.parse(g('pubDate') || g('published') || g('updated') || g('dc:date')) || 0 };
+  }).filter(x => x.title);
+}
+// every relay is asked at once and the first good answer wins, so one slow relay or source never holds up the news
+async function readSourceHere(src) {
+  let err = 'no answer';
+  for (const u of src.urls) {
+    try {
+      const items = await Promise.any(RELAYS.map(relay => withTimeout((async () => {
+        const r = await fetch(relay(u));
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const it = parseFeedText(await r.text());
+        if (!it.length) throw new Error('no headlines');
+        return it;
+      })(), 9000)));
+      return { ok: true, items: items.map(x => ({ ...x, src: src.id, name: src.name, group: src.group })) };
+    } catch (e) { err = (e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e); }
+  }
+  return { ok: false, error: err, items: [] };
+}
+function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-served') || '{}'); } catch { return {}; } }
+function pickNews(results, test) {
+  const now = Date.now(), served = servedNews();
+  Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
+  const seen = new Set();
+  const all = results.flatMap(r => r.items).map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
+    .filter(x => x.title.length > 12 && !SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) && (!x.when || now - x.when < 36 * 3600e3))
+    .filter(x => { const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => (b.breaking - a.breaking) || (b.when - a.when));
+  const fits = (x, g) => g === 'tech' ? (x.group === 'tech' || TECH_RX.test(x.title + ' ' + x.cats + ' ' + x.link))
+    : g === 'art' ? (x.group === 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))
+    : g === 'marrakech' ? (x.group === 'marrakech' || /مراكش/.test(x.title)) : x.group === g;
+  const picked = [], used = new Set(), fresh1 = x => test || !served[headKey(x.title)];
+  NEWS_PLAN.forEach(([g, n]) => all.filter(x => !used.has(x) && fits(x, g) && fresh1(x)).slice(0, n).forEach(x => { used.add(x); picked.push({ ...x, topic: g }); }));
+  const total = NEWS_PLAN.reduce((s, [, n]) => s + n, 0);
+  for (const x of all.filter(fresh1)) { if (picked.length >= total) break; if (!used.has(x)) { used.add(x); picked.push({ ...x, topic: x.group }); } }
+  if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
+  const order = NEWS_PLAN.map(([g]) => g);
+  return picked.sort((a, b) => order.indexOf(a.topic) - order.indexOf(b.topic)).map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking }));
+}
+const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
+// Marrakech: now, the rest of today (the hours still to come), and tomorrow
+async function weatherNow() {
+  const u = 'https://api.open-meteo.com/v1/forecast?latitude=31.63&longitude=-8.01&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Africa%2FCasablanca&forecast_days=2';
+  const j = await (await withTimeout(fetch(u), 10000)).json();
+  const c = j.current, d = j.daily, h = j.hourly, today = c.time.slice(0, 10), hourNow = +c.time.slice(11, 13);
+  const later = h.time.map((t, i) => ({ t, temp: h.temperature_2m[i], code: h.weather_code[i] })).filter(x => x.t.slice(0, 10) === today && +x.t.slice(11, 13) > hourNow);
+  const rest = later.length >= 2 ? { min: Math.round(Math.min(...later.map(x => x.temp))), max: Math.round(Math.max(...later.map(x => x.temp))), sky: WMO_AR[Math.max(...later.map(x => x.code))] || '', night: hourNow >= 18 } : null;
+  return { now: { temp: Math.round(c.temperature_2m), sky: WMO_AR[c.weather_code] || '' }, rest, tomorrow: { min: Math.round(d.temperature_2m_min[1]), max: Math.round(d.temperature_2m_max[1]), sky: WMO_AR[d.weather_code[1]] || '' } };
+}
+let helperNewsMissing = false;
+async function getNews(manual) {
+  const wx = weatherNow().catch(() => null);
+  let n = null;
+  if (HELPER) {
+    try {
+      const r = await withTimeout(fetch('/api/news' + (manual ? '?test=1' : '')), 15000);
+      helperNewsMissing = r.status === 404;   // a helper that has not updated yet
+      if (r.ok) { n = await r.json(); n.via = 'your PC'; }
+    } catch {}
+  }
+  if (!n || !(n.items || []).length) {   // the helper could not: read the feeds from here
+    const results = await Promise.all(NEWS_SOURCES.map(readSourceHere));
+    const items = pickNews(results, manual);
+    if (items.length || !n) n = { items, via: 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
+  }
+  n.weather = await wx;
+  return n;
+}
+const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
 function arabicBulletin(n) {
-  const h = new Date().getHours(), lines = [`أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
+  const h = new Date().getHours(), lines = [h === 0 ? 'أهلا بكم في نشرة أخبار منتصف الليل.' : `أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
   let topic = '';
   (n.items || []).forEach(x => {
     const head = (x.breaking ? 'عاجل: ' : '') + x.title.replace(/[.؟!]*$/, '') + '.';
@@ -1082,7 +1188,8 @@ function arabicBulletin(n) {
   const w = n.weather;
   if (w && w.now && Number.isFinite(w.now.temp)) {
     lines.push(`وأخيرا، حالة الطقس في مراكش. حاليا ${w.now.sky || 'جو معتدل'}، ودرجة الحرارة ${w.now.temp} درجة.`);
-    if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push(`وغدا ${w.tomorrow.sky || 'جو معتدل'}، والحرارة بين ${w.tomorrow.min} و${w.tomorrow.max} درجة.`);
+    if (w.rest) lines.push((w.rest.night ? 'وفي ما تبقى من الليلة، ' : 'وفي ما تبقى من اليوم، ') + wxLine(w.rest, w.rest.sky));
+    if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push('وغدا، ' + wxLine(w.tomorrow, w.tomorrow.sky));
   }
   lines.push('وكانت هذه أبرز العناوين. شكرا لمتابعتكم.');
   return lines;
@@ -1090,7 +1197,6 @@ function arabicBulletin(n) {
 async function runNews(manual) {
   if (newsOn) return;
   if (!started) { if (manual) toast('Press play first, then try the news.'); return; }
-  if (!HELPER) { if (manual) toast('The news needs the radio running on your PC: the headlines are read there.'); return; }
   newsBack = resumeTarget();
   newsShown = { kind: $('kind').textContent, title: $('title').textContent, artist: $('artist').textContent, chips: $('chips').innerHTML };
   if (globalPaused) clearPause();
@@ -1102,16 +1208,17 @@ async function runNews(manual) {
   $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
   $('vinyl').classList.add('talk'); setLive(true);
   rlog('news', { manual, back: newsBack && newsBack.type });
-  const fetched = fetch('/api/news' + (manual ? '?test=1' : '')).then(r => r.json()).catch(() => null);
+  const fetched = withTimeout(getNews(manual), 45000).catch(() => null);
   await sleep(1300);
   if (id !== runId) return;
   $('capKind').textContent = R.host;
   await say(sub(fresh('newsin', NEWS_IN)), 'h');
   const n = await fetched;
   if (id !== runId) return;
-  if (n && n.sources) { lastNewsSources = n.sources; paintNewsNote(); }
+  if (n) { lastNewsSources = n.sources || null; lastNewsVia = n.via || ''; paintNewsNote(); }
+  rlog('news fetched', { via: n && n.via, items: n && (n.items || []).length, weather: !!(n && n.weather), sources: n && n.sources && n.sources.map(s => s.id + (s.ok ? ':ok' : ':' + s.error)).join(' ') });
   if (!n || (!(n.items || []).length && !(n.weather && n.weather.now))) {
-    await say('The news wires are not answering right now, so no headlines this time. Back to where we were.', 'h');
+    await say('The news sources are not answering right now, so no headlines this time. Back to where we were.', 'h');
     if (id === runId) finishNews();
     return;
   }
@@ -1150,12 +1257,12 @@ setInterval(() => {
   const slot = d.toDateString() + ' ' + d.getHours(); if (slot === lastNewsSlot) return;
   lastNewsSlot = slot; runNews(false);
 }, 5000);
-let lastNewsSources = null;
+let lastNewsSources = null, lastNewsVia = '';
 function paintNewsNote() {
   const n = $('newsNote'); if (!n) return;
-  if (!HELPER) { n.textContent = 'needs the radio on your PC'; return; }
-  if (!lastNewsSources) { n.textContent = 'every 2 hours on the hour, in Arabic'; return; }
-  n.textContent = lastNewsSources.map(x => `${x.name}${x.id === 'bbctech' ? ' tech' : x.id === 'bbcart' ? ' culture' : ''} ${x.ok ? '✓' : '✗ ' + x.error}`).join(' · ');
+  const old = HELPER && helperNewsMissing ? 'Your PC helper is an older version: close the radio completely and open it again to update it. Meanwhile the headlines come through the web. ' : '';
+  if (!lastNewsSources) { n.textContent = old + 'every 2 hours on the hour, in Arabic'; return; }
+  n.textContent = old + (lastNewsVia ? `last news via ${lastNewsVia}: ` : '') + lastNewsSources.map(x => `${x.name}${x.id === 'bbctech' && !/tech/.test(x.name) ? ' tech' : x.id === 'bbcart' && !/culture/.test(x.name) ? ' culture' : ''} ${x.ok ? '✓' : '✗ ' + x.error}`).join(' · ');
 }
 
 // ---------- genre runs: the next 20 to 40 songs come from one genre, then back to the normal mix ----------
@@ -1651,10 +1758,11 @@ $('libQ').onkeydown = e => { if (e.key === 'Escape' && $('libQ').value) { e.stop
 
 function seg(id, k, cast = v => v) { const el = $(id); const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(S[k]) === b.dataset.v)); el.querySelectorAll('button').forEach(b => b.onclick = () => { S[k] = cast(b.dataset.v); paint(); saveLib(); if (k === 'sleep') setSleep(); }); paint(); }
 function setSleep() { sleepAt = S.sleep ? Date.now() + S.sleep * 60000 : 0; if (S.sleep) toast(`Sleep timer set: ${S.sleep} minutes.`); }
-$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segNews', 'news'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
+$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segFade', 'fade', Number); seg('segNews', 'news'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
 $('btnNews').onclick = () => { openSheet(null); runNews(true); };
+$('btnNewsNow').onclick = () => { if (newsOn) endNews(); else runNews(true); };
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
 $('btnReset').onclick = () => { lib.removed.forEach(k => markDeleted('removed', k)); lib.removed = []; buildSongs(); saveLib(); toast('All songs restored.'); };
 
@@ -1680,7 +1788,8 @@ setInterval(() => {
       if (!isPod && d > 60 && rem <= 30) planPreload();
       const trimAt = lib.trim[current.key];
       // end the song a little early (and learn-trim) so trailing silence never reaches you
-      if (!isPod && d > 30 && ((S.trim > 0 && rem <= S.trim) || (trimAt && c >= trimAt))) { console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: trimAt && c >= trimAt ? 4000 : Math.max(2000, Math.round(rem * 1000)) }); }   // fade over what is left of the song
+      if (!isPod && d > 30 && (rem <= Math.max(S.trim || 0, S.fade || 0) || (trimAt && c >= trimAt))) {   // the last seconds fade out under what comes next
+        console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: trimAt && c >= trimAt ? 4000 : Math.max(2000, Math.round(rem * 1000)) }); }   // fade over what is left of the song
     } catch {}
   }
   if (sleepAt && Date.now() > sleepAt) { sleepAt = 0; S.sleep = 0; stopSpeech(); bedOff(); busy = true; (async () => { try { await say('It is time to rest. Goodnight. The world will still be here in the morning, and so will you.', 'h'); await fadeP(P(), 0, 6000); if (current) current._selfPauses = 99; P().pauseVideo(); setVol(P(), S.vol); } catch {} busy = false; })(); }

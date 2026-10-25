@@ -193,6 +193,7 @@ body.mini .app{gap:6px}
     <button class="pill" id="btnAdd">+ Suggest</button>
     <button class="pill" id="btnLib">Library</button>
     <button class="ico" id="btnRun" title="Genre run: play the next 20 to 40 songs from one genre" aria-label="Genre run"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg></button>
+    <button class="ico" id="btnNewsNow" title="The news, now" aria-label="Play the news now"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H6a2 2 0 01-2-2z"/><path d="M17 9h3v8a2 2 0 01-2 2"/><path d="M7 9h7M7 12h7M7 15h4"/></svg></button>
     <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button>
   </div>
 
@@ -277,6 +278,7 @@ body.mini .app{gap:6px}
     <div class="set"><span>Voice</span><select id="voiceSel"></select></div>
     <div class="set"><span>Speaking pace</span><input type="range" id="rate" min="70" max="110" value="90" style="width:120px"></div>
     <div class="set"><span>Sleep timer</span><div class="seg" id="segSleep"><button data-v="0">off</button><button data-v="30">30m</button><button data-v="60">1h</button><button data-v="120">2h</button></div></div>
+    <div class="set"><span>Fade between songs<br><small style="color:var(--mute);font-size:11px;line-height:1.4">the old song fades out under what comes next</small></span><div class="seg" id="segFade"><button data-v="3">3s</button><button data-v="5">5s</button><button data-v="8">8s</button><button data-v="12">12s</button></div></div>
     <div class="set"><span>Trim song endings</span><div class="seg" id="segTrim"><button data-v="0">off</button><button data-v="5">5s</button><button data-v="8">8s</button></div></div>
     <div class="set"><span>Programming</span><span style="color:var(--mute);font-size:12px;text-align:right;line-height:1.5">a 64-song cycle, one big part every 8:<br>ads 8 · long talk 16 · ads 24 · long letter 32<br>ads 40 · conversation 48 · ads 56 · podcast 64<br>plus the news every 2 hours, on the hour</span></div>
     <div class="set"><span>News<br><small id="newsNote" style="color:var(--mute);font-size:11px;line-height:1.4">every 2 hours on the hour, in Arabic</small></span><div style="display:flex;gap:8px;align-items:center;flex:none"><div class="seg" id="segNews"><button data-v="on">on</button><button data-v="off">off</button></div><button class="btn ghost" id="btnNews">Play now</button></div></div>
@@ -328,6 +330,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=97dbb4006a2c21fe"></script>
-<script src="app.js?v=9e84ae351076986f"></script>
+<script src="app.js?v=f016919235474df8"></script>
 </body>
 </html>
