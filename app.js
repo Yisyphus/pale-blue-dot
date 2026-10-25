@@ -1393,7 +1393,11 @@ function parseNews(text, pageUrl, feedOnly) {
   scope.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"], a [class*="title"], article a, a[href*="/article/"], a[href*="/news/"]').forEach(el => {
     const aEl = el.tagName === 'A' ? el : el.closest('a'); if (!aEl) return;
     const inner = el.tagName === 'A' && el.querySelector('h1,h2,h3,h4,h5,[class*="title"]');   // a link around a whole card: its heading is the title
-    const t = (((inner || el).textContent || '').replace(/\s+/g, ' ').trim() || (aEl.getAttribute('title') || '').trim() || ((aEl.querySelector('img') || {}).alt || '').trim())
+    const shown = ((inner || el).textContent || '').replace(/\s+/g, ' ').trim();
+    // a card that shortens its title ("…") often keeps the whole one in the link's tooltip, label or picture description
+    const longer = [aEl.getAttribute('title'), aEl.getAttribute('aria-label'), (aEl.querySelector('img') || {}).alt].map(x => (x || '').replace(/\s+/g, ' ').trim())
+      .filter(x => x.length > shown.replace(/(\.\.\.|…)\s*$/, '').length && /[\u0600-\u06FF]/.test(x) && x.startsWith(shown.replace(/(\.\.\.|…)\s*$/, '').trim().slice(0, 12)));
+    const t = (longer[0] || shown || (aEl.getAttribute('title') || '').trim() || ((aEl.querySelector('img') || {}).alt || '').trim())
       .replace(/\d{1,2}\s+(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\.?\s*\d{0,4}/gi, '').replace(/\d{1,2}:\d{2}\s*-\s*\d{1,2}\/\d{1,2}\/\d{2,4}/g, '').replace(/\s+/g, ' ').trim();
     let href = ''; try { href = new URL(aEl.getAttribute('href') || '', pageUrl).href; } catch { return; }
     const arabic = (t.match(/[؀-ۿ]/g) || []).length;
@@ -1418,6 +1422,27 @@ function parseNews(text, pageUrl, feedOnly) {
 // The relay that worked for a source last time is asked first, alone; only if it fails are the others asked, together.
 // That keeps the number of requests small, which matters on a phone (a browser sends only a few at a time per site).
 const relayMemo = () => { try { return JSON.parse(localStorage.getItem('pbd-relay2') || '{}'); } catch { return {}; } };
+// A headline cut short ("…"): the article's own page has it whole (its heading, or the title it shares with).
+// Only the first few are looked up; one that stays cut is left out rather than read half-finished.
+const CUT = /(\.\.\.|…)\s*$/;
+async function tryRelayFor(url, ri) {
+  const order = [ri, ...RELAYS.keys()].filter((x, i, arr) => arr.indexOf(x) === i && RELAYS[x](url));
+  for (const k of order) { try { const r = await withTimeout(fetch(RELAYS[k](url)), 10000); if (r.ok) return await r.text(); } catch {} }
+  return '';
+}
+async function uncut(items, get) {
+  const cut = items.filter(x => CUT.test(x.title) && /^https?:/.test(x.link)).slice(0, 8);
+  await Promise.all(cut.map(async x => {
+    try {
+      const doc = new DOMParser().parseFromString(await get(x.link), 'text/html');
+      const og = (doc.querySelector('meta[property="og:title"], meta[name="twitter:title"]') || {}).content || '', h1 = (doc.querySelector('h1') || {}).textContent || '';
+      const start = x.title.replace(CUT, '').trim().slice(0, 12);
+      const full = [og, h1].map(t => (t || '').replace(/\s+/g, ' ').replace(/\s*[|\-–—]\s*(Hit ?Radio|هيت راديو).*$/i, '').trim()).find(t => t.length > x.title.length - 3 && t.startsWith(start) && !CUT.test(t));
+      if (full) x.title = full;
+    } catch {}
+  }));
+  return items.filter(x => !CUT.test(x.title));
+}
 async function readSourceHere(src) {
   let err = 'no answer';
   const memo = relayMemo();
@@ -1440,7 +1465,8 @@ async function readSourceHere(src) {
         if (!got) got = await Promise.any(all.filter(i => i !== pref).map(i => tryRelay(i, 15000)));
       }
       if (mobileWeb() && got.ri !== pref) { const m = relayMemo(); m[u] = got.ri; try { localStorage.setItem('pbd-relay2', JSON.stringify(m)); } catch {} }
-      return { ok: true, items: got.it.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
+      const it = await uncut(got.it, url => tryRelayFor(url, got.ri));
+      return { ok: true, items: it.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
     } catch (e) { err = (e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e); }
   }
   return { ok: false, error: err, items: [] };
