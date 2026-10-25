@@ -228,7 +228,11 @@ let curAudio = null;
 const splitParts = text => (text.match(/[^.!?…؟]+[.!?…؟]+["')\]]*\s*|[^.!?…؟]+$/g) || [text]).map(s => s.trim()).filter(Boolean);
 
 // Speak a block of text. All sentences are queued at once so there is no gap between them.
-// The online voice (Google): through the PC helper when there is one; on the web, the page asks Google directly.
+// The website opened on a phone (no PC helper). Everything made for phones (the checked Arabic voice, the unlocked
+// audio player, the online voice asked directly, the gentler way of fetching the news) applies only there; the PC
+// and computer browsers keep working exactly as before.
+const mobileWeb = () => !HELPER && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+// The online voice (Google): through the PC helper when there is one; on a phone, the page asks Google directly.
 // It takes at most about 200 characters at a time, so long lines are cut at commas, then at spaces.
 const ttsUrl = (q, tl) => HELPER ? '/api/tts?q=' + encodeURIComponent(q) + (tl === 'ar' ? '&tl=ar' : '')
   : 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' + tl + '&q=' + encodeURIComponent(q);
@@ -271,7 +275,7 @@ function speakDevice(part, v, id) {   // true when the voice really spoke (it st
 // Play or on the news buttons (a tenth of a second of silence), and reused for every sentence after that.
 const ttsPlayer = new Audio(); ttsPlayer.preload = 'auto';
 const SILENT_WAV = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-function unlockAudio() { try { ttsPlayer.src = SILENT_WAV; const p = ttsPlayer.play(); if (p) p.catch(() => {}); } catch {} }
+function unlockAudio() { if (!mobileWeb()) return; try { ttsPlayer.src = SILENT_WAV; const p = ttsPlayer.play(); if (p) p.catch(() => {}); } catch {} }
 let lastAudioError = '';
 function playOnline(url, id) {   // true when the audio really played
   return new Promise(res => {
@@ -318,7 +322,8 @@ function say(text, who = 'h') {
     let budget = parts.reduce((n, p) => n + Math.max(2500, p.length * 130), 6000);   // safety net; time spent paused does not count
     guard = setInterval(() => { if (!globalPaused && (budget -= 250) <= 0) done(); }, 250);
     if (!hv) { // online fallback, with the next sentences preloaded
-      const auds = onlineChunks(parts).map(p => { const a = new Audio(ttsUrl(p, who === 'ar' ? 'ar' : 'en-GB')); a.preload = 'auto'; a.playbackRate = who === 'ar' ? 1 : who !== 'h' ? 0.88 : 0.95; a._text = p; return a; });
+      const m = mobileWeb(), src = p => m ? ttsUrl(p, who === 'ar' ? 'ar' : 'en-GB') : '/api/tts?q=' + encodeURIComponent(p) + (who === 'ar' ? '&tl=ar' : '');
+      const auds = (m ? onlineChunks(parts) : parts.slice()).map(p => { const a = new Audio(src(p)); a.preload = 'auto'; a.playbackRate = who === 'ar' ? 1 : who !== 'h' ? 0.88 : 0.95; a._text = p; return a; });
       parts.length = 0; auds.forEach(x => parts.push(x._text));
       let i = 0;
       const nextA = () => { if (id !== runId || i >= auds.length) return done(); const a = auds[i]; $('capText').textContent = parts[i]; i++; curAudio = a; a.onended = nextA; a.onerror = nextA; a.play().catch(nextA); };
@@ -1355,9 +1360,12 @@ async function readSourceHere(src) {
     const all = RELAYS.map((f, i) => f(u) ? i : -1).filter(i => i >= 0), pref = memo[u];
     try {
       let got = null;
-      if (all.includes(pref)) { try { got = await tryRelay(pref, 9000); } catch {} }
-      if (!got) got = await Promise.any(all.filter(i => i !== pref).map(i => tryRelay(i, 15000)));
-      if (got.ri !== pref) { const m = relayMemo(); m[u] = got.ri; try { localStorage.setItem('pbd-relay2', JSON.stringify(m)); } catch {} }
+      if (!mobileWeb()) got = await Promise.any(all.map(i => tryRelay(i, 10000)));   // PC and computers: every relay at once
+      else {   // a phone: the relay that worked last time first, alone, then the others
+        if (all.includes(pref)) { try { got = await tryRelay(pref, 9000); } catch {} }
+        if (!got) got = await Promise.any(all.filter(i => i !== pref).map(i => tryRelay(i, 15000)));
+      }
+      if (mobileWeb() && got.ri !== pref) { const m = relayMemo(); m[u] = got.ri; try { localStorage.setItem('pbd-relay2', JSON.stringify(m)); } catch {} }
       return { ok: true, items: got.it.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
     } catch (e) { err = (e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e); }
   }
@@ -1410,7 +1418,7 @@ const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغا
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
 async function weatherNow() {
   const u = 'https://api.open-meteo.com/v1/forecast?latitude=31.63&longitude=-8.01&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Africa%2FCasablanca&forecast_days=2';
-  const j = await (await withTimeout(fetch(u), 15000)).json();
+  const j = await (await withTimeout(fetch(u), mobileWeb() ? 15000 : 10000)).json();
   const c = j.current, d = j.daily, h = j.hourly, today = c.time.slice(0, 10), hourNow = +c.time.slice(11, 13);
   const later = h.time.map((t, i) => ({ t, temp: h.temperature_2m[i], code: h.weather_code[i] })).filter(x => x.t.slice(0, 10) === today && +x.t.slice(11, 13) > hourNow);
   const rest = later.length >= 2 ? { min: Math.round(Math.min(...later.map(x => x.temp))), max: Math.round(Math.max(...later.map(x => x.temp))), sky: WMO_AR[Math.max(...later.map(x => x.code))] || '', night: hourNow >= 18 } : null;
@@ -1420,7 +1428,7 @@ let helperNewsMissing = false;
 async function getNews(manual) {
   const wx = weatherNow().catch(() => null);
   helperNewsMissing = false;
-  const results = await inBatches(NEWS_SOURCES, HELPER ? 12 : 6, readSourceHere);
+  const results = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, readSourceHere);
   return { items: pickNews(results, manual), weather: await wx, via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
 }
 const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
@@ -1456,16 +1464,16 @@ async function runNews(manual) {
   $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
   $('vinyl').classList.add('talk'); setLive(true);
   rlog('news', { manual, back: newsBack && newsBack.type, arabicVoice: arWho() });
-  const fetched = withTimeout(getNews(manual), 75000).catch(() => null);
+  const fetched = withTimeout(getNews(manual), mobileWeb() ? 75000 : 45000).catch(() => null);
   await sleep(1300);
   if (id !== runId) return;
   $('capKind').textContent = R.host;
   await say(sub(fresh('newsin', NEWS_IN)), 'h');
   let ready = false; fetched.then(() => { ready = true; });
-  await sleep(1500);
-  if (!ready && id === runId) { bedOn(); await say(fresh('newswait', ['The headlines are coming in. One moment.', 'One moment, the news is on its way.', 'The wires are still coming in. Bear with me.']), 'h'); }   // a slow connection: no silence
+  if (mobileWeb()) await sleep(1500);
+  if (!ready && id === runId && mobileWeb()) { bedOn(); await say(fresh('newswait', ['The headlines are coming in. One moment.', 'One moment, the news is on its way.', 'The wires are still coming in. Bear with me.']), 'h'); }   // a slow connection: no silence
   const n = await fetched;
-  bedOff(0.8);
+  if (mobileWeb()) bedOff(0.8);
   if (id !== runId) return;
   if (n) { lastNewsSources = n.sources || null; lastNewsVia = n.via || ''; paintNewsNote(); }
   rlog('news fetched', { via: n && n.via, items: n && (n.items || []).length, weather: !!(n && n.weather), sources: n && n.sources && n.sources.map(s => s.id + (s.ok ? ':ok' : ':' + s.error)).join(' ') });
@@ -1478,7 +1486,7 @@ async function runNews(manual) {
   if (id !== runId) return;
   $('capKind').textContent = 'الأخبار';
   for (const line of arabicBulletin(n)) {
-    await sayArabic(line);
+    if (mobileWeb()) await sayArabic(line); else await say(line, 'ar');
     if (id !== runId) return;
     await sleep(350);
   }
