@@ -1286,10 +1286,11 @@ const NEWS_SOURCES = [
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
   { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
-  // from SNRT's cultural page, only its "المواعيد القادمة" (upcoming events): one, with its date
-  { id: 'snrtevents', name: 'SNRT upcoming events', topic: 'art', take: 1, events: true, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
-  // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days)
-  { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, urls: ['https://hitradio.ma/news'] },
+  // from SNRT's cultural page, only its "المواعيد القادمة" (upcoming events): two, with their dates
+  { id: 'snrtevents', name: 'SNRT upcoming events', topic: 'art', take: 2, events: true, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
+  // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days), and only about
+  // art (songs, films, festivals, culture): it also posts politics and sport, which are left out
+  { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, only: 'art', noPolitics: true, urls: ['https://hitradio.ma/news'] },
   { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
   { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
@@ -1302,7 +1303,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 9], ['trend', 4]];   // art: BBC 4, Hit Radio 4, one upcoming event   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 10], ['trend', 4]];   // art: BBC 4, Hit Radio 4, two upcoming events   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
@@ -1315,6 +1316,7 @@ const TECH_RX = /ذكاء الاصطناعي|ذكاء اصطناعي|تكنول�
 const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنون|لفن(?![؀-ۿ])|سينما|سينمائي|فيلم|أفلام|مهرجان|معرض فني|معرض تشكيلي|تشكيلي|لمسرح(?! الجريمة)|مسرحي|ثقاف|رواية|روائي|لشعر(?![؀-ۿ])|شاعر|قصيدة|ألبوم|حفل غنائي|حفلا غنائيا|\/culture\/|\/arts?\/|\/art-?and-?culture/i;
 // trending on social media: viral videos, trends and online debates
 const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|مؤثر|مؤثرة|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
+const POLITICS_RX = /جلالة الملك|الملك محمد|ولي العهد|الأمير|الانتخابات|انتخابات|التشريعية|البرلمان|مجلس النواب|مجلس المستشارين|الحكومة|رئيس الحكومة|وزير|وزارة|حزب|الأحزاب|سياسي|سياسة|يعين|تعيين|دبلوماسي|سفير/;
 const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
 const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
@@ -1466,6 +1468,8 @@ function pickNews(results, test) {
     lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
       .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
       .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
+      .filter(x => NEWS_SOURCES[i].only !== 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))   // a mixed source: only its stories on the topic
+      .filter(x => !NEWS_SOURCES[i].noPolitics || !POLITICS_RX.test(x.title))
       .sort((p, q) => q.breaking - p.breaking);   // breaking first, then the order the source gives (its top stories)
   });
   const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
@@ -1485,7 +1489,7 @@ function pickNews(results, test) {
     const tiers = [x => isNew(x) && recent(x), x => recent(x), () => true];   // new; then already read; then older
     tiers.forEach((tier, ti) => {
       if (ti === 0) own.forEach(s => all(s.id).filter(tier).slice(0, s.take).forEach(take));   // each source's share
-      own.forEach(s => all(s.id).filter(tier).slice(0, s.events ? s.take : undefined).forEach(take));   // only one upcoming event
+      own.forEach(s => all(s.id).filter(tier).slice(0, s.events ? s.take : undefined).forEach(take));   // never more upcoming events than asked
       elsewhere().filter(tier).forEach(take);
     });
   });
