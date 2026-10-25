@@ -260,14 +260,14 @@ const AR_ONLINE = [
 ];
 let arDeviceBroken = false, arOnlineFirst = 0;
 const arWho = () => { const v = !arDeviceBroken && arabicVoice(); return v ? v.name : AR_ONLINE[arOnlineFirst].name; };
-function speakDevice(part, v, id) {   // true when the voice really spoke (it started, and took a plausible time)
+function speakDevice(part, v, alive) {   // true when the voice really spoke (it started, and took a plausible time)
   return new Promise(res => {
     let u; try { u = new SpeechSynthesisUtterance(part); u.voice = v; u.lang = v.lang; u.rate = 0.95; } catch { return res(false); }
     let began = 0, over = false; const end = ok => { if (over) return; over = true; clearInterval(t); res(ok); };
-    let left = Math.max(4000, part.length * 200); const t = setInterval(() => { if (id !== runId) { speechSynthesis.cancel(); end(true); } else if (!globalPaused && (left -= 250) <= 0) end(!!began); }, 250);
+    let left = Math.max(4000, part.length * 200); const t = setInterval(() => { if (!alive()) { speechSynthesis.cancel(); end(true); } else if (!globalPaused && (left -= 250) <= 0) end(!!began); }, 250);
     u.onstart = () => { began = Date.now(); if (globalPaused) { try { speechSynthesis.pause(); } catch {} } };
     u.onend = () => end(!!began && (Date.now() - began > Math.min(600, part.length * 25)));
-    u.onerror = () => end(false);
+    u.onerror = () => end(!alive());   // cancelled by an arrow or by Next: not the voice's fault
     try { speechSynthesis.speak(u); } catch { end(false); }
   });
 }
@@ -277,37 +277,37 @@ const ttsPlayer = new Audio(); ttsPlayer.preload = 'auto';
 const SILENT_WAV = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 function unlockAudio() { if (!mobileWeb()) return; try { ttsPlayer.src = SILENT_WAV; const p = ttsPlayer.play(); if (p) p.catch(() => {}); } catch {} }
 let lastAudioError = '';
-function playOnline(url, id) {   // true when the audio really played
+function playOnline(url, alive) {   // true when the audio really played
   return new Promise(res => {
     const a = ttsPlayer; let played = false, over = false; curAudio = a;
     const end = (ok, why) => { if (over) return; over = true; clearInterval(t); a.onplaying = a.onended = a.onerror = null; if (!ok && why) lastAudioError = why; res(ok); };
     a.onplaying = () => { played = true; };
     a.onended = () => end(played && a.currentTime > 0.3, 'ended without sound');
     a.onerror = () => end(false, 'media error ' + (a.error ? a.error.code : '?') + (a.error && a.error.code === 4 ? ' (blocked or not audio)' : a.error && a.error.code === 2 ? ' (network)' : ''));
-    let left = 20000; const t = setInterval(() => { if (id !== runId) { try { a.pause(); } catch {} end(true); } else if (!globalPaused && !played && (left -= 250) <= 0) end(false, 'no answer in 20 s'); }, 250);
+    let left = 20000; const t = setInterval(() => { if (!alive()) { try { a.pause(); } catch {} end(true); } else if (!globalPaused && !played && (left -= 250) <= 0) end(false, 'no answer in 20 s'); }, 250);
     try { a.src = url; const p = a.play(); if (p) p.catch(e => end(false, (e && e.name) + (e && e.name === 'NotAllowedError' ? ' (the browser blocked sound that did not start from a tap)' : ''))); } catch (e) { end(false, String(e)); }
   });
 }
 async function sayArabic(text) {
-  const id = runId; speaking = true;
+  const id = runId, tok = newsLineTok, alive = () => id === runId && tok === newsLineTok; speaking = true;
   for (const part of splitParts(text)) {
-    if (id !== runId) break;
+    if (!alive()) break;
     $('capText').textContent = part;
     const v = !arDeviceBroken && arabicVoice();
     if (v) {
-      if (await speakDevice(part, v, id)) continue;
-      if (id !== runId) break;
+      if (await speakDevice(part, v, alive)) continue;
+      if (!alive()) break;
       arDeviceBroken = true; speechSynthesis.cancel(); rlog('arabic voice on this device is silent, using an online voice', { voice: v.name + ' (' + v.lang + ')' });
     }
     let ok = false;
-    for (let k = 0; k < AR_ONLINE.length && !ok && id === runId; k++) {
+    for (let k = 0; k < AR_ONLINE.length && !ok && alive(); k++) {
       const src = AR_ONLINE[(arOnlineFirst + k) % AR_ONLINE.length];
       ok = true;
-      for (const chunk of onlineChunks([part])) { if (id !== runId) break; if (!(await playOnline(src.url(chunk), id))) { ok = false; break; } }
+      for (const chunk of onlineChunks([part])) { if (!alive()) break; if (!(await playOnline(src.url(chunk), alive))) { ok = false; break; } }
       if (ok) arOnlineFirst = (arOnlineFirst + k) % AR_ONLINE.length;
       else rlog('online arabic voice failed', { voice: src.name, why: lastAudioError });
     }
-    if (!ok && id === runId) { rlog('no arabic voice could speak', { part: part.slice(0, 40) }); toast('No Arabic voice could speak here. See Settings > Playback report.'); }
+    if (!ok && alive()) { rlog('no arabic voice could speak', { part: part.slice(0, 40) }); toast('No Arabic voice could speak here. See Settings > Playback report.'); }
   }
   speaking = false;
 }
@@ -1286,8 +1286,9 @@ const NEWS_SOURCES = [
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
   { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
-  { id: 'snrtculture', name: 'SNRT culture', topic: 'art', take: 2, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
-  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
+  // from SNRT's cultural page, only its "المواعيد القادمة" (upcoming events): one, with its date
+  { id: 'snrtevents', name: 'SNRT upcoming events', topic: 'art', take: 1, events: true, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
+  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
   { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
   { id: 'bbctopic', name: 'BBC Arabic social media', topic: 'trend', take: 2, urls: ['https://www.bbc.com/arabic/topics/c6vzyk7dg8zt'] },
@@ -1299,7 +1300,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 4]];   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 5], ['trend', 4]];   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
@@ -1317,6 +1318,44 @@ const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
 // A feed (RSS, Atom, or rss2json), or else a news page: its headlines are the links whose text reads like one
 // (mostly Arabic, a real sentence, pointing to an article on the same site), in the order the page shows them.
+// "المواعيد القادمة" on a page: the block under that heading, each item read as a title and its date
+const AR_MONTHS = 'يناير|فبراير|مارس|أبريل|ابريل|ماي|مايو|يونيو|يوليوز|يوليو|غشت|أغسطس|اغسطس|شتنبر|سبتمبر|أكتوبر|اكتوبر|نونبر|نوفمبر|دجنبر|ديسمبر';
+const AR_MONTH_N = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي', 'يونيو', 'يوليوز', 'غشت', 'شتنبر', 'أكتوبر', 'نونبر', 'دجنبر'];
+const DATE_RX = new RegExp(`((?:من\\s*)?\\d{1,2}(?:\\s*(?:${AR_MONTHS}))?(?:\\s*\\d{4})?\\s*(?:إلى|الى|-|و)\\s*\\d{1,2}\\s*(?:${AR_MONTHS})(?:\\s*\\d{4})?|(?:من\\s*)?\\d{1,2}\\s*(?:${AR_MONTHS})(?:\\s*\\d{4})?|\\d{1,2}[/.\\-]\\d{1,2}(?:[/.\\-]\\d{2,4})?)`);
+const sayDate = d => d.replace(/^(\d{1,2})[/.\-](\d{1,2})(?:[/.\-](\d{2,4}))?$/, (m, dd, mm, yy) => `${+dd} ${AR_MONTH_N[+mm - 1] || mm}${yy ? ' ' + (yy.length === 2 ? '20' + yy : yy) : ''}`);
+function parseEvents(text, pageUrl) {
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  const head = [...doc.querySelectorAll('h1,h2,h3,h4,h5,h6,span,div,p,strong')].find(el => /المواعيد القادمة/.test(el.textContent) && el.textContent.trim().length < 40);
+  if (!head) throw new Error('no "المواعيد القادمة" on the page');
+  let box = head.parentElement;
+  for (let k = 0; k < 4 && box && !box.querySelector('a, li, article'); k++) box = box.parentElement;
+  if (!box) throw new Error('no events under "المواعيد القادمة"');
+  const items = [...box.querySelectorAll('li, article, a, [class*="item"], [class*="card"]')].filter(el => !el.contains(head) && el !== head);
+  const out = [], seen = new Set();
+  items.forEach(el => {
+    const all = (el.textContent || '').replace(/\s+/g, ' ').trim(); if (!all || all.length > 300) return;
+    const dm = all.match(DATE_RX), date = dm ? sayDate(dm[1].trim()).replace(/(^|\D)0(\d)/g, '$1$2') : '';   // "04 دجنبر" is said "4 دجنبر"
+    const titleEl = el.querySelector('h1,h2,h3,h4,h5,[class*="title"]') || el;
+    let t = (titleEl.textContent || '').replace(/\s+/g, ' ').trim(); if (dm) t = t.replace(dm[1], '').replace(/\s+/g, ' ').trim();
+    t = t.replace(/^[\s:،\-–—|]+|[\s:،\-–—|]+$/g, '');
+    if (t.length < 8 || (t.match(/[؀-ۿ]/g) || []).length < t.length * 0.5 || seen.has(t)) return;
+    seen.add(t); out.push({ title: t, date, event: true, link: pageUrl + '#e' + out.length, cats: '', when: 0 });
+  });
+  if (!out.length) throw new Error('no events under "المواعيد القادمة"');
+  return out;
+}
+// What on a news page is NOT the section's own news: menus, the page footer, side boxes, and the breaking-news ticker
+// (on SNRT it mixes every topic, sport included). If the page has a "آخر الأخبار" heading, only that block is read.
+const NOISE_LABELS = /^(الأخبار العاجلة|أخبار عاجلة|ملف الشهر|الأكثر قراءة|الأكثر مشاهدة|اقرأ أيضا|مواضيع ذات صلة)$/;   // not "عاجل": that is also a badge on real articles
+function newsScope(doc) {
+  doc.querySelectorAll('nav, footer, aside, body > header, [class*="ticker"], [id*="ticker"], [class*="breaking"], [class*="urgent"], [class*="marquee"], [class*="menu"]').forEach(el => el.remove());
+  [...doc.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong,a')].filter(el => NOISE_LABELS.test((el.textContent || '').trim())).forEach(el => { const box = el.parentElement; if (box && box !== doc.body) box.remove(); });
+  const latest = [...doc.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong')].find(el => /^(آخر|أخر|اخر) الأخبار$/.test((el.textContent || '').trim()));
+  if (!latest) return doc;
+  let box = latest.parentElement;
+  for (let k = 0; k < 5 && box && box.querySelectorAll('a[href]').length < 3; k++) box = box.parentElement;
+  return box || doc;
+}
 function parseNews(text, pageUrl, feedOnly) {
   if (/^\s*\{/.test(text)) {   // rss2json
     const j = JSON.parse(text); if (j.status !== 'ok') throw new Error(j.message || 'relay refused');
@@ -1334,15 +1373,25 @@ function parseNews(text, pageUrl, feedOnly) {
   if (feedOnly) throw new Error('no feed at this address');   // never read headlines off an error page
   if (!/<html|<body|<a\s/i.test(text)) throw new Error('not a page');
   const doc = new DOMParser().parseFromString(text, 'text/html'), host = new URL(pageUrl).hostname.replace(/^www\./, ''), seen = new Set(), out = [];
-  doc.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"], a [class*="title"], article a').forEach(el => {
+  const scope = newsScope(doc);
+  scope.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"], a [class*="title"], article a, a[href*="/article/"], a[href*="/news/"]').forEach(el => {
     const aEl = el.tagName === 'A' ? el : el.closest('a'); if (!aEl) return;
-    const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    const t = ((el.textContent || '').replace(/\s+/g, ' ').trim()) || (aEl.getAttribute('title') || '').trim() || ((aEl.querySelector('img') || {}).alt || '').trim();
     let href = ''; try { href = new URL(aEl.getAttribute('href') || '', pageUrl).href; } catch { return; }
     const arabic = (t.match(/[؀-ۿ]/g) || []).length;
     if (t.length < 25 || t.length > 220 || arabic < t.replace(/\s/g, '').length * 0.6 || t.split(' ').length < 4) return;
     if (!href.includes(host) || /\/(tag|cat|category|article-category|author|page)\//.test(href) || seen.has(href) || seen.has(t)) return;
     seen.add(href); seen.add(t); out.push({ title: t, link: href, cats: '', when: 0 });
   });
+  if (!out.length) {   // a page built by scripts: its titles are often kept in the page's data
+    const rx = /"(?:title|headline|name)"\s*:\s*"((?:[^"\\]|\\.){25,220})"/g; let m;
+    while ((m = rx.exec(text)) && out.length < 30) {
+      let t = m[1]; try { t = JSON.parse('"' + t + '"'); } catch {}
+      t = t.replace(/\s+/g, ' ').trim();
+      if ((t.match(/[\u0600-\u06FF]/g) || []).length < t.replace(/\s/g, '').length * 0.6 || t.split(' ').length < 4 || seen.has(t)) continue;
+      seen.add(t); out.push({ title: t, link: pageUrl + '#d' + out.length, cats: '', when: 0 });
+    }
+  }
   return out;
 }
 // The relay that worked for a source last time is asked first, alone; only if it fails are the others asked, together.
@@ -1357,7 +1406,7 @@ async function readSourceHere(src) {
       const r = await fetch(url);
       if (url.startsWith('/api/fetch') && r.status === 404) helperNewsMissing = true;   // a helper that has not updated yet
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const it = parseNews(await r.text(), u, /\/feed$|rss|outboundfeeds/.test(u));
+      const body = await r.text(), it = src.events ? parseEvents(body, u) : parseNews(body, u, /\/feed$|rss|outboundfeeds/.test(u));
       if (!it.length) throw new Error('no headlines');
       return { it, ri };
     })(), ms);
@@ -1398,6 +1447,7 @@ function pickNews(results, test) {
   });
   const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
   const GENERAL = NEWS_SOURCES.filter(s => ['moroccoaj', 'morocco', 'world'].includes(s.topic)).map(s => s.id);
+  const MOROCCAN = NEWS_SOURCES.filter(s => s.local && !s.events).map(s => s.id);   // أخبار المغرب is filled only from Moroccan sources
   const used = new Set(), picked = [];
   NEWS_PLAN.forEach(([topic, n]) => {
     const start = picked.length, room = () => picked.length - start < n;
@@ -1405,18 +1455,20 @@ function pickNews(results, test) {
     const own = NEWS_SOURCES.filter(s => s.topic === topic);
     const rx = { tech: TECH_RX, techworld: TECH_RX, art: ART_RX, trend: SOCIAL_RX }[topic];
     // headlines from elsewhere that fit this section
-    const elsewhere = () => rx ? NEWS_SOURCES.filter(s => topic !== 'tech' || s.local).flatMap(s => all(s.id)).filter(x => rx.test(text(x)))
-      : topic === 'marrakech' ? Object.values(lists).flat().filter(x => /مراكش/.test(x.title))
+    const elsewhere = () => rx ? NEWS_SOURCES.filter(s => (topic !== 'tech' || s.local) && !s.events).flatMap(s => all(s.id)).filter(x => rx.test(text(x)))
+      : topic === 'marrakech' ? Object.values(lists).flat().filter(x => !x.event && /مراكش/.test(x.title))
+      : topic === 'moroccoaj' ? MOROCCAN.flatMap(all)
       : GENERAL.flatMap(all);
     const tiers = [x => isNew(x) && recent(x), x => recent(x), () => true];   // new; then already read; then older
     tiers.forEach((tier, ti) => {
       if (ti === 0) own.forEach(s => all(s.id).filter(tier).slice(0, s.take).forEach(take));   // each source's share
-      own.forEach(s => all(s.id).filter(tier).forEach(take));
+      own.forEach(s => all(s.id).filter(tier).slice(0, s.events ? s.take : undefined).forEach(take));   // only one upcoming event
       elsewhere().filter(tier).forEach(take);
     });
   });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
-  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking }));
+  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking, event: x.event, date: x.date }))
+    .sort((p, q) => (p.topic === q.topic ? !!p.event - !!q.event : 0));   // the upcoming event closes the art section
 }
 const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
@@ -1436,12 +1488,17 @@ async function getNews(manual) {
   return { items: pickNews(results, manual), weather: await wx, via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
 }
 const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
+// Said as words, not letters: كلغ is a kilogram, كلم a kilometre; Marrakech is voweled so it sounds Murrākush
+const AR_UNIT = { 'كلغ': 'كيلوغرام', 'كغ': 'كيلوغرام', 'كلم': 'كيلومتر', 'ملم': 'مليمتر', 'سنتم': 'سنتيمتر' };
+const spokenArabic = l => l.replace(/مراكش/g, 'مُرّاكُش')
+  .replace(/(^|[^\u0600-\u06FF])(بال|لل|ال|ب|ل|و)?(كلغ|كغ|كلم|ملم|سنتم)(?=$|[^\u0600-\u06FF])/g, (m, pre, pfx, u) => pre + (pfx || '') + AR_UNIT[u])
+  .replace(/(\d)\s*[%٪]/g, '$1 في المائة').replace(/(\d)\s*°/g, '$1 درجة');
 function arabicBulletin(n) {
   const h = new Date().getHours(), lines = [h === 0 ? 'أهلا بكم في نشرة أخبار منتصف الليل.' : `أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
   let label = '';   // a heading is said once, when it changes
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
-    const head = (x.breaking ? 'عاجل: ' : '') + title.replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
+    const head = x.event ? `ومن المواعيد الثقافية القادمة: ${x.title.replace(/\s*(\.{2,}|…)\s*/g, '، ')}${x.date ? '، ' + x.date : ''}.` : (x.breaking ? 'عاجل: ' : '') + title.replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
     lines.push(l && l !== label ? `${l}: ${head}` : head);
     label = l;
   });
@@ -1452,7 +1509,7 @@ function arabicBulletin(n) {
     if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push('وغدا، ' + wxLine(w.tomorrow, w.tomorrow.sky));
   }
   lines.push('كانت هذه أبرز العناوين. شكرا لمتابعتكم.');
-  return lines.map(l => l.replace(/مراكش/g, 'مُرّاكُش'));   // voweled, so the voice says Murrākush, not Marākish
+  return lines.map(spokenArabic);   // voweled, so the voice says Murrākush, not Marākish
 }
 async function runNews(manual) {
   if (newsOn) return;
@@ -1489,23 +1546,41 @@ async function runNews(manual) {
   await newsJingleRun();
   if (id !== runId) return;
   $('capKind').textContent = 'الأخبار';
-  for (const line of arabicBulletin(n)) {
-    if (mobileWeb()) await sayArabic(line); else await say(line, 'ar');
-    if (id !== runId) return;
-    await sleep(350);
+  const lines = arabicBulletin(n);
+  newsArrows(true);
+  for (let li = 0; li < lines.length; ) {
+    newsAt = li; newsJump = 0; const tok = ++newsLineTok;
+    await Promise.race([mobileWeb() ? sayArabic(lines[li]) : say(lines[li], 'ar'), new Promise(r => { newsSkipTo = r; })]);
+    if (id !== runId) { newsArrows(false); return; }
+    if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); continue; }   // an arrow: that headline right away
+    if (tok !== newsLineTok) continue;
+    li++; await sleep(350);
   }
+  newsArrows(false);
   await newsJingleRun();
   if (id !== runId) return;
   $('capKind').textContent = R.host;
   await say(sub(fresh('newsout', NEWS_OUT)), 'h');
   if (id === runId) finishNews();
 }
+// ‹ and › in the caption box, only while the headlines are read: the previous headline, or the next one
+let newsAt = 0, newsJump = 0, newsLineTok = 0, newsSkipTo = null;
+function newsArrows(on) { ['newsPrev', 'newsNext'].forEach(i => { const b = $(i); if (b) b.style.display = on ? '' : 'none'; }); $('cap').classList.toggle('arrows', !!on); }
+function newsStep(d) {
+  if (!newsOn) return;
+  newsJump = d; newsLineTok++;
+  try { speechSynthesis.cancel(); } catch {} try { if (curAudio) curAudio.pause(); } catch {}
+  if (newsSkipTo) { const r = newsSkipTo; newsSkipTo = null; r(); }
+}
+$('newsPrev').onclick = e => { e.stopPropagation(); newsStep(-1); };
+$('newsNext').onclick = e => { e.stopPropagation(); newsStep(1); };
 function endNews() {   // Next during the news
   if (!newsOn) return;
   stopSpeech(); if (newsJingle) { try { newsJingle.stop(); } catch {} newsJingle = null; }
   finishNews();
 }
 function finishNews() {
+  newsArrows(false);
   const back = newsBack; newsOn = false; newsBack = null; busy = false;
   $('vinyl').classList.remove('talk'); caption(R.host, '');
   if (newsShown) { $('kind').textContent = newsShown.kind; $('title').textContent = newsShown.title; $('artist').textContent = newsShown.artist; $('chips').innerHTML = newsShown.chips; newsShown = null; }
@@ -2026,6 +2101,14 @@ $('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('s
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
 $('btnNews').onclick = () => { unlockAudio(); openSheet(null); runNews(true); };
+$('btnNewsCheck').onclick = async () => {
+  $('reportText').textContent = 'Asking every source… this can take up to a minute.'; openSheet('shReport');
+  const res = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, readSourceHere);
+  $('reportText').textContent = `News sources, checked ${new Date().toLocaleString('en-GB')}\n\n` + NEWS_SOURCES.map((s, i) => {
+    const r = res[i]; if (!r.ok) return `✗ ${s.name}: ${r.error}\n   ${decodeURI(s.urls[s.urls.length - 1])}`;
+    return `✓ ${s.name}: ${r.items.length} found\n` + r.items.slice(0, 4).map(x => `   · ${x.title}${x.date ? ' (' + x.date + ')' : ''}`).join('\n');
+  }).join('\n\n');
+};
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
