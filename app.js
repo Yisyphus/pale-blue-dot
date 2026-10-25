@@ -871,6 +871,7 @@ async function renderAds() {
   if (HELPER) { try { items = (await (await fetch('/api/ads/all')).json()).items || []; } catch {} }
   else if (cloudAds) items = parseJ(cloudAds.pool, []);
   const on = items.filter(v => !v.removed), off = items.filter(v => v.removed);
+  adListed = { on, off };
   $('adCount').textContent = `· ${on.length} playing, ${off.length} removed`;
   const l = $('adList'); l.innerHTML = '';
   const shown = adTab === 'on' ? on : off;
@@ -907,6 +908,14 @@ async function adGo() {
     });
   } catch { $('adRes').innerHTML = '<p style="color:var(--mute)">Nothing found. Try other words, or paste a YouTube link.</p>'; }
 }
+// Every commercial as a numbered line with its YouTube link, ready to paste into a message
+let adListed = { on: [], off: [] };
+$('adCopy').onclick = async () => {
+  const line = (v, i) => `${i + 1}. ${v.title} (${fmtSec(v.seconds) || '?'}) https://www.youtube.com/watch?v=${v.id}`;
+  const text = `Commercials playing (${adListed.on.length}):\n${adListed.on.map(line).join('\n')}` + (adListed.off.length ? `\n\nRemoved (${adListed.off.length}):\n${adListed.off.map(line).join('\n')}` : '');
+  try { await navigator.clipboard.writeText(text); toast(`Copied ${adListed.on.length + adListed.off.length} commercials. Paste them anywhere.`); }
+  catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast('Copied.'); } catch { toast('Could not copy here.'); } t.remove(); }
+};
 function openAds() { $('adRes').innerHTML = ''; renderAds(); openSheet('shAds'); }
 
 async function runSegments(segs, id) {
