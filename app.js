@@ -65,11 +65,13 @@ function mergeLib(a, b) {
   ['cache', 'trim', 'bad'].forEach(k => { out[k] = Object.assign({}, older[k], newer[k]); });
   out.labels = Object.assign({}, older.labels);   // labels: per song, the most recently edited wins
   Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
+  out.adCleanups = [...new Set([...(older.adCleanups || []), ...(newer.adCleanups || [])])];
+  out.adsHidden = [...new Set([...(older.adsHidden || []), ...(newer.adsHidden || [])])];
   out.b = Math.max(older.b || 0, newer.b || 0);
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts)]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 async function syncWithCloud() {
   try {
@@ -865,17 +867,26 @@ $('btnAdRemove').onclick = async () => {   // the ad that is playing right now
   if (breakSkip) { const b = breakSkip; breakSkip = null; b(); }
 };
 const fmtSec = s => s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : '';
+async function allAds() {
+  if (HELPER) { try { return (await (await fetch('/api/ads/all')).json()).items || []; } catch { return []; } }
+  return cloudAds ? parseJ(cloudAds.pool, []) : [];
+}
+// "Clear the list" hides removed ads from the Removed tab; they stay removed (forgetting them would bring them back)
+const adHidden = () => new Set(lib.adsHidden || []);
 async function renderAds() {
   document.querySelectorAll('#adTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === adTab));
-  let items = [];
-  if (HELPER) { try { items = (await (await fetch('/api/ads/all')).json()).items || []; } catch {} }
-  else if (cloudAds) items = parseJ(cloudAds.pool, []);
-  const on = items.filter(v => !v.removed), off = items.filter(v => v.removed);
+  const items = await allAds(), hidden = adHidden();
+  const on = items.filter(v => !v.removed), off = items.filter(v => v.removed && !hidden.has(v.id));
   adListed = { on, off };
   $('adCount').textContent = `· ${on.length} playing, ${off.length} removed`;
   const l = $('adList'); l.innerHTML = '';
   const shown = adTab === 'on' ? on : off;
   if (!shown.length) l.innerHTML = `<p style="color:var(--mute);font-size:13px;line-height:1.5">${adTab === 'on' ? 'No commercials are playing. Add some above.' : 'Nothing removed.'}</p>`;
+  if (adTab === 'off' && off.length) {
+    const c = document.createElement('div'); c.innerHTML = '<button class="btn ghost" style="width:100%;margin-bottom:4px">Clear the list (they stay removed)</button>';
+    c.querySelector('button').onclick = () => { lib.adsHidden = [...new Set([...(lib.adsHidden || []), ...off.map(v => v.id)])]; saveLib(); renderAds(); };
+    l.appendChild(c);
+  }
   const badge = { playlist: 'playlist', search: 'found', mine: 'yours' };
   shown.forEach(v => {
     const d = document.createElement('div'); d.className = 'item';
@@ -916,6 +927,28 @@ $('adCopy').onclick = async () => {
   try { await navigator.clipboard.writeText(text); toast(`Copied ${adListed.on.length + adListed.off.length} commercials. Paste them anywhere.`); }
   catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast('Copied.'); } catch { toast('Could not copy here.'); } t.remove(); }
 };
+// One-time clean-ups of the commercials, as you asked for them. Each runs once, on the first device that can save it
+// (the PC, or a phone signed in to the cloud), through the same path as the ✕ button, so it reaches the cloud too.
+const AD_CLEANUPS = [
+  { id: '2026-10-25', hideRemoved: true, remove: [
+    '3f6gmNpVqQU', 'C457wcIvIoc', 'bKEqz8kaWgI', 'j-EIZeR9yZ4', 'DwwhLsLtzMk', 'B6FdsqhfxJE', 'jZ5q65PD0eI', 'J87mPeNK9gk', 'Zt0jgM69byo',
+    'pvHoqZ_idZI', 'xAtuB6T7JeI', 'DRApcrEyyCM', 'JKzxHtV-ex8', '0DAXd5Te1h8', 'z7MDSWv7_lU', '-pmL6aZQRMM', '0Zn-K2Jjkf0',
+    'pjk3G3K9UUc',   // the second "Colorado pub" (0:34): "Colorado pub 2m" stays
+  ] },
+];
+async function runAdCleanups() {
+  const todo = AD_CLEANUPS.filter(c => !(lib.adCleanups || []).includes(c.id));
+  if (!todo.length || !(HELPER || (window.Cloud && Cloud.user && cloudAds))) return;
+  for (const c of todo) {
+    let items = await allAds(); if (!items.length) return;
+    let n = 0;
+    for (const id of c.remove) { const v = items.find(x => x.id === id); if (v && !v.removed) { try { await adsEditCall({ action: 'remove', id }); n++; } catch {} } }
+    if (c.hideRemoved) { items = await allAds(); lib.adsHidden = [...new Set([...(lib.adsHidden || []), ...items.filter(v => v.removed).map(v => v.id)])]; }
+    lib.adCleanups = [...(lib.adCleanups || []), c.id]; saveLib();
+    rlog('commercials cleaned up', { cleanup: c.id, removed: n });
+    if (n) toast(`${n} commercials removed, as you asked.`);
+  }
+}
 function openAds() { $('adRes').innerHTML = ''; renderAds(); openSheet('shAds'); }
 
 async function runSegments(segs, id) {
@@ -1909,7 +1942,7 @@ $('btnCloud').onclick = async () => {
 
 // ---------- boot ----------
 (async () => {
-  await loadLib(); buildSongs(); loadVoices(); syncAds();
+  await loadLib(); buildSongs(); loadVoices(); syncAds().then(runAdCleanups);
   $('vol').value = S.vol;
   setNow(null); updateCloudUI();
 })();
