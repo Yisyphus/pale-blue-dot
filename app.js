@@ -1272,18 +1272,22 @@ async function newsJingleRun() {
 const NEWS_SOURCES = [
   { id: 'kech24', name: 'Kech24 Marrakech', topic: 'marrakech', take: 4, local: true, urls: ['https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4/feed', 'https://kech24.com/cat/%d9%85%d8%b1%d8%a7%d9%83%d8%b4'] },
   { id: 'alaan', name: 'Marrakech Alaan', topic: 'marrakech', take: 2, local: true, urls: ['https://www.marrakechalaan.com/article-category/news-marrakech/feed', 'https://www.marrakechalaan.com/article-category/news-marrakech'] },
-  { id: 'ajmorocco', name: 'Al Jazeera Morocco', topic: 'moroccoaj', take: 4, urls: ['https://www.aljazeera.net/where/mideast/arab/morocco/'] },
+  // أخبار المغرب: SNRT, royal activities 1, politics 2, economy 2
+  { id: 'snrtroyal', name: 'SNRT royal activities', topic: 'moroccoaj', take: 1, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%84%D8%A3%D9%86%D8%B4%D8%B7%D8%A9-%D8%A7%D9%84%D9%85%D9%84%D9%83%D9%8A%D8%A9'] },
+  { id: 'snrtpolitics', name: 'SNRT politics', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%B3%D9%8A%D8%A7%D8%B3%D8%A9'] },
+  { id: 'snrteconomy', name: 'SNRT economy', topic: 'moroccoaj', take: 2, local: true, urls: ['https://snrtnews.com/thematique/%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF'] },
   { id: 'hespress', name: 'Hespress 24h', topic: 'morocco', take: 4, local: true, urls: ['https://www.hespress.com/tag/24heures/feed', 'https://www.hespress.com/tag/24heures'] },
   { id: 'le360', name: 'Le360', topic: 'morocco', take: 1, local: true, urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/'] },
-  { id: 'map', name: 'MAP', topic: 'morocco', take: 1, local: true, urls: ['https://www.map.ma/ar/rss.xml', 'https://www.map.ma/ar/'] },
   { id: 'bbc', name: 'BBC Arabic', topic: 'world', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
   { id: 'aljazeera', name: 'Al Jazeera', topic: 'world', take: 1, urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
+  { id: 'snrtworld', name: 'SNRT world', topic: 'world', take: 1, urls: ['https://snrtnews.com/thematique/%D8%B9%D8%A7%D9%84%D9%85'] },
   { id: 'france24', name: 'France 24', topic: 'world', take: 1, urls: ['https://www.france24.com/ar/rss'] },
   { id: 'aitnews', name: 'AIT News', topic: 'techworld', take: 2, urls: ['https://aitnews.com/feed/', 'https://aitnews.com/'] },
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
   { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
-  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
+  { id: 'snrtculture', name: 'SNRT culture', topic: 'art', take: 2, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
+  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
   { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
   { id: 'bbctopic', name: 'BBC Arabic social media', topic: 'trend', take: 2, urls: ['https://www.bbc.com/arabic/topics/c6vzyk7dg8zt'] },
@@ -1295,7 +1299,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 4], ['morocco', 6], ['world', 3], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 4]];   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 4], ['trend', 4]];   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
