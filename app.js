@@ -1288,6 +1288,8 @@ const NEWS_SOURCES = [
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
   // from SNRT's cultural page, only its "المواعيد القادمة" (upcoming events): one, with its date
   { id: 'snrtevents', name: 'SNRT upcoming events', topic: 'art', take: 1, events: true, urls: ['https://snrtnews.com/thematique/%D9%85%D8%B0%D9%83%D8%B1%D8%A9-%D8%AB%D9%82%D8%A7%D9%81%D9%8A%D8%A9'] },
+  // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days)
+  { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, urls: ['https://hitradio.ma/news'] },
   { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
   { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media'] },
@@ -1300,7 +1302,7 @@ const NEWS_SOURCES = [
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
 ];
 // in this order; tech and art can also come from any other source, by their words
-const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 5], ['trend', 4]];   // tech: Moroccan stories; techworld: international
+const NEWS_PLAN = [['marrakech', 6], ['moroccoaj', 5], ['morocco', 6], ['world', 4], ['tech', 4], ['techworld', 4], ['art', 9], ['trend', 4]];   // art: BBC 4, Hit Radio 4, one upcoming event   // tech: Moroccan stories; techworld: international
 const RELAYS = [
   u => HELPER ? '/api/fetch?url=' + encodeURIComponent(u) : null,
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
@@ -1347,6 +1349,18 @@ function parseEvents(text, pageUrl) {
 // What on a news page is NOT the section's own news: menus, the page footer, side boxes, and the breaking-news ticker
 // (on SNRT it mixes every topic, sport included). If the page has a "آخر الأخبار" heading, only that block is read.
 const NOISE_LABELS = /^(الأخبار العاجلة|أخبار عاجلة|ملف الشهر|الأكثر قراءة|الأكثر مشاهدة|اقرأ أيضا|مواضيع ذات صلة)$/;   // not "عاجل": that is also a badge on real articles
+const FR_MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const AR_MONTH_ALL = [['يناير'], ['فبراير'], ['مارس'], ['أبريل', 'ابريل'], ['ماي', 'مايو'], ['يونيو'], ['يوليوز', 'يوليو'], ['غشت', 'أغسطس', 'اغسطس'], ['شتنبر', 'سبتمبر'], ['أكتوبر', 'اكتوبر'], ['نونبر', 'نوفمبر'], ['دجنبر', 'ديسمبر']];
+function cardDate(t) {   // the date written on a news card, or 0
+  const y2 = y => !y ? new Date().getFullYear() : y.length === 2 ? 2000 + +y : +y;
+  let m = t.match(/(\d{1,2})\s+(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\.?\s*(\d{2,4})?/i);
+  if (m) { const mi = FR_MONTHS.findIndex(x => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === m[2].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')); if (mi >= 0) return new Date(y2(m[3]), mi, +m[1], 12).getTime(); }
+  m = t.match(new RegExp(`(\\d{1,2})\\s*(${AR_MONTH_ALL.flat().join('|')})\\s*(\\d{4})?`));
+  if (m) { const mi = AR_MONTH_ALL.findIndex(v => v.includes(m[2])); return new Date(y2(m[3]), mi, +m[1], 12).getTime(); }
+  m = t.match(/(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})/);
+  if (m) return new Date(y2(m[3]), +m[2] - 1, +m[1], 12).getTime();
+  return 0;
+}
 function newsScope(doc) {
   doc.querySelectorAll('nav, footer, aside, body > header, [class*="ticker"], [id*="ticker"], [class*="breaking"], [class*="urgent"], [class*="marquee"], [class*="menu"]').forEach(el => el.remove());
   [...doc.querySelectorAll('h1,h2,h3,h4,h5,span,div,p,strong,a')].filter(el => NOISE_LABELS.test((el.textContent || '').trim())).forEach(el => { const box = el.parentElement; if (box && box !== doc.body) box.remove(); });
@@ -1376,12 +1390,17 @@ function parseNews(text, pageUrl, feedOnly) {
   const scope = newsScope(doc);
   scope.querySelectorAll('h1 a, h2 a, h3 a, h4 a, a h2, a h3, a h4, [class*="title"] a, a[class*="title"], a [class*="title"], article a, a[href*="/article/"], a[href*="/news/"]').forEach(el => {
     const aEl = el.tagName === 'A' ? el : el.closest('a'); if (!aEl) return;
-    const t = ((el.textContent || '').replace(/\s+/g, ' ').trim()) || (aEl.getAttribute('title') || '').trim() || ((aEl.querySelector('img') || {}).alt || '').trim();
+    const inner = el.tagName === 'A' && el.querySelector('h1,h2,h3,h4,h5,[class*="title"]');   // a link around a whole card: its heading is the title
+    const t = (((inner || el).textContent || '').replace(/\s+/g, ' ').trim() || (aEl.getAttribute('title') || '').trim() || ((aEl.querySelector('img') || {}).alt || '').trim())
+      .replace(/\d{1,2}\s+(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre)\.?\s*\d{0,4}/gi, '').replace(/\d{1,2}:\d{2}\s*-\s*\d{1,2}\/\d{1,2}\/\d{2,4}/g, '').replace(/\s+/g, ' ').trim();
     let href = ''; try { href = new URL(aEl.getAttribute('href') || '', pageUrl).href; } catch { return; }
     const arabic = (t.match(/[؀-ۿ]/g) || []).length;
     if (t.length < 25 || t.length > 220 || arabic < t.replace(/\s/g, '').length * 0.6 || t.split(' ').length < 4) return;
     if (!href.includes(host) || /\/(tag|cat|category|article-category|author|page)\//.test(href) || seen.has(href) || seen.has(t)) return;
-    seen.add(href); seen.add(t); out.push({ title: t, link: href, cats: '', when: 0 });
+    // the card around the link usually carries its date
+    let card = aEl, when = 0; for (let k = 0; k < 5 && card && !when; k++) { when = cardDate((card.textContent || '').replace(/\s+/g, ' ')); card = card.parentElement; }
+    if (when > Date.now() + 2 * 864e5) when = 0;   // a date in the future is an event date, not a publication date
+    seen.add(href); seen.add(t); out.push({ title: t, link: href, cats: '', when });
   });
   if (!out.length) {   // a page built by scripts: its titles are often kept in the page's data
     const rx = /"(?:title|headline|name)"\s*:\s*"((?:[^"\\]|\\.){25,220})"/g; let m;
@@ -1435,14 +1454,18 @@ function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-s
 // words; Marrakech when the headline names the city; the Moroccan and latest sections from any general news);
 // only then, if nothing new is left, the most important headlines already read (breaking and top stories first);
 // and last, older stories. No sport, ever.
+const artRank = x => x.event ? 2 : x.src === 'hitradio' ? 1 : 0;
 function pickNews(results, test) {
   const now = Date.now(), served = servedNews();
   Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
-  const seen = new Set(), isNew = x => test || !served[headKey(x.title)], recent = x => !x.when || now - x.when < 36 * 3600e3;
+  const seen = new Set(), isNew = x => test || !served[headKey(x.title)];
+  const maxAge = Object.fromEntries(NEWS_SOURCES.map(s => [s.id, (s.maxAgeDays || 1.5) * 864e5]));
+  const recent = x => !x.when || now - x.when < (maxAge[x.src] || 36 * 3600e3);
   const lists = {};
   results.forEach((r, i) => {
     lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
       .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
+      .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
       .sort((p, q) => q.breaking - p.breaking);   // breaking first, then the order the source gives (its top stories)
   });
   const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
@@ -1467,8 +1490,8 @@ function pickNews(results, test) {
     });
   });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
-  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, breaking: x.breaking, event: x.event, date: x.date }))
-    .sort((p, q) => (p.topic === q.topic ? !!p.event - !!q.event : 0));   // the upcoming event closes the art section
+  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, src: x.src, breaking: x.breaking, event: x.event, date: x.date }))
+    .sort((p, q) => (p.topic === q.topic ? artRank(p) - artRank(q) : 0));   // art: BBC, then Hit Radio, then the upcoming event
 }
 const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
 // Marrakech: now, the rest of today (the hours still to come), and tomorrow
