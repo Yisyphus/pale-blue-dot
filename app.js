@@ -1339,12 +1339,14 @@ const RELAYS = [
   u => /feed|rss/.test(u) ? 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) : null,
 ];
 const SPORT_RX = /رياض[ةي]|كرة|مباراة|مباريات|المنتخب|الدوري|البطولة|بطولة|لاعب|الوداد|الرجاء|أسود الأطلس|كأس|الركراكي|فيفا|الكاف|الأولمبي|ملعب|هدف|أهداف|ميركاتو|مدرب|نادي|فريق|الجامعة الملكية المغربية لكرة|\/sports?\b|\/sport\/|\bsport|football|\bvs\.?\s|\bfc\b|\bmatch\b|ligue|liga\b|premier league|champions league|botola|\braja\b|wydad|\bnba\b|\bufc\b/i;
-const TECH_RX = /ذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|التقني|تقنية|رقمي|إنترنت|هواتف ذكية|هاتف ذكي|الهاتف الذكي|آبل|أبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيقات|روبوت|شات ?جي ?بي ?تي|سيبراني|البرمجيات|حاسوب|رقائق|أشباه الموصلات|وكالة الفضاء|الفضاء الخارجي|ناسا|سبيس ?إكس|\/tech(nology)?\/|\/science\/|technolog/i;   // whole words where a shorter one would also match ordinary news
+const TECH_RX = /ذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|التقني|تقنية|التحول الرقمي|الرقمنة|إنترنت|هواتف ذكية|هاتف ذكي|الهاتف الذكي|آبل|أبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيقات|روبوت|شات ?جي ?بي ?تي|سيبراني|البرمجيات|حاسوب|رقائق|أشباه الموصلات|وكالة الفضاء|الفضاء الخارجي|ناسا|سبيس ?إكس|\/tech(nology)?\/|\/science\/|technolog/i;   // whole words where a shorter one would also match ordinary news
 const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنون|لفن(?![؀-ۿ])|سينما|سينمائي|فيلم|أفلام|مهرجان|معرض فني|معرض تشكيلي|تشكيلي|لمسرح(?! الجريمة)|مسرحي|ثقاف|رواية|روائي|لشعر(?![؀-ۿ])|شاعر|قصيدة|ألبوم|حفل غنائي|حفلا غنائيا|\/culture\/|\/arts?\/|\/art-?and-?culture/i;
 // trending on social media: viral videos, trends and online debates
 const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|مؤثر|مؤثرة|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
 const POLITICS_RX = /جلالة الملك|الملك محمد|ولي العهد|الأمير|الانتخابات|انتخابات|التشريعية|البرلمان|مجلس النواب|مجلس المستشارين|الحكومة|رئيس الحكومة|وزير|وزارة|حزب|الأحزاب|سياسي|سياسة|يعين|تعيين|دبلوماسي|سفير/;
-const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
+const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/^(فيديو|شاهد|بالفيديو)\s*[,،:]\s*/, '').replace(/\s*[,،]\s*المدة\s*[\d,.:]+\s*$/, '').replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
+const WEATHER_RX = /طقس|الأحوال الجوية|أحوال الجو|حالة الجو|نشرة إنذارية|النشرة الجوية/;
+const JUNK_RX = /الرئيسية|^\s*(الأخبار|أخبار|آخر الأخبار|أخر الأخبار|أقسام|فيديو|صور)\s*$/;   // "الرئيسية : CNN الاقتصادية": a page's breadcrumb or a section name, not news
 const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
 // A feed (RSS, Atom, or rss2json), or else a news page: its headlines are the links whose text reads like one
@@ -1440,7 +1442,7 @@ function parseNews(text, pageUrl, feedOnly) {
     seen.add(href); seen.add(t); out.push({ title: t, link: href, cats: '', when });
   });
   if (!out.length) {   // a page built by scripts: its titles are often kept in the page's data
-    const rx = /"(?:title|headline|name)"\s*:\s*"((?:[^"\\]|\\.){25,220})"/g; let m;
+    const rx = /"(?:title|headline)"\s*:\s*"((?:[^"\\]|\\.){25,220})"/g; let m;
     while ((m = rx.exec(text)) && out.length < 30) {
       let t = m[1]; try { t = JSON.parse('"' + t + '"'); } catch {}
       t = t.replace(/\s+/g, ' ').trim();
@@ -1525,7 +1527,7 @@ function pickNews(results, test) {
   const lists = {};
   results.forEach((r, i) => {
     lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
-      .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
+      .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) || WEATHER_RX.test(x.title) || JUNK_RX.test(x.title)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
       .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
       .filter(x => NEWS_SOURCES[i].only !== 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))   // a mixed source: only its stories on the topic
       .filter(x => !NEWS_SOURCES[i].noPolitics || !POLITICS_RX.test(x.title))
@@ -1533,7 +1535,8 @@ function pickNews(results, test) {
   });
   const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
   const GENERAL = NEWS_SOURCES.filter(s => ['moroccoaj', 'morocco', 'world'].includes(s.topic) && !/^map/.test(s.id)).map(s => s.id);   // MAP is only for أخبار المغرب
-  const MOROCCAN = NEWS_SOURCES.filter(s => s.local && !s.events).map(s => s.id);   // أخبار المغرب is filled only from Moroccan sources
+  const MOROCCAN = NEWS_SOURCES.filter(s => s.local && !s.events && !['kech24', 'alaan', 'kechall'].includes(s.id)).map(s => s.id);   // أخبار المغرب is filled only from Moroccan sources
+  const MARRAKECH_ONLY = ['kech24', 'alaan', 'kechall'];   // Kech24 and Marrakech Alaan feed only the Marrakech section
   const used = new Set(), picked = [];
   NEWS_PLAN.forEach(([topic, n]) => {
     const start = picked.length, room = () => picked.length - start < n;
@@ -1541,7 +1544,7 @@ function pickNews(results, test) {
     const own = NEWS_SOURCES.filter(s => s.topic === topic);
     const rx = { tech: TECH_RX, techworld: TECH_RX, art: ART_RX, trend: SOCIAL_RX }[topic];
     // headlines from elsewhere that fit this section
-    const elsewhere = () => rx ? NEWS_SOURCES.filter(s => (topic !== 'tech' || s.local) && !s.events).flatMap(s => all(s.id)).filter(x => rx.test(text(x)))
+    const elsewhere = () => rx ? NEWS_SOURCES.filter(s => (topic !== 'tech' || s.local) && !s.events && !MARRAKECH_ONLY.includes(s.id)).flatMap(s => all(s.id)).filter(x => rx.test(text(x)))
       : topic === 'marrakech' ? Object.values(lists).flat().filter(x => !x.event && /مراكش/.test(x.title))
       : topic === 'moroccoaj' ? MOROCCAN.flatMap(all)
       : GENERAL.flatMap(all);
