@@ -1318,13 +1318,13 @@ const NEWS_SOURCES = [
   // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days), and only about
   // art (songs, films, festivals, culture): it also posts politics and sport, which are left out
   { id: 'hitradio', name: 'Hit Radio', topic: 'art', take: 4, maxAgeDays: 10, local: true, only: 'art', noPolitics: true, urls: ['https://hitradio.ma/news', GN('site:hitradio.ma', 10)] },
-  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
+  { id: 'bbcart', name: 'BBC Arabic culture', topic: 'art', take: 4, maxAgeDays: 7, urls: ['https://feeds.bbci.co.uk/arabic/artandculture/rss.xml'] },
   // trending on social media: news stories about viral videos and online trends, from the sections that cover them…
-  { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media', GN('site:alarabiya.net مواقع التواصل OR متداول OR فيديو OR تفاعل')] },
+  { id: 'arabiyasocial', name: 'Al Arabiya social media', topic: 'trend', take: 2, urls: ['https://www.alarabiya.net/social-media', GN('site:alarabiya.net "مواقع التواصل" OR "منصات التواصل" OR "رواد مواقع التواصل" OR "فيديو متداول" OR تريند OR "ترند"')] },
   { id: 'bbctopic', name: 'BBC Arabic social media', topic: 'trend', take: 2, urls: ['https://www.bbc.com/arabic/topics/c6vzyk7dg8zt'] },
   { id: 'bbctrend', name: 'BBC Arabic trending', topic: 'trend', take: 2, urls: ['https://feeds.bbci.co.uk/arabic/trending/rss.xml', 'https://www.bbc.com/arabic/trending'] },
   { id: 'hessocial', name: 'Hespress social media', topic: 'trend', take: 1, urls: ['https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/feed', 'https://www.hespress.com/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a'] },
-  { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/', GN('site:aljazeera.net مواقع التواصل OR منصات التواصل OR متداول OR تفاعل')] },
+  { id: 'ajsocial', name: 'Al Jazeera social media', topic: 'trend', take: 1, urls: ['https://www.aljazeera.net/tag/%d9%85%d9%88%d8%a7%d9%82%d8%b9-%d8%a7%d9%84%d8%aa%d9%88%d8%a7%d8%b5%d9%84-%d8%a7%d9%84%d8%a7%d8%ac%d8%aa%d9%85%d8%a7%d8%b9%d9%8a/', GN('site:aljazeera.net "مواقع التواصل" OR "منصات التواصل" OR "رواد مواقع التواصل" OR "فيديو متداول" OR تريند OR "ترند"')] },
   // …and from the full Hespress and Kech24 feeds, only searched for viral stories (these two are in no section of their own)
   { id: 'hesall', name: 'Hespress (all)', topic: 'pool', take: 0, local: true, urls: ['https://www.hespress.com/feed'] },
   { id: 'kechall', name: 'Kech24 (all)', topic: 'pool', take: 0, local: true, urls: ['https://kech24.com/feed/'] },
@@ -1346,6 +1346,8 @@ const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائ�
 const POLITICS_RX = /جلالة الملك|الملك محمد|ولي العهد|الأمير|الانتخابات|انتخابات|التشريعية|البرلمان|مجلس النواب|مجلس المستشارين|الحكومة|رئيس الحكومة|وزير|وزارة|حزب|الأحزاب|سياسي|سياسة|يعين|تعيين|دبلوماسي|سفير/;
 const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/^(فيديو|شاهد|بالفيديو)\s*[,،:]\s*/, '').replace(/\s*[,،]\s*المدة\s*[\d,.:]+\s*$/, '').replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
 const WEATHER_RX = /طقس|الأحوال الجوية|أحوال الجو|حالة الجو|نشرة إنذارية|النشرة الجوية/;
+const dURI = u => { try { return decodeURI(u); } catch { return u; } };
+const OPINION_RX = /\/(opinions?|blogs?|columns?|chroniques?|programmes?|programs?|emissions?|برامج|ريبورتاج|رأي|آراء|مقالات)\/|آراء|مقالات رأي|كتاب وآراء|أعمدة|^رأي\b/i;   // tested on the link and the categories
 const JUNK_RX = /الرئيسية|^\s*(الأخبار|أخبار|آخر الأخبار|أخر الأخبار|أقسام|فيديو|صور)\s*$/;   // "الرئيسية : CNN الاقتصادية": a page's breadcrumb or a section name, not news
 const headKey = t => t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 40);
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('no answer')), ms))]);
@@ -1527,10 +1529,11 @@ function pickNews(results, test) {
   const lists = {};
   results.forEach((r, i) => {
     lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
-      .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) || WEATHER_RX.test(x.title) || JUNK_RX.test(x.title)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
+      .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) || WEATHER_RX.test(x.title) || JUNK_RX.test(x.title) || OPINION_RX.test(dURI(x.link || '') + ' ' + x.cats)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
       .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
       .filter(x => NEWS_SOURCES[i].only !== 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))   // a mixed source: only its stories on the topic
       .filter(x => !NEWS_SOURCES[i].noPolitics || !POLITICS_RX.test(x.title))
+      .filter(x => NEWS_SOURCES[i].topic !== 'trend' || !/news\.google\./.test(x.link || '') || SOCIAL_RX.test(x.title))   // a search result must really be about social media
       .sort((p, q) => q.breaking - p.breaking);   // breaking first, then the order the source gives (its top stories)
   });
   const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
@@ -2238,15 +2241,15 @@ $('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('s
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
 $('btnNews').onclick = () => { unlockAudio(); openSheet(null); runNews(true); };
+const ago = t => { const h = Math.round((Date.now() - t) / 36e5); return h < 1 ? 'just now' : h < 48 ? h + ' h ago' : Math.round(h / 24) + ' days ago'; };
 $('btnNewsCheck').onclick = async () => {
   $('reportText').textContent = 'Asking every source… this can take up to a minute.'; openSheet('shReport');
   const res = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, readSourceHere);
   $('reportText').textContent = `News sources, checked ${new Date().toLocaleString('en-GB')}\n\n` + NEWS_SOURCES.map((s, i) => {
     const r = res[i]; if (!r.ok) return `✗ ${s.name}: ${r.error}\n   ${decodeURI(s.urls[s.urls.length - 1])}`;
-    return `✓ ${s.name}: ${r.items.length} found\n` + r.items.slice(0, 4).map(x => `   · ${x.title}${x.date ? ' (' + x.date + ')' : ''}`).join('\n');
+    return `✓ ${s.name}: ${r.items.length} found\n` + r.items.slice(0, 4).map(x => `   · ${x.title}${x.date ? ' (' + x.date + ')' : x.when ? ' (' + ago(x.when) + ')' : ''}`).join('\n');
   }).join('\n\n');
 };
-const dURI = u => { try { return decodeURI(u); } catch { return u; } };
 $('btnNewsLast').onclick = () => {   // everything the last bulletin read, with where each headline came from
   let last = null; try { last = JSON.parse(localStorage.getItem('pbd-news-last') || 'null'); } catch {}
   $('reportText').textContent = !last ? 'No bulletin has been read on this device yet. Play the news, then come back here.'
