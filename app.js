@@ -44,6 +44,7 @@ function normalizeLib() {
   S = Object.assign(S, lib.settings || {});
   if (S.talk === 'low') S.talk = 'normal';
 }
+let libLoaded = false;
 async function loadLib() {
   HELPER = await fetch('/api/ping').then(r => r.ok ? r.json() : null).then(j => !!(j && j.app === 'pale-blue-dot')).catch(() => false);
   if (HELPER) { try { const r = await fetch('/api/library'); lib = Object.assign(lib, await r.json()); } catch {} }
@@ -52,7 +53,7 @@ async function loadLib() {
     const u = await Promise.race([Cloud.authKnown, sleep(6000)]);
     if (u) await syncWithCloud();
   }
-  normalizeLib();
+  normalizeLib(); libLoaded = true;
 }
 // Two copies of the library (this device, and the cloud or another device) are MERGED, never swapped:
 // favorites, your songs, removed songs, saved versions, trims and broken-song marks from both are kept.
@@ -86,7 +87,9 @@ function mergeLib(a, b) {
 }
 const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
-async function syncWithCloud() {
+let cloudSyncing = null;
+function syncWithCloud() { return cloudSyncing || (cloudSyncing = syncWithCloudNow().finally(() => { cloudSyncing = null; })); }
+async function syncWithCloudNow() {
   try {
     const c = await Cloud.pull(); if (!c) return;
     cloudAds = c.ads || null;
@@ -94,6 +97,7 @@ async function syncWithCloud() {
     const changedHere = libSig(merged) !== libSig(lib), changedThere = !c.lib || libSig(merged) !== libSig(c.lib);
     lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, merged);
     if (changedHere && HELPER) fetch('/api/library', { method: 'POST', body: JSON.stringify(lib) }).catch(() => {});   // refresh the local copy
+    Cloud.markReady();   // from now on this device may write to the cloud (always merging first)
     if (changedThere) { lib.savedAt = Date.now(); Cloud.push(lib, true); }
     rlog('cloud sync', { favorites: (lib.fav || []).length, yourSongs: (lib.user || []).length, removed: (lib.removed || []).length, sentUp: changedThere });
   } catch (e) { console.warn('[cloud]', e); toast('Cloud: ' + (e.code === 'permission-denied' ? 'this Google account is not allowed.' : 'could not sync right now.')); }
@@ -111,6 +115,11 @@ function saveLib() {
   }, 400);
 }
 // A change made on your other device: take it, as long as it is newer than what we have here.
+if (window.Cloud) {
+  Cloud.merge = mergeLib;
+  // signed in later than the start (a slow sign-in, or signing in from Settings): merge first, like at the start
+  Cloud.onSignedIn = async () => { if (!libLoaded) return; await syncWithCloud(); normalizeLib(); buildSongs(); updateHeart(); };
+}
 if (window.Cloud) Cloud.onRemote = ({ lib: rl, savedAt }) => {
   if (!rl) return;
   const merged = mergeLib(lib, Object.assign({ savedAt }, rl));
@@ -706,6 +715,7 @@ function choose(cur, rs) {
     if (detour.length) return { song: rnd(detour), why: 'detour' };
   }
   const scored = pool.map(s => ({ s, v: similarity(cur, s) - 0.35 * Math.abs((s.energy || 2) - target) + (favIdx(s.key) >= 0 ? 0.4 : 0) - (rs.pairGenre && s.genre === rs.pairGenre ? 1 : 0) - (rs.streakFamily && famOf(s.genre) === rs.streakFamily ? 1.5 : 0) - (famOf(s.genre) === "pop" ? 0.9 : 0) + Math.random() * 2.2 }));
+  if (!scored.length) return { song: rnd(songs), why: 'any' };   // nothing left to compare (a library still loading)
   scored.sort((x, y) => y.v - x.v);
   const top = scored.slice(0, 12), low = top[top.length - 1].v;
   const w = top.map(x => Math.pow(x.v - low + 0.5, 2)); let r = Math.random() * w.reduce((p, q) => p + q, 0);
@@ -1942,6 +1952,7 @@ function next() {
 }
 function prev() { if (started && globalPaused) resumeAll(); if (!started || !history.length) return toast('No earlier song yet.'); const p = history.pop(); advance({ song: p, prev: null, silent: true, noCount: true, quick: true }); }
 async function tuneIn() {
+  if (!songs.length) { $('tuneSub').textContent = 'one moment, loading your library…'; await bootDone; }   // play pressed while the library (or a slow sign-in) is still loading
   started = true; $('tune').style.display = 'none'; unlockAudio();
   if (!voices.length) loadVoices();
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
@@ -2469,6 +2480,31 @@ function updateCloudUI() {
   else { b.textContent = 'Sign in with Google'; n.textContent = 'off: sign in to share your library between devices'; }
 }
 if (window.Cloud) Cloud.onStatus = updateCloudUI;
+// Library backup: a file with everything; restoring MERGES it in (like a second device), it never replaces.
+$('btnLibSave').onclick = () => {
+  const blob = new Blob([JSON.stringify(lib)], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'pale-blue-dot-library-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+};
+$('btnLibRestore').onclick = () => $('libFile').click();
+$('libFile').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  let n = 0; const before = { fav: (lib.fav || []).length, lists: (lib.lists || []).length, user: (lib.user || []).length };
+  for (const f of files) {
+    try {
+      const j = JSON.parse(await f.text()), old = j.lib && !j.fav ? j.lib : j;   // the helper's library.json, or a backup from here
+      if (!old || typeof old !== 'object' || !(old.fav || old.lists || old.user || old.removed)) throw new Error('not a radio library');
+      const merged = mergeLib(lib, Object.assign({}, old, { savedAt: 0 }));   // the file counts as older: your current settings stay
+      lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, merged); n++;
+    } catch (err) { toast(f.name + ': ' + (err.message || 'could not read it')); }
+  }
+  if (!n) return;
+  normalizeLib(); buildSongs(); updateHeart(); saveLib();
+  if (window.Cloud && Cloud.user) Cloud.push(lib, true);
+  const d = k => (lib[k] || []).length - before[k];
+  toast(`Restored: ${d('fav')} favorites, ${d('lists')} lists and ${d('user')} songs added back.`);
+  rlog('library restored', { files: n, favorites: (lib.fav || []).length, lists: (lib.lists || []).length, yourSongs: (lib.user || []).length });
+};
 $('btnCloud').onclick = async () => {
   if (!window.Cloud || !Cloud.enabled) return;
   try {
@@ -2482,8 +2518,9 @@ $('btnCloud').onclick = async () => {
 };
 
 // ---------- boot ----------
+let booted; const bootDone = new Promise(r => { booted = r; });
 (async () => {
-  await loadLib(); buildSongs(); loadVoices(); syncAds().then(runAdCleanups);
+  await loadLib(); buildSongs(); booted(); loadVoices(); syncAds().then(runAdCleanups);
   $('vol').value = S.vol;
   setNow(null); updateCloudUI();
 })();
