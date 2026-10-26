@@ -1267,7 +1267,7 @@ async function advance(opts = {}) {
 // then brings that back from the start: the song or episode from 0:00, a break from the part that was interrupted.
 // The headlines come from the PC helper (/api/news), so the news needs the radio running on the PC.
 let newsOn = false, newsBack = null, newsJingle = null, newsShown = null, lastNewsSlot = '';
-const NEWS_TOPIC_AR = { marrakech: 'من مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
+const NEWS_TOPIC_AR = { top: 'أبرز عناوين هذه النشرة', marrakech: 'من مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
 const NEWS_IN = [
   'It is {time}. Time for the news. Then we come straight back to what was playing.',
   'It is {time} on {station}. Let us stop for a moment for the headlines. We will pick up again right after.',
@@ -1345,6 +1345,7 @@ const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنو
 const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|مؤثر|مؤثرة|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
 const POLITICS_RX = /جلالة الملك|الملك محمد|ولي العهد|الأمير|الانتخابات|انتخابات|التشريعية|البرلمان|مجلس النواب|مجلس المستشارين|الحكومة|رئيس الحكومة|وزير|وزارة|حزب|الأحزاب|سياسي|سياسة|يعين|تعيين|دبلوماسي|سفير/;
 const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/^(فيديو|شاهد|بالفيديو)\s*[,،:]\s*/, '').replace(/\s*[,،]\s*المدة\s*[\d,.:]+\s*$/, '').replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
+const CRIME_RX = /قتل|جريم|توقيف|اعتقال|حادث|حادثة|وفاة|مصرع|لقي حتفه|انتحار|سرقة|اعتداء|مخدرات|المخدرة|الدرك|السجن|محاولة قتل|طعن|اغتصاب|احتيال|نصب|اختطاف|غرق|حريق|الأمن يوقف|يوقف|يفكك|عصابة|جثة|جثمان|تنهي حياة/;
 const WEATHER_RX = /طقس|الأحوال الجوية|أحوال الجو|حالة الجو|نشرة إنذارية|النشرة الجوية/;
 const dURI = u => { try { return decodeURI(u); } catch { return u; } };
 const OPINION_RX = /\/(opinions?|blogs?|columns?|chroniques?|programmes?|programs?|emissions?|برامج|ريبورتاج|رأي|آراء|مقالات)\/|آراء|مقالات رأي|كتاب وآراء|أعمدة|^رأي\b/i;   // tested on the link and the categories
@@ -1520,7 +1521,7 @@ function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-s
 // and last, older stories. No sport, ever.
 const srcRank = x => { const i = NEWS_SOURCES.findIndex(o => o.id === x.src); return i < 0 ? 99 : i; };
 const artRank = x => x.event ? 2 : x.src === 'hitradio' ? 1 : 0;
-function pickNews(results, test) {
+function pickNews(results, test, opts = {}) {   // opts.exclude: headlines already chosen as top stories; opts.dry: do not remember them as read
   const now = Date.now(), served = servedNews();
   Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
   const seen = new Set(), isNew = x => test || !served[headKey(x.title)];
@@ -1529,6 +1530,7 @@ function pickNews(results, test) {
   const lists = {};
   results.forEach((r, i) => {
     lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
+      .filter(x => !(opts.exclude && (opts.exclude.has(headKey(x.title)) || (opts.excludeWords || []).some(w => sameStory(w, words(cleanHead(x.title)))))))
       .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) || WEATHER_RX.test(x.title) || JUNK_RX.test(x.title) || OPINION_RX.test(dURI(x.link || '') + ' ' + x.cats)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
       .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
       .filter(x => NEWS_SOURCES[i].only !== 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))   // a mixed source: only its stories on the topic
@@ -1543,7 +1545,12 @@ function pickNews(results, test) {
   const used = new Set(), picked = [];
   NEWS_PLAN.forEach(([topic, n]) => {
     const start = picked.length, room = () => picked.length - start < n;
-    const take = x => { if (room() && !used.has(x)) { used.add(x); picked.push({ ...x, topic }); } };
+    let capOn = topic === 'marrakech';   // the Marrakech section: at most 2 crime or accident stories while other news is left
+    const take = x => {
+      if (!room() || used.has(x)) return;
+      if (capOn && CRIME_RX.test(x.title) && picked.slice(start).filter(p => CRIME_RX.test(p.title)).length >= 2) return;
+      used.add(x); picked.push({ ...x, topic });
+    };
     const own = NEWS_SOURCES.filter(s => s.topic === topic);
     const rx = { tech: TECH_RX, techworld: TECH_RX, art: ART_RX, trend: SOCIAL_RX }[topic];
     // headlines from elsewhere that fit this section
@@ -1556,13 +1563,15 @@ function pickNews(results, test) {
       const mine = () => picked.slice(start).filter(x => x.src === s.id).length;
       tiers.forEach(tier => all(s.id).filter(tier).forEach(x => { if (mine() < s.take) take(x); }));
     });
-    tiers.forEach((tier, ti) => {
+    const fill = () => tiers.forEach((tier, ti) => {
       if (ti === 0) own.forEach(s => all(s.id).filter(tier).slice(0, s.take).forEach(take));   // each source's share
       own.forEach(s => all(s.id).filter(tier).slice(0, s.events ? s.take : undefined).forEach(take));   // never more upcoming events than asked
       elsewhere().filter(tier).forEach(take);
     });
+    fill();
+    if (capOn && room()) { capOn = false; fill(); }   // not enough other news: more crime rather than an empty place
   });
-  if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
+  if (!test && !opts.dry) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
   return picked.map(x => ({ title: x.title, link: x.link, page: x.page, topic: x.topic, source: x.name, src: x.src, breaking: x.breaking, event: x.event, date: x.date }))
     .sort((p, q) => (p.topic !== q.topic ? 0 : p.topic === 'moroccoaj' ? srcRank(p) - srcRank(q) : artRank(p) - artRank(q)));   // art: BBC, then Hit Radio; أخبار المغرب: royal, politics, economy
 }
@@ -1578,10 +1587,123 @@ async function weatherNow() {
 }
 let helperNewsMissing = false;
 async function getNews(manual) {
-  const wx = weatherNow().catch(() => null);
+  const wx = weatherNow().catch(() => null), extra = newsExtras().catch(() => []);
   helperNewsMissing = false;
   const results = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, readSourceHere);
-  return { items: pickNews(results, manual), weather: await wx, via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
+  const tops = topStories(results, pickNews(results, manual, { dry: true }));
+  const items = pickNews(results, manual, { exclude: new Set(tops.map(x => headKey(x.title))), excludeWords: tops.map(x => words(x.title)) });   // read once, at the start
+  if (!manual) { const sv = servedNews(); tops.forEach(x => { sv[headKey(x.title)] = Date.now(); }); try { localStorage.setItem('pbd-news-served', JSON.stringify(sv)); } catch {} }
+  const alerts = vigilance(results);
+  return { items: tops.concat(items), weather: await wx, extras: alerts.concat(await extra), via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
+}
+
+// ---------- the top 3 stories, read first ----------
+// No AI: points from what the radio can see. A story several sites carry (+3 for each other site), marked عاجل (+5),
+// near the top of its site (+2, +1), a royal activity (+2); older stories lose points. Art and trends are left out.
+const STOP_AR = new Set('في من على إلى الى عن مع بعد قبل حول بين ضد هذا هذه ذلك التي الذي الذين كما لكن أو ثم قد لا ما لم لن هو هي هم كان كانت يكون تكون أن إن عند منذ خلال حتى أمام أجل بشأن وسط عبر'.split(' '));
+const words = t => new Set(t.replace(/[^؀-ۿ\s]/g, ' ').split(/\s+/).map(w => w.replace(/^(وال|بال|فال|كال|لل|ال|و|ف|ب)/, '')).filter(w => w.length >= 3 && !STOP_AR.has(w)));
+const sameStory = (a, b) => { let n = 0; a.forEach(w => { if (b.has(w)) n++; }); return n >= 3 && n >= Math.min(a.size, b.size) * 0.5; };
+function topStories(results, picked) {
+  const pool = results.flatMap((r, i) => r.ok ? r.items.map((x, pos) => ({ src: NEWS_SOURCES[i].id, pos, w: words(cleanHead(x.title)) })) : []);
+  const scored = picked.filter(x => !['art', 'trend'].includes(x.topic) && !x.event).map(x => {
+    const w = words(x.title), mine = pool.find(p => p.src === x.src && sameStory(p.w, w));
+    const site = id => id.replace(/^(kechall|kech24)$/, 'kech').replace(/^(hesall|hespress|hessocial)$/, 'hes');
+    const others = new Set(pool.filter(p => site(p.src) !== site(x.src) && sameStory(p.w, w)).map(p => site(p.src)));
+    const pos = mine ? mine.pos : 9, hours = x.when ? (Date.now() - x.when) / 36e5 : 12;
+    if (CRIME_RX.test(x.title) && !others.size) return null;
+    return { x, score: others.size * 3 + (x.breaking ? 5 : 0) + (pos === 0 ? 2 : pos <= 2 ? 1 : 0) + (x.src === 'maproyal' ? 2 : 0) - Math.min(3, Math.floor(hours / 12)) };
+  });
+  const out = [];
+  const RANK = { moroccoaj: 0, morocco: 1, world: 2, marrakech: 3, tech: 4, techworld: 5 };
+  scored.filter(Boolean).sort((a, b) => b.score - a.score || (RANK[a.x.topic] ?? 9) - (RANK[b.x.topic] ?? 9)).forEach(({ x }) => { if (out.length < 3 && !out.some(o => sameStory(words(o.title), words(x.title)))) out.push({ ...x, topic: 'top' }); });
+  return out;
+}
+
+// ---------- after the weather: warnings, the dirham, the next prayer, a public holiday ----------
+const MA = { lat: 31.63, lon: -8.01 };
+async function getJSON(url, ms = 9000) {   // straight from the browser first, then through the PC helper or a public relay
+  try { const r = await withTimeout(fetch(url), ms); if (r.ok) return await r.json(); } catch {}
+  for (const k of [0, 1, 2]) { const via = RELAYS[k](url); if (!via) continue; try { const r = await withTimeout(fetch(via), ms); if (r.ok) return JSON.parse(await r.text()); } catch {} }
+  throw new Error('no answer');
+}
+const plural = (n, one, two, few, many) => n === 1 ? one : n === 2 ? two : n >= 3 && n <= 10 ? `${n} ${few}` : `${n} ${many}`;
+const dirhams = v => { const d = Math.floor(v), c = Math.round((v - d) * 100); return plural(d, 'درهم واحد', 'درهمان', 'دراهم', 'درهما') + (c ? ' و' + plural(c, 'سنتيم واحد', 'سنتيمان', 'سنتيمات', 'سنتيما') : ''); };
+const clockAr = (h, m) => m ? `الساعة ${h} و${m} دقيقة` : `الساعة ${h} تماما`;
+async function newsExtras() {
+  const out = [], add = (line, tag, link) => out.push({ line, tag, link: link || '' });
+  const [fx, pr, wx, air, eq] = await Promise.allSettled([
+    getJSON('https://open.er-api.com/v6/latest/USD'),
+    (() => { const d = new Date(); return getJSON(`https://api.aladhan.com/v1/timings/${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}?latitude=${MA.lat}&longitude=${MA.lon}&method=21`); })(),
+    getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${MA.lat}&longitude=${MA.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max,precipitation_sum,wind_gusts_10m_max&timezone=Africa%2FCasablanca&forecast_days=2`),
+    getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${MA.lat}&longitude=${MA.lon}&current=european_aqi,dust&timezone=Africa%2FCasablanca`),
+    getJSON(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${new Date(Date.now() - 864e5).toISOString().slice(0, 19)}&minmagnitude=4.5&latitude=31.6&longitude=-7.5&maxradiuskm=700`),
+  ]);
+  // warnings, only when there is one
+  if (wx.status === 'fulfilled') {
+    const d = wx.value.daily, when = i => i ? 'غدا' : 'اليوم';
+    for (const i of [0, 1]) {
+      const code = d.weather_code[i], tmax = d.temperature_2m_max[i], tmin = d.temperature_2m_min[i], rain = d.precipitation_sum[i], gust = d.wind_gusts_10m_max[i], uv = d.uv_index_max[i];
+      if (tmax >= 40) add(`تنبيه: موجة حر ${when(i)} في مراكش، والحرارة قد تصل إلى ${Math.round(tmax)} درجة. تجنبوا الشمس وقت الذروة، وأكثروا من شرب الماء.`, 'تنبيه · Open-Meteo');
+      if (tmin <= 2) add(`تنبيه: برد شديد ${when(i)}، والحرارة قد تنخفض إلى ${Math.round(tmin)} درجة.`, 'تنبيه · Open-Meteo');
+      if (code >= 95) add(`تنبيه: عواصف رعدية مرتقبة ${when(i)} في مراكش ونواحيها.`, 'تنبيه · Open-Meteo');
+      else if (rain >= 20) add(`تنبيه: أمطار قوية مرتقبة ${when(i)}، بحوالي ${Math.round(rain)} مليمتر. احذروا السيول في الطرقات والأودية.`, 'تنبيه · Open-Meteo');
+      if (code >= 71 && code <= 77) add(`تنبيه: تساقطات ثلجية مرتقبة ${when(i)} في المرتفعات القريبة من مراكش.`, 'تنبيه · Open-Meteo');
+      if (gust >= 60) add(`تنبيه: رياح قوية ${when(i)}، قد تصل سرعتها إلى ${Math.round(gust)} كيلومترا في الساعة.`, 'تنبيه · Open-Meteo');
+      if (i === 0 && uv >= 8) add(`تنبيه: مؤشر الأشعة فوق البنفسجية مرتفع جدا اليوم، فاحموا أنفسكم من الشمس بين الحادية عشرة صباحا والرابعة بعد الزوال.`, 'تنبيه · Open-Meteo');
+    }
+  }
+  if (air.status === 'fulfilled' && air.value.current) {
+    const a = air.value.current;
+    if (a.dust >= 150) add('تنبيه: غبار كثيف في جو مراكش. ينصح بالتقليل من الخروج، خاصة لمن يعانون من الحساسية أو الربو.', 'تنبيه · Open-Meteo');
+    else if (a.european_aqi >= 80) add('تنبيه: جودة الهواء سيئة اليوم في مراكش. ينصح بالتقليل من المجهود في الخارج.', 'تنبيه · Open-Meteo');
+  }
+  if (eq.status === 'fulfilled') (eq.value.features || []).slice(0, 1).forEach(f => {
+    const [lon, lat] = f.geometry.coordinates, km = Math.round(6371 * Math.acos(Math.min(1, Math.sin(lat * Math.PI / 180) * Math.sin(MA.lat * Math.PI / 180) + Math.cos(lat * Math.PI / 180) * Math.cos(MA.lat * Math.PI / 180) * Math.cos((lon - MA.lon) * Math.PI / 180))));
+    add(`تنبيه: سجلت هزة أرضية بقوة ${f.properties.mag.toFixed(1).replace('.', ' فاصلة ')} درجات على سلم ريشتر، على بعد حوالي ${km} كيلومترا من مراكش.`, 'تنبيه · USGS', f.properties.url);
+  });
+  // the dirham
+  if (fx.status === 'fulfilled' && fx.value.rates && fx.value.rates.MAD) {
+    const mad = fx.value.rates.MAD, eur = mad / fx.value.rates.EUR;
+    add(`وفي سوق العملات، الدولار الأمريكي بحوالي ${dirhams(mad)}، واليورو بحوالي ${dirhams(eur)}.`, 'العملات · ExchangeRate-API');
+  }
+  // the next prayer
+  if (pr.status === 'fulfilled' && pr.value.data) {
+    const t = pr.value.data.timings, now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
+    const list = [['Fajr', 'الفجر'], ['Dhuhr', 'الظهر'], ['Asr', 'العصر'], ['Maghrib', 'المغرب'], ['Isha', 'العشاء']].map(([k, ar]) => { const [h, m] = t[k].slice(0, 5).split(':').map(Number); return { ar, h, m, at: h * 60 + m }; });
+    const next = list.find(p => p.at > mins + 2);
+    add(next ? `وأذان ${next.ar} في مراكش على ${clockAr(next.h, next.m)}.` : `وأذان الفجر غدا في مراكش على ${clockAr(list[0].h, list[0].m)} تقريبا.`, 'الصلاة · Aladhan');
+  }
+  // a paid public holiday within a week
+  const hol = nextHoliday();
+  if (hol) add(hol, 'العطل · Morocco');
+  return out;
+}
+// Morocco's paid public holidays (private sector). The religious ones follow the moon: Morocco usually starts the
+// month one day after Umm al-Qura, so the date is an estimate until the crescent is seen.
+const FIXED_HOLIDAYS = { '01-01': 'رأس السنة الميلادية', '01-11': 'ذكرى تقديم وثيقة الاستقلال', '01-14': 'رأس السنة الأمازيغية', '05-01': 'عيد الشغل', '07-30': 'عيد العرش', '08-14': 'ذكرى استرجاع إقليم وادي الذهب', '08-20': 'ذكرى ثورة الملك والشعب', '08-21': 'عيد الشباب', '10-31': 'عيد الوحدة', '11-06': 'ذكرى المسيرة الخضراء', '11-18': 'عيد الاستقلال' };
+const HIJRI_HOLIDAYS = { '1-1': 'رأس السنة الهجرية', '3-12': 'عيد المولد النبوي', '10-1': 'عيد الفطر', '12-10': 'عيد الأضحى' };
+const AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+function hijriOf(d) {
+  try { const p = Object.fromEntries(new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric' }).formatToParts(new Date(d.getTime() - 864e5)).map(x => [x.type, x.value])); return +p.month + '-' + +p.day; } catch { return ''; }
+}
+function nextHoliday() {
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  for (let k = 0; k <= 7; k++) {
+    const d = new Date(today.getTime() + k * 864e5), md = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const fixed = FIXED_HOLIDAYS[md], moon = HIJRI_HOLIDAYS[hijriOf(d)], name = fixed || moon; if (!name) continue;
+    const when = k === 0 ? 'اليوم' : k === 1 ? 'غدا' : `يوم ${AR_DAYS[d.getDay()]} ${d.getDate()} ${AR_MONTH_N[d.getMonth()]}`;
+    return k === 0 ? `واليوم ${name}، وهو يوم عطلة مؤدى عنه.` : `ونذكر بأن ${when} ${moon && !fixed ? 'هو على الأرجح، في انتظار رؤية الهلال، ' : 'هو '}${name}، يوم عطلة مؤدى عنه.`;
+  }
+  return '';
+}
+// Official weather alerts (نشرة إنذارية) from the news sites: read with the warnings, not as headlines
+function vigilance(results) {
+  const seen = new Set(), out = [];
+  results.forEach(r => r.ok && r.items.forEach(x => {
+    const t = cleanHead(x.title); if (!/نشرة إنذارية|نشرة انذارية/.test(t) || (x.when && Date.now() - x.when > 864e5) || seen.has(headKey(t))) return;
+    seen.add(headKey(t)); if (out.length < 1) out.push({ line: 'تنبيه: ' + t.replace(/([^؟!.])$/, '$1.'), tag: 'تنبيه · ' + (NEWS_SOURCES.find(s => s.id === x.src) || {}).name, link: x.link || '' });
+  }));
+  return out;
 }
 const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
 // Said as words, not letters: كلغ is a kilogram, كلم a kilometre; Marrakech is voweled so it sounds Murrākush
@@ -1589,7 +1711,7 @@ const AR_UNIT = { 'كلغ': 'كيلوغرام', 'كغ': 'كيلوغرام', 'ك�
 const spokenArabic = l => l.replace(/مراكش/g, 'مُرّاكُش')
   .replace(/(^|[^\u0600-\u06FF])(بال|لل|ال|ب|ل|و)?(كلغ|كغ|كلم|ملم|سنتم)(?=$|[^\u0600-\u06FF])/g, (m, pre, pfx, u) => pre + (pfx || '') + AR_UNIT[u])
   .replace(/(\d)\s*[%٪]/g, '$1 في المائة').replace(/(\d)\s*°/g, '$1 درجة');
-const NEWS_SECTION_TAG = { marrakech: 'مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'التكنولوجيا والذكاء الاصطناعي', techworld: 'التكنولوجيا والذكاء الاصطناعي', art: 'الفن', trend: 'الأكثر تداولا على مواقع التواصل' };
+const NEWS_SECTION_TAG = { top: 'أبرز العناوين', marrakech: 'مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'التكنولوجيا والذكاء الاصطناعي', techworld: 'التكنولوجيا والذكاء الاصطناعي', art: 'الفن', trend: 'الأكثر تداولا على مواقع التواصل' };
 function newsTag(x) {   // "أخبار المغرب · Hespress", the site's name without the page it came from
   const site = (x.name || (NEWS_SOURCES.find(o => o.id === x.src) || {}).name || x.src || '').replace(/\s+(Marrakech|royal activities|politics|economy|24h|world|tech|culture|social media|trending|upcoming events|\(all\))$/i, '');
   return [NEWS_SECTION_TAG[x.topic] || '', site + (/news\.google\./.test(x.link || '') ? ' (via Google News)' : '')].filter(Boolean).join(' · ');
@@ -1608,11 +1730,13 @@ function arabicBulletin(n) {
   });
   const w = n.weather;
   if (w && w.now && Number.isFinite(w.now.temp)) {
-    lines.push(`وأخيرا، حالة الطقس في مراكش. حاليا ${w.now.sky || 'جو معتدل'}، ودرجة الحرارة ${w.now.temp} درجة.`);
+    lines.push(`وإلى حالة الطقس في مراكش. حاليا ${w.now.sky || 'جو معتدل'}، ودرجة الحرارة ${w.now.temp} درجة.`);
     if (w.rest) lines.push((w.rest.night ? 'وفي ما تبقى من الليلة، ' : 'وفي ما تبقى من اليوم، ') + wxLine(w.rest, w.rest.sky));
     if (w.tomorrow && Number.isFinite(w.tomorrow.max)) lines.push('وغدا، ' + wxLine(w.tomorrow, w.tomorrow.sky));
   }
   while (tags.length < lines.length) tags.push('الطقس · Open-Meteo');   // the weather lines
+  while (info.length < tags.length) info.push({});
+  (n.extras || []).forEach(e => { lines.push(e.line); tags.push(e.tag); info.push({ title: '', link: e.link, page: '' }); });   // warnings, the dirham, the next prayer, a holiday
   lines.push('كانت هذه أبرز العناوين. شكرا لمتابعتكم.');
   const out = lines.map(spokenArabic); out.tags = tags; out.info = info;
   return out;   // voweled, so the voice says Murrākush, not Marākish
