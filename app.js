@@ -1,4 +1,17 @@
 (() => {
+// Timers that keep time when the window is minimized. A hidden page's own timers are slowed to once a second or
+// less, which stretched the fades between songs into long silences; a background worker's timers are not slowed.
+const { setTimeout, setInterval, clearTimeout, clearInterval } = (() => {
+  const native = { setTimeout: window.setTimeout.bind(window), setInterval: window.setInterval.bind(window), clearTimeout: window.clearTimeout.bind(window), clearInterval: window.clearInterval.bind(window) };
+  let w; try { w = new Worker(URL.createObjectURL(new Blob([`const t={};onmessage=e=>{const[k,id,ms]=e.data;if(k==='c'){clearTimeout(t[id]);clearInterval(t[id]);delete t[id];}else if(k==='t')t[id]=setTimeout(()=>{delete t[id];postMessage(id);},ms);else t[id]=setInterval(()=>postMessage(id),ms);};`], { type: 'text/javascript' }))); } catch { return native; }
+  const fns = new Map(), once = new Set(); let next = 1;
+  w.onmessage = e => { const id = e.data, f = fns.get(id); if (!f) return; if (once.has(id)) { fns.delete(id); once.delete(id); } try { f(); } catch (err) { console.error(err); } };
+  w.onerror = () => {};
+  const start = (kind, f, ms, args) => { const id = next++; fns.set(id, args.length ? () => f(...args) : f); if (kind === 't') once.add(id); w.postMessage([kind, id, Math.max(0, +ms || 0)]); return id; };
+  const clear = id => { if (!fns.has(id)) return; fns.delete(id); once.delete(id); w.postMessage(['c', id]); };
+  return { setTimeout: (f, ms, ...a) => start('t', f, ms, a), setInterval: (f, ms, ...a) => start('i', f, ms, a), clearTimeout: clear, clearInterval: clear };
+})();
+window.PBD_TIMERS = { setTimeout, setInterval, clearTimeout, clearInterval };   // jingles.js uses them too
 const R = window.RADIO;
 const $ = id => document.getElementById(id);
 const rnd = a => a[Math.floor(Math.random() * a.length)];
@@ -455,12 +468,12 @@ function fadeP(p, to, ms) {
     clearInterval(p._ft);
     p._fadeTo = to;
     const from = Number.isFinite(p._vol) ? p._vol : 0;
-    const n = Math.max(1, Math.round(ms / 100)); let i = 0;
+    const t0 = performance.now(), len = Math.max(1, ms);
     p._fading = true;
     p._ft = setInterval(() => {
-      i++; setVol(p, from + (to - from) * i / n);
-      if (i >= n) { clearInterval(p._ft); p._fading = false; setVol(p, to); res(); }
-    }, ms / n);
+      const k = Math.min(1, (performance.now() - t0) / len); setVol(p, from + (to - from) * k);
+      if (k >= 1) { clearInterval(p._ft); p._fading = false; setVol(p, to); res(); }
+    }, 100);
   });
 }
 async function resolve(s) {

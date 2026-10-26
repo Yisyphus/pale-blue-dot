@@ -113,10 +113,11 @@
     let stopped = false, finish;
     const done = new Promise(res => { finish = res; });
     const endAt = t + j.length + 1.2;   // measured on the audio clock, so a paused (suspended) context does not run it out
-    const timer = setInterval(() => { if (!stopped && ctx.currentTime >= endAt) { stopped = true; clearInterval(timer); finish(); } }, 100);
+    const T = window.PBD_TIMERS || window;   // timers that keep time while the window is minimized
+    const timer = T.setInterval(() => { if (!stopped && ctx.currentTime >= endAt) { stopped = true; T.clearInterval(timer); finish(); } }, 100);
     return {
       done,
-      stop() { if (stopped) return; stopped = true; clearInterval(timer); try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(0, ctx.currentTime, 0.05); } catch (e) { } setTimeout(() => { try { master.disconnect(); } catch (e) { } }, 400); finish(); },
+      stop() { if (stopped) return; stopped = true; T.clearInterval(timer); try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(0, ctx.currentTime, 0.05); } catch (e) { } setTimeout(() => { try { master.disconnect(); } catch (e) { } }, 400); finish(); },
     };
   }
 
