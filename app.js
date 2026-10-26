@@ -1605,7 +1605,7 @@ const plural = (n, one, two, few, many) => n === 1 ? one : n === 2 ? two : n >= 
 const dirhams = v => { const d = Math.floor(v), c = Math.round((v - d) * 100); return plural(d, 'درهم واحد', 'درهمان', 'دراهم', 'درهما') + (c ? ' و' + plural(c, 'سنتيم واحد', 'سنتيمان', 'سنتيمات', 'سنتيما') : ''); };
 const clockAr = (h, m) => m ? `الساعة ${h} و${m} دقيقة` : `الساعة ${h} تماما`;
 async function newsExtras() {
-  const out = [], add = (line, tag, link) => out.push({ line, tag, link: link || '' });
+  const out = [], add = (line, tag, link, pause) => out.push({ line, tag, link: link || '', pause: pause || 0 });
   const [fx, pr, wx, air, eq] = await Promise.allSettled([
     getJSON('https://open.er-api.com/v6/latest/USD'),
     (() => { const d = new Date(); return getJSON(`https://api.aladhan.com/v1/timings/${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}?latitude=${MA.lat}&longitude=${MA.lon}&method=21`); })(),
@@ -1639,14 +1639,14 @@ async function newsExtras() {
   // the dirham
   if (fx.status === 'fulfilled' && fx.value.rates && fx.value.rates.MAD) {
     const mad = fx.value.rates.MAD, eur = mad / fx.value.rates.EUR;
-    add(`وفي سوق العملات، الدولار الأمريكي بحوالي ${dirhams(mad)}، واليورو بحوالي ${dirhams(eur)}.`, 'العملات · ExchangeRate-API');
+    add(`وفي سوق العملات، الدولار الأمريكي بحوالي ${dirhams(mad)}، واليورو بحوالي ${dirhams(eur)}.`, 'العملات · ExchangeRate-API', '', 700);   // a short breath before the prayer time
   }
   // the next prayer
   if (pr.status === 'fulfilled' && pr.value.data) {
     const t = pr.value.data.timings, now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
     const list = [['Fajr', 'الفجر'], ['Dhuhr', 'الظهر'], ['Asr', 'العصر'], ['Maghrib', 'المغرب'], ['Isha', 'العشاء']].map(([k, ar]) => { const [h, m] = t[k].slice(0, 5).split(':').map(Number); return { ar, h, m, at: h * 60 + m }; });
     const next = list.find(p => p.at > mins + 2);
-    add(next ? `وأذان ${next.ar} في مراكش على ${clockAr(next.h, next.m)}.` : `وأذان الفجر غدا في مراكش على ${clockAr(list[0].h, list[0].m)} تقريبا.`, 'الصلاة · Aladhan');
+    add(next ? `أذان ${next.ar} في مراكش على ${clockAr(next.h, next.m)}.` : `أذان الفجر غدا في مراكش على ${clockAr(list[0].h, list[0].m)} تقريبا.`, 'الصلاة · Aladhan');
   }
   return out;
 }
@@ -1724,7 +1724,7 @@ function arabicBulletin(n) {
   }
   while (tags.length < lines.length) tags.push('الطقس · Open-Meteo');   // the weather lines
   while (info.length < tags.length) info.push({});
-  (n.extras || []).forEach(e => { lines.push(e.line); tags.push(e.tag); info.push({ title: '', link: e.link, page: '' }); });   // warnings, the dirham, the next prayer, a holiday
+  (n.extras || []).forEach(e => { lines.push(e.line); tags.push(e.tag); info.push({ title: '', link: e.link, page: '', pause: e.pause || 0 }); });   // warnings, the dirham, the next prayer, a holiday
   lines.push('كانت هذه أبرز العناوين. شكرا لمتابعتكم.');
   const out = lines.map(spokenArabic); out.tags = tags; out.info = info;
   return out;   // voweled, so the voice says Murrākush, not Marākish
@@ -1776,7 +1776,7 @@ async function runNews(manual) {
     if (id !== runId) { newsArrows(false); return; }
     if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); jumped = true; continue; }   // an arrow: that headline right away, then on from there
     if (tok !== newsLineTok) continue;
-    li++; await sleep(350);
+    li++; await sleep(350 + (((lines.info || [])[li - 1] || {}).pause || 0));
   }
   newsArrows(false);
   await newsJingleRun();
