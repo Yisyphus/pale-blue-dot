@@ -1593,8 +1593,8 @@ async function getNews(manual) {
   const tops = topStories(results, pickNews(results, manual, { dry: true }));
   const items = pickNews(results, manual, { exclude: new Set(tops.map(x => headKey(x.title))), excludeWords: tops.map(x => words(x.title)) });   // read once, at the start
   if (!manual) { const sv = servedNews(); tops.forEach(x => { sv[headKey(x.title)] = Date.now(); }); try { localStorage.setItem('pbd-news-served', JSON.stringify(sv)); } catch {} }
-  const alerts = vigilance(results);
-  return { items: tops.concat(items), weather: await wx, extras: alerts.concat(await extra), via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
+  const alerts = vigilance(results), hol = nextHoliday(results);
+  return { items: tops.concat(items), weather: await wx, extras: alerts.concat(await extra, hol ? [hol] : []), via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
 }
 
 // ---------- the top 3 stories, read first ----------
@@ -1673,28 +1673,41 @@ async function newsExtras() {
     const next = list.find(p => p.at > mins + 2);
     add(next ? `وأذان ${next.ar} في مراكش على ${clockAr(next.h, next.m)}.` : `وأذان الفجر غدا في مراكش على ${clockAr(list[0].h, list[0].m)} تقريبا.`, 'الصلاة · Aladhan');
   }
-  // a paid public holiday within a week
-  const hol = nextHoliday();
-  if (hol) add(hol, 'العطل · Morocco');
   return out;
 }
-// Morocco's paid public holidays (private sector). The religious ones follow the moon: Morocco usually starts the
-// month one day after Umm al-Qura, so the date is an estimate until the crescent is seen.
+// Morocco's paid public holidays (private sector). The fixed ones are announced a week ahead. The religious ones
+// follow the moon, so they are only announced once the Ministry of Habous has confirmed them: the radio waits for
+// that announcement in the Moroccan news, keeps it for two weeks, and reads it until the holiday has passed.
 const FIXED_HOLIDAYS = { '01-01': 'رأس السنة الميلادية', '01-11': 'ذكرى تقديم وثيقة الاستقلال', '01-14': 'رأس السنة الأمازيغية', '05-01': 'عيد الشغل', '07-30': 'عيد العرش', '08-14': 'ذكرى استرجاع إقليم وادي الذهب', '08-20': 'ذكرى ثورة الملك والشعب', '08-21': 'عيد الشباب', '10-31': 'عيد الوحدة', '11-06': 'ذكرى المسيرة الخضراء', '11-18': 'عيد الاستقلال' };
-const HIJRI_HOLIDAYS = { '1-1': 'رأس السنة الهجرية', '3-12': 'عيد المولد النبوي', '10-1': 'عيد الفطر', '12-10': 'عيد الأضحى' };
+const HOLY = [['عيد الفطر', /عيد الفطر/, '10-1'], ['عيد الأضحى', /عيد الأضحى/, '12-10'], ['عيد المولد النبوي', /المولد النبوي|عيد المولد/, '3-12'], ['رأس السنة الهجرية', /رأس السنة الهجرية|فاتح (شهر )?محرم|السنة الهجرية الجديدة/, '1-1']];
+const HOLY_SURE = /الأوقاف|ثبوت|ثبت|رؤية الهلال|تعلن|أعلنت|يعلن|بلاغ|سيكون|يصادف|يوم (الأحد|الاثنين|الثلاثاء|الأربعاء|الخميس|الجمعة|السبت)/;
+const HOLY_GUESS = /مرتقب|متوقع|توقعات|فلكي|فلكيا|الحسابات|تقديرات|محتمل|قد يكون/;   // an astronomer's forecast is not a confirmation
 const AR_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-function hijriOf(d) {
+function hijriOf(d) {   // Morocco usually starts the month one day after Umm al-Qura: only used to know when a holiday is near or past
   try { const p = Object.fromEntries(new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric' }).formatToParts(new Date(d.getTime() - 864e5)).map(x => [x.type, x.value])); return +p.month + '-' + +p.day; } catch { return ''; }
 }
-function nextHoliday() {
+function nextHoliday(results) {
   const today = new Date(); today.setHours(12, 0, 0, 0);
-  for (let k = 0; k <= 7; k++) {
-    const d = new Date(today.getTime() + k * 864e5), md = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    const fixed = FIXED_HOLIDAYS[md], moon = HIJRI_HOLIDAYS[hijriOf(d)], name = fixed || moon; if (!name) continue;
+  const day = k => new Date(today.getTime() + k * 864e5);
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem('pbd-holy') || '{}'); } catch {}
+  Object.keys(saved).forEach(k => { if (Date.now() - saved[k].at > 14 * 864e5) delete saved[k]; });
+  (results || []).forEach((r, i) => r.ok && NEWS_SOURCES[i].local && r.items.forEach(x => {   // the Ministry's announcement, as the Moroccan sites report it
+    const t = cleanHead(x.title), h = HOLY.find(([, rx]) => rx.test(t));
+    if (!h || !HOLY_SURE.test(t) || HOLY_GUESS.test(t) || /السعودية|مصر|الجزائر|تونس|الإمارات|قطر|الكويت|تركيا|إيران|العراق|الأردن|فلسطين|ليبيا|موريتانيا|سوريا|لبنان|اليمن|عمان|البحرين|السودان/.test(t) || (x.when && Date.now() - x.when > 3 * 864e5) || saved[h[0]]) return;
+    saved[h[0]] = { text: t, link: x.link || '', at: Date.now() };
+  }));
+  try { localStorage.setItem('pbd-holy', JSON.stringify(saved)); } catch {}
+  for (let k = 0; k <= 7; k++) {   // the fixed ones: a week ahead
+    const d = day(k), name = FIXED_HOLIDAYS[String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')]; if (!name) continue;
     const when = k === 0 ? 'اليوم' : k === 1 ? 'غدا' : `يوم ${AR_DAYS[d.getDay()]} ${d.getDate()} ${AR_MONTH_N[d.getMonth()]}`;
-    return k === 0 ? `واليوم ${name}، وهو يوم عطلة مؤدى عنه.` : `ونذكر بأن ${when} ${moon && !fixed ? 'هو على الأرجح، في انتظار رؤية الهلال، ' : 'هو '}${name}، يوم عطلة مؤدى عنه.`;
+    return { line: k === 0 ? `واليوم ${name}، وهو يوم عطلة مؤدى عنه.` : `ونذكر بأن ${when} هو ${name}، يوم عطلة مؤدى عنه.`, tag: 'العطل · Morocco', link: '' };
   }
-  return '';
+  for (const [name, , hd] of HOLY) {   // the religious ones: only when confirmed, and while the holiday is still ahead (or today)
+    const c = saved[name]; if (!c) continue;
+    let ahead = false; for (let k = -1; k <= 12 && !ahead; k++) if (hijriOf(day(k)) === hd) ahead = true;
+    if (ahead) return { line: `وبخصوص العطل: ${c.text.replace(/[.،]\s*$/, '')}. وهو يوم عطلة مؤدى عنه.`, tag: 'العطل · ' + 'الإعلان الرسمي', link: c.link };
+  }
+  return null;
 }
 // Official weather alerts (نشرة إنذارية) from the news sites: read with the warnings, not as headlines
 function vigilance(results) {
