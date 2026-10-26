@@ -1310,7 +1310,6 @@ const NEWS_SOURCES = [
   { id: 'le360', name: 'Le360', topic: 'morocco', take: 1, local: true, urls: ['https://ar.le360.ma/arc/outboundfeeds/rss/?outputType=xml', 'https://ar.le360.ma/'] },
   { id: 'bbc', name: 'BBC Arabic', topic: 'world', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/rss.xml'] },
   { id: 'aljazeera', name: 'Al Jazeera', topic: 'world', take: 1, urls: ['https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'] },
-  { id: 'mapworld', name: 'MAP world', topic: 'world', take: 1, urls: ['https://www.mapnews.ma/ar/actualites/monde', GN('site:mapnews.ma الأمم المتحدة OR دولي OR غزة OR أوكرانيا OR الاتحاد الأوروبي OR واشنطن')] },
   { id: 'france24', name: 'France 24', topic: 'world', take: 1, urls: ['https://www.france24.com/ar/rss'] },
   { id: 'aitnews', name: 'AIT News', topic: 'techworld', take: 2, urls: ['https://aitnews.com/feed/', 'https://aitnews.com/'] },
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
@@ -1533,7 +1532,7 @@ function pickNews(results, test) {
       .sort((p, q) => q.breaking - p.breaking);   // breaking first, then the order the source gives (its top stories)
   });
   const all = id => lists[id] || [], text = x => x.title + ' ' + x.cats + ' ' + x.link;
-  const GENERAL = NEWS_SOURCES.filter(s => ['moroccoaj', 'morocco', 'world'].includes(s.topic)).map(s => s.id);
+  const GENERAL = NEWS_SOURCES.filter(s => ['moroccoaj', 'morocco', 'world'].includes(s.topic) && !/^map/.test(s.id)).map(s => s.id);   // MAP is only for أخبار المغرب
   const MOROCCAN = NEWS_SOURCES.filter(s => s.local && !s.events).map(s => s.id);   // أخبار المغرب is filled only from Moroccan sources
   const used = new Set(), picked = [];
   NEWS_PLAN.forEach(([topic, n]) => {
