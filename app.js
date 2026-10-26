@@ -1262,7 +1262,7 @@ async function advance(opts = {}) {
   await fadeP(P(), S.vol, 3000);
 }
 
-// ---------- the news: every 2 hours on the hour (00:00, 02:00 … 22:00), in Arabic ----------
+// ---------- the news: every 4 hours on the hour (00:00, 04:00, 08:00, 12:00, 16:00, 20:00), in Arabic ----------
 // It interrupts whatever is on (a song, a talk, a commercial, a podcast), reads the headlines and the Marrakech weather,
 // then brings that back from the start: the song or episode from 0:00, a break from the part that was interrupted.
 // The headlines come from the PC helper (/api/news), so the news needs the radio running on the PC.
@@ -1277,7 +1277,7 @@ const NEWS_IN = [
 const NEWS_OUT = [
   'That was the news. And now, back to where we were.',
   'Those were the headlines. The world will keep turning; we go back to what was playing.',
-  'That is the news for now. Next one in two hours. Back to it.',
+  'That is the news for now. Next one in four hours. Back to it.',
   'Thank you for listening to the news. And now, we pick up where we left off.',
 ];
 function resumeTarget() {
@@ -1693,10 +1693,10 @@ function finishNews() {
   if (back.type === 'pod') { busy = true; stopSpeech(); return playPodcast(back.pod, null, { scheduled: true }, runId); }
   return advance({ song: back.song, prev: null, silent: true, noCount: true, quick: true });
 }
-// on the hour, every 2 hours; skipped while you have paused the radio
+// on the hour, every 4 hours; skipped while you have paused the radio
 setInterval(() => {
   if (!started || S.news === 'off' || newsOn || globalPaused) return;
-  const d = new Date(); if (d.getMinutes() !== 0 || d.getHours() % 2) return;
+  const d = new Date(); if (d.getMinutes() !== 0 || d.getHours() % 4) return;
   const slot = d.toDateString() + ' ' + d.getHours(); if (slot === lastNewsSlot) return;
   lastNewsSlot = slot; runNews(false);
 }, 5000);
@@ -1704,7 +1704,7 @@ let lastNewsSources = null, lastNewsVia = '';
 function paintNewsNote() {
   const n = $('newsNote'); if (!n) return;
   const old = HELPER && helperNewsMissing ? 'Your PC helper is an older version: close the radio completely and open it again (twice) to update it. Meanwhile the headlines come through the web. ' : '';
-  if (!lastNewsSources) { n.textContent = old + 'every 2 hours on the hour, in Arabic'; return; }
+  if (!lastNewsSources) { n.textContent = old + 'every 4 hours on the hour, in Arabic'; return; }
   n.textContent = old + (lastNewsVia ? `last news via ${lastNewsVia}: ` : '') + lastNewsSources.map(x => `${x.name} ${x.ok ? '✓' : '✗ ' + x.error}`).join(' · ');
 }
 
