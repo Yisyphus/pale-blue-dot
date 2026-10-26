@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-26T10:50:49Z">
+<meta name="pbd-version" content="2026-10-26T11:02:15Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -72,6 +72,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .cap.arrows{padding-left:28px;padding-right:28px;max-height:none}
 #capSrc{display:block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:#4fe3f0;direction:rtl;text-align:right}
 #capSrc:empty{display:none}
+.cap.linkable{cursor:pointer}
+.cap.linkable:hover #capSrc{text-decoration:underline}
 
 /* progress */
 .bar{height:3px;background:var(--line);border-radius:3px;overflow:hidden;cursor:pointer}
@@ -338,6 +340,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=97dbb4006a2c21fe"></script>
-<script src="app.js?v=714faf7ae105db94"></script>
+<script src="app.js?v=3c4d0f3f2df91892"></script>
 </body>
 </html>

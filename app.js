@@ -1658,7 +1658,7 @@ async function runNews(manual) {
   let jumped = false;
   for (let li = 0; li < lines.length; ) {
     newsAt = li; newsJump = 0; const tok = ++newsLineTok;
-    $('capText').textContent = lines[li]; $('capSrc').textContent = (lines.tags || [])[li] || '';   // shown at once, also right after an arrow
+    $('capText').textContent = lines[li]; newsLink = ((lines.info || [])[li] || {}).link || ''; $('capSrc').textContent = ((lines.tags || [])[li] || '') + (newsLink ? ' · ↗ tap to open' : ''); $('cap').classList.toggle('linkable', !!newsLink);   // shown at once, also right after an arrow
     if (jumped) { jumped = false; await sleep(250); try { speechSynthesis.cancel(); speechSynthesis.resume(); } catch {} await sleep(100); if (id !== runId) break; if (newsJump) { li = Math.max(0, Math.min(lines.length, li + newsJump)); jumped = true; continue; } }   // let the voice settle after the cancel (an arrow pressed meanwhile moves on again)
     await Promise.race([mobileWeb() ? sayArabic(lines[li]) : sayNewsComputer(lines[li]), new Promise(r => { newsSkipTo = r; })]);
     if (id !== runId) { newsArrows(false); return; }
@@ -1675,7 +1675,14 @@ async function runNews(manual) {
 }
 // ‹ and › in the caption box, only while the headlines are read: the previous headline, or the next one
 let newsAt = 0, newsJump = 0, newsLineTok = 0, newsSkipTo = null;
-function newsArrows(on) { ['newsPrev', 'newsNext'].forEach(i => { const b = $(i); if (b) b.style.display = on ? '' : 'none'; }); $('cap').classList.toggle('arrows', !!on); if (!on) $('capSrc').textContent = ''; }
+function newsArrows(on) { ['newsPrev', 'newsNext'].forEach(i => { const b = $(i); if (b) b.style.display = on ? '' : 'none'; }); $('cap').classList.toggle('arrows', !!on); if (!on) { $('capSrc').textContent = ''; newsLink = ''; $('cap').classList.remove('linkable'); } }
+let newsLink = '';
+$('cap').addEventListener('click', async e => {   // during the news: the article being read, in your browser
+  if (!newsOn || !newsLink || e.target.closest('button')) return;
+  const url = newsLink;
+  if (HELPER) { try { const r = await fetch('/api/open?url=' + encodeURIComponent(url)); if (r.ok) return toast('Opened in your browser.'); } catch {} }
+  window.open(url, '_blank', 'noopener');
+});
 function newsStep(d) {
   if (!newsOn) return;
   newsJump = d; newsLineTok++;

@@ -358,6 +358,11 @@ const server = http.createServer(async (req, res) => {
       await syncApp(); let version = ''; try { version = JSON.parse(fs.readFileSync(path.join(SERVE, 'files.json'), 'utf8')).version || ''; } catch {}
       return send(res, 200, { version, helperLater: sha(fs.readFileSync(__filename)) !== RUNNING });
     }
+    if (u.pathname === '/api/open') {   // tapping the headline being read: the article, in your usual browser
+      const url = u.searchParams.get('url') || ''; if (!/^https?:\/\/[^\s"]+$/.test(url)) return send(res, 400, { error: 'not a web address' });
+      const cmd = process.platform === 'win32' ? ['explorer.exe', [url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+      try { require('child_process').spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore' }).unref(); return send(res, 200, { ok: true }); } catch (e) { return send(res, 500, { error: String(e.message || e) }); }
+    }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
     if (u.pathname === '/api/ads/all') return send(res, 200, { items: adsAll() });
