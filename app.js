@@ -1267,7 +1267,7 @@ async function advance(opts = {}) {
 // then brings that back from the start: the song or episode from 0:00, a break from the part that was interrupted.
 // The headlines come from the PC helper (/api/news), so the news needs the radio running on the PC.
 let newsOn = false, newsBack = null, newsJingle = null, newsShown = null, lastNewsSlot = '';
-const NEWS_TOPIC_AR = { top: 'أبرز عناوين هذه النشرة', marrakech: 'من مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
+const NEWS_TOPIC_AR = { marrakech: 'من مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
 const NEWS_IN = [
   'It is {time}. Time for the news. Then we come straight back to what was playing.',
   'It is {time} on {station}. Let us stop for a moment for the headlines. We will pick up again right after.',
@@ -1521,7 +1521,7 @@ function servedNews() { try { return JSON.parse(localStorage.getItem('pbd-news-s
 // and last, older stories. No sport, ever.
 const srcRank = x => { const i = NEWS_SOURCES.findIndex(o => o.id === x.src); return i < 0 ? 99 : i; };
 const artRank = x => x.event ? 2 : x.src === 'hitradio' ? 1 : 0;
-function pickNews(results, test, opts = {}) {   // opts.exclude: headlines already chosen as top stories; opts.dry: do not remember them as read
+function pickNews(results, test) {
   const now = Date.now(), served = servedNews();
   Object.keys(served).forEach(k => { if (now - served[k] > 12 * 3600e3) delete served[k]; });
   const seen = new Set(), isNew = x => test || !served[headKey(x.title)];
@@ -1530,7 +1530,6 @@ function pickNews(results, test, opts = {}) {   // opts.exclude: headlines alrea
   const lists = {};
   results.forEach((r, i) => {
     lists[NEWS_SOURCES[i].id] = r.items.map(x => ({ ...x, title: cleanHead(x.title), breaking: /^\s*عاجل/.test(x.title) || /عاجل/.test(x.cats) }))
-      .filter(x => !(opts.exclude && (opts.exclude.has(headKey(x.title)) || (opts.excludeWords || []).some(w => sameStory(w, words(cleanHead(x.title)))))))
       .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) || WEATHER_RX.test(x.title) || JUNK_RX.test(x.title) || OPINION_RX.test(dURI(x.link || '') + ' ' + x.cats)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
       .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
       .filter(x => NEWS_SOURCES[i].only !== 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))   // a mixed source: only its stories on the topic
@@ -1571,7 +1570,7 @@ function pickNews(results, test, opts = {}) {   // opts.exclude: headlines alrea
     fill();
     if (capOn && room()) { capOn = false; fill(); }   // not enough other news: more crime rather than an empty place
   });
-  if (!test && !opts.dry) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
+  if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
   return picked.map(x => ({ title: x.title, link: x.link, page: x.page, topic: x.topic, source: x.name, src: x.src, breaking: x.breaking, event: x.event, date: x.date }))
     .sort((p, q) => (p.topic !== q.topic ? 0 : p.topic === 'moroccoaj' ? srcRank(p) - srcRank(q) : artRank(p) - artRank(q)));   // art: BBC, then Hit Radio; أخبار المغرب: royal, politics, economy
 }
@@ -1590,33 +1589,9 @@ async function getNews(manual) {
   const wx = weatherNow().catch(() => null), extra = newsExtras().catch(() => []);
   helperNewsMissing = false;
   const results = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, readSourceHere);
-  const tops = topStories(results, pickNews(results, manual, { dry: true }));
-  const items = pickNews(results, manual, { exclude: new Set(tops.map(x => headKey(x.title))), excludeWords: tops.map(x => words(x.title)) });   // read once, at the start
-  if (!manual) { const sv = servedNews(); tops.forEach(x => { sv[headKey(x.title)] = Date.now(); }); try { localStorage.setItem('pbd-news-served', JSON.stringify(sv)); } catch {} }
+  const items = pickNews(results, manual);
   const alerts = vigilance(results), hol = nextHoliday(results);
-  return { items: tops.concat(items), weather: await wx, extras: alerts.concat(await extra, hol ? [hol] : []), via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
-}
-
-// ---------- the top 3 stories, read first ----------
-// No AI: points from what the radio can see. A story several sites carry (+3 for each other site), marked عاجل (+5),
-// near the top of its site (+2, +1), a royal activity (+2); older stories lose points. Art and trends are left out.
-const STOP_AR = new Set('في من على إلى الى عن مع بعد قبل حول بين ضد هذا هذه ذلك التي الذي الذين كما لكن أو ثم قد لا ما لم لن هو هي هم كان كانت يكون تكون أن إن عند منذ خلال حتى أمام أجل بشأن وسط عبر'.split(' '));
-const words = t => new Set(t.replace(/[^؀-ۿ\s]/g, ' ').split(/\s+/).map(w => w.replace(/^(وال|بال|فال|كال|لل|ال|و|ف|ب)/, '')).filter(w => w.length >= 3 && !STOP_AR.has(w)));
-const sameStory = (a, b) => { let n = 0; a.forEach(w => { if (b.has(w)) n++; }); return n >= 3 && n >= Math.min(a.size, b.size) * 0.5; };
-function topStories(results, picked) {
-  const pool = results.flatMap((r, i) => r.ok ? r.items.map((x, pos) => ({ src: NEWS_SOURCES[i].id, pos, w: words(cleanHead(x.title)) })) : []);
-  const scored = picked.filter(x => !['art', 'trend'].includes(x.topic) && !x.event).map(x => {
-    const w = words(x.title), mine = pool.find(p => p.src === x.src && sameStory(p.w, w));
-    const site = id => id.replace(/^(kechall|kech24)$/, 'kech').replace(/^(hesall|hespress|hessocial)$/, 'hes');
-    const others = new Set(pool.filter(p => site(p.src) !== site(x.src) && sameStory(p.w, w)).map(p => site(p.src)));
-    const pos = mine ? mine.pos : 9, hours = x.when ? (Date.now() - x.when) / 36e5 : 12;
-    if (CRIME_RX.test(x.title) && !others.size) return null;
-    return { x, score: others.size * 3 + (x.breaking ? 5 : 0) + (pos === 0 ? 2 : pos <= 2 ? 1 : 0) + (x.src === 'maproyal' ? 2 : 0) - Math.min(3, Math.floor(hours / 12)) };
-  });
-  const out = [];
-  const RANK = { moroccoaj: 0, morocco: 1, world: 2, marrakech: 3, tech: 4, techworld: 5 };
-  scored.filter(Boolean).sort((a, b) => b.score - a.score || (RANK[a.x.topic] ?? 9) - (RANK[b.x.topic] ?? 9)).forEach(({ x }) => { if (out.length < 3 && !out.some(o => sameStory(words(o.title), words(x.title)))) out.push({ ...x, topic: 'top' }); });
-  return out;
+  return { items, weather: await wx, extras: alerts.concat(await extra, hol ? [hol] : []), via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
 }
 
 // ---------- after the weather: warnings, the dirham, the next prayer, a public holiday ----------
@@ -1724,7 +1699,7 @@ const AR_UNIT = { 'كلغ': 'كيلوغرام', 'كغ': 'كيلوغرام', 'ك�
 const spokenArabic = l => l.replace(/مراكش/g, 'مُرّاكُش')
   .replace(/(^|[^\u0600-\u06FF])(بال|لل|ال|ب|ل|و)?(كلغ|كغ|كلم|ملم|سنتم)(?=$|[^\u0600-\u06FF])/g, (m, pre, pfx, u) => pre + (pfx || '') + AR_UNIT[u])
   .replace(/(\d)\s*[%٪]/g, '$1 في المائة').replace(/(\d)\s*°/g, '$1 درجة');
-const NEWS_SECTION_TAG = { top: 'أبرز العناوين', marrakech: 'مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'التكنولوجيا والذكاء الاصطناعي', techworld: 'التكنولوجيا والذكاء الاصطناعي', art: 'الفن', trend: 'الأكثر تداولا على مواقع التواصل' };
+const NEWS_SECTION_TAG = { marrakech: 'مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'التكنولوجيا والذكاء الاصطناعي', techworld: 'التكنولوجيا والذكاء الاصطناعي', art: 'الفن', trend: 'الأكثر تداولا على مواقع التواصل' };
 function newsTag(x) {   // "أخبار المغرب · Hespress", the site's name without the page it came from
   const site = (x.name || (NEWS_SOURCES.find(o => o.id === x.src) || {}).name || x.src || '').replace(/\s+(Marrakech|royal activities|politics|economy|24h|world|tech|culture|social media|trending|upcoming events|\(all\))$/i, '');
   return [NEWS_SECTION_TAG[x.topic] || '', site + (/news\.google\./.test(x.link || '') ? ' (via Google News)' : '')].filter(Boolean).join(' · ');
