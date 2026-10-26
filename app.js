@@ -1808,8 +1808,38 @@ async function tuneIn() {
   if (!voices.length) loadVoices();
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
   setPlayIcon(true);
-  await advance({ first: true });
+  const back = updResume; updResume = null;
+  if (back && back.song) {   // right after an update: the same song, from where it was, without the welcome
+    await advance({ song: back.song, silent: true, noCount: true, prev: null });
+    if (current && current.key === back.song.key && back.t > 3) setTimeout(() => { try { P().seekTo(back.t, true); } catch {} }, 1500);
+    return;
+  }
+  await advance({ first: back ? false : true, silent: !!back });
 }
+
+// ---------- Update: the newest version now, without closing the radio ----------
+// The PC asks its helper to download the new files at once; the web just reloads past the browser's cache. Either way
+// the page reloads, and pressing play carries on with the same song from the same moment.
+let updResume = null;
+try { const r = JSON.parse(sessionStorage.getItem('pbd-resume') || 'null'); sessionStorage.removeItem('pbd-resume'); if (r && Date.now() - r.at < 10 * 60e3) { updResume = r; $('tuneSub').textContent = 'updated · press play to carry on'; } } catch {}
+const pageVersion = () => (document.querySelector('meta[name="pbd-version"]') || {}).content || '';
+$('btnUpdate').onclick = async () => {
+  const b = $('btnUpdate'); if (b.disabled) return; b.disabled = true; b.textContent = 'Checking…';
+  try {
+    let version = '', helperLater = false;
+    if (HELPER) {
+      const r = await fetch('/api/update', { method: 'POST' }).catch(() => null);
+      if (r && r.ok) { const j = await r.json(); version = j.version || ''; helperLater = !!j.helperLater; }
+    }
+    if (!version) { try { version = ((await (await fetch('files.json?t=' + Date.now(), { cache: 'no-store' })).json()) || {}).version || ''; } catch {} }   // unknown: reload anyway
+    if (version && version === pageVersion()) { toast(helperLater ? 'You have the newest version. One part of the PC helper takes effect the next time you open the radio.' : 'You have the newest version.'); return; }
+    try { sessionStorage.setItem('pbd-resume', JSON.stringify({ at: Date.now(), song: current && !current.podcast && !newsOn ? current : null, t: (() => { try { return P().getCurrentTime(); } catch { return 0; } })() })); } catch {}
+    toast('Updating…');
+    await sleep(400);
+    location.replace(location.pathname + '?u=' + Date.now());
+  } catch (e) { toast('Could not check for updates: ' + (e.message || e)); }
+  finally { b.disabled = false; b.textContent = 'Update'; }
+};
 
 // ---------- panels ----------
 const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport', 'shLabel'];

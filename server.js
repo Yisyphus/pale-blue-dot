@@ -28,6 +28,7 @@ function activeRoot() {
   return ROOT;
 }
 let SERVE = activeRoot();
+const RUNNING = sha(fs.readFileSync(__filename));   // the helper code this process started with
 async function syncApp() {
   if (!CLOUD.appUrl) return;
   const base = CLOUD.appUrl.replace(/\/?$/, '/');
@@ -353,6 +354,10 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
     if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
     if (u.pathname === '/api/fetch') { try { const x = await newsFetch(u.searchParams.get('url') || ''); return x.status === 200 ? send(res, 200, x.body, 'text/plain; charset=utf-8') : send(res, 502, 'the site answered ' + x.status + (/cloudflare|cf-chl|just a moment/i.test(x.body) ? ' (bot wall)' : ''), 'text/plain');  } catch (e) { return send(res, 502, e.name === 'TimeoutError' ? 'the site took too long' : String((e.cause && e.cause.code) || e.message || e), 'text/plain'); } }
+    if (u.pathname === '/api/update') {   // the Update button: download the newest radio now; the page then reloads
+      await syncApp(); let version = ''; try { version = JSON.parse(fs.readFileSync(path.join(SERVE, 'files.json'), 'utf8')).version || ''; } catch {}
+      return send(res, 200, { version, helperLater: sha(fs.readFileSync(__filename)) !== RUNNING });
+    }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
     if (u.pathname === '/api/ads/all') return send(res, 200, { items: adsAll() });

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="pbd-version" content="2026-10-26T10:19:57Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -291,7 +292,7 @@ body.mini .app{gap:6px}
     <div class="set" style="flex-wrap:wrap"><span style="flex:1 1 100%">News<br><small id="newsNote" style="color:var(--mute);font-size:11px;line-height:1.4">every 4 hours on the hour, in Arabic</small></span><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-left:auto"><div class="seg" id="segNews"><button data-v="on">on</button><button data-v="off">off</button></div><button class="btn ghost" id="btnNews">Play now</button><button class="btn ghost" id="btnNewsCheck" title="See what every news source gives right now">Check sources</button><button class="btn ghost" id="btnNewsLast" title="Every line of the last bulletin, with the link of each headline">Last bulletin</button></div></div>
     <div class="set"><span>Commercials</span><button class="btn ghost" id="btnAds">Manage commercials</button></div>
     <div class="set"><span>Playback report<br><small style="color:var(--mute);font-size:11px">what YouTube did, for fixing problems</small></span><button class="btn ghost" id="btnReport">Show</button></div>
-    <div class="set"><span>Cloud sync<br><small id="cloudNote" style="color:var(--mute);font-size:11px;line-height:1.4">off</small></span><button class="btn ghost" id="btnCloud">Sign in with Google</button></div>
+    <div class="set"><span>Cloud sync<br><small id="cloudNote" style="color:var(--mute);font-size:11px;line-height:1.4">off</small></span><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn ghost" id="btnUpdate" title="Get the newest version of the radio now, without closing it">Update</button><button class="btn ghost" id="btnCloud">Sign in with Google</button></div></div>
     <div class="set"><button class="btn ghost" id="btnTest">Test the voice</button><button class="btn ghost" id="btnReset">Restore removed songs</button></div>
     <p id="voiceNote" style="color:var(--amber);font-size:12px;line-height:1.5"></p>
     <p style="color:var(--mute);font-size:12px;line-height:1.5">Tip: Microsoft Edge has free natural voices. Look for names ending in "(Natural)" like Aria, Jenny or Sonia.</p>
@@ -300,7 +301,7 @@ body.mini .app{gap:6px}
   <div class="toast" id="toast"></div>
 
   <div class="tune" id="tune">
-    <small>on the air tonight</small>
+    <small id="tuneSub">on the air tonight</small>
     <h1>Pale Blue Dot</h1>
     <p>Songs, long talks, poems, and a calm voice for the hours when the world is too loud or too quiet.</p>
     <button class="big" id="btnTune" aria-label="Tune in"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
@@ -337,6 +338,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=97dbb4006a2c21fe"></script>
-<script src="app.js?v=9d2995f4eb72cea7"></script>
+<script src="app.js?v=8e37c4fac9cab2a1"></script>
 </body>
 </html>
