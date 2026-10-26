@@ -1482,7 +1482,7 @@ async function readSourceHere(src) {
       const url = RELAYS[ri](u);
       const r = await fetch(url);
       if (url.startsWith('/api/fetch') && r.status === 404) helperNewsMissing = true;   // a helper that has not updated yet
-      if (!r.ok) throw new Error(url.startsWith('/api/fetch') ? 'your PC: ' + ((await r.text()).slice(0, 60) || 'HTTP ' + r.status) : 'HTTP ' + r.status);
+      if (!r.ok) throw new Error(url.startsWith('/api/fetch') ? r.status === 404 ? 'your PC helper is an older version: close the radio completely and start it again' : 'your PC: ' + ((await r.text()).slice(0, 60) || 'HTTP ' + r.status) : 'HTTP ' + r.status);
       const body = await r.text(), it = src.events ? parseEvents(body, u) : parseNews(body, u, /\/feed$|rss|outboundfeeds/.test(u));
       if (!it.length) throw new Error('no headlines');
       return { it, ri };
