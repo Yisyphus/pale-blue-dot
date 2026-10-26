@@ -1498,7 +1498,7 @@ async function readSourceHere(src) {
       if (mobileWeb() && got.ri !== pref) { const m = relayMemo(); m[u] = got.ri; try { localStorage.setItem('pbd-relay2', JSON.stringify(m)); } catch {} }
       if (/news\.google\./.test(u)) got.it = got.it.map(x => ({ ...x, title: x.title.replace(/\s+[-–|]\s+[^-–|]{2,40}$/, '').trim() }));   // "headline - SNRTnews"
       const it = await uncut(got.it, url => tryRelayFor(url, got.ri));
-      return { ok: true, items: it.map(x => ({ ...x, src: src.id, name: src.name, topic: src.topic })) };
+      return { ok: true, items: it.map(x => ({ ...x, page: u, src: src.id, name: src.name, topic: src.topic })) };
     } catch (e) { errs.push((/news\.google\./.test(u) ? 'backup via Google News: ' : '') + ((e.errors && e.errors[0] && e.errors[0].message) || e.message || String(e))); }
   }
   return { ok: false, error: errs.join(' · ') || 'no answer', items: [] };
@@ -1557,7 +1557,7 @@ function pickNews(results, test) {
     });
   });
   if (!test) { picked.forEach(x => { served[headKey(x.title)] = now; }); try { localStorage.setItem('pbd-news-served', JSON.stringify(served)); } catch {} }
-  return picked.map(x => ({ title: x.title, topic: x.topic, source: x.name, src: x.src, breaking: x.breaking, event: x.event, date: x.date }))
+  return picked.map(x => ({ title: x.title, link: x.link, page: x.page, topic: x.topic, source: x.name, src: x.src, breaking: x.breaking, event: x.event, date: x.date }))
     .sort((p, q) => (p.topic !== q.topic ? 0 : p.topic === 'moroccoaj' ? srcRank(p) - srcRank(q) : artRank(p) - artRank(q)));   // art: BBC, then Hit Radio; أخبار المغرب: royal, politics, economy
 }
 const WMO_AR = { 0: 'سماء صافية', 1: 'سماء صافية في الغالب', 2: 'سماء غائمة جزئيا', 3: 'سماء غائمة', 45: 'ضباب', 48: 'ضباب', 51: 'رذاذ خفيف', 53: 'رذاذ', 55: 'رذاذ كثيف', 56: 'رذاذ متجمد', 57: 'رذاذ متجمد', 61: 'أمطار خفيفة', 63: 'أمطار', 65: 'أمطار غزيرة', 66: 'أمطار متجمدة', 67: 'أمطار متجمدة', 71: 'ثلوج خفيفة', 73: 'ثلوج', 75: 'ثلوج كثيفة', 77: 'ثلوج', 80: 'زخات مطرية خفيفة', 81: 'زخات مطرية', 82: 'زخات مطرية قوية', 85: 'زخات ثلجية', 86: 'زخات ثلجية', 95: 'عواصف رعدية', 96: 'عواصف رعدية مع برد', 99: 'عواصف رعدية مع برد' };
@@ -1591,12 +1591,13 @@ function newsTag(x) {   // "أخبار المغرب · Hespress", the site's nam
 function arabicBulletin(n) {
   const h = new Date().getHours(), lines = [h === 0 ? 'أهلا بكم في نشرة أخبار منتصف الليل.' : `أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
   let label = '';   // a heading is said once, when it changes
+  const info = [{}];   // for Settings > News > Last bulletin: where each line came from
   const tags = [''];   // shown in cyan under each headline: its section · its source
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
     const head = x.event ? `ومن المواعيد الثقافية القادمة: ${x.title.replace(/\s*(\.{2,}|…)\s*/g, '، ')}${x.date ? '، ' + x.date : ''}.` : (x.breaking ? 'عاجل: ' : '') + title.replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
     lines.push(l && l !== label ? `${l}: ${head}` : head);
-    tags.push(newsTag(x));
+    tags.push(newsTag(x)); info.push({ title: x.title, link: x.link || '', page: x.page || '' });
     label = l;
   });
   const w = n.weather;
@@ -1607,7 +1608,7 @@ function arabicBulletin(n) {
   }
   while (tags.length < lines.length) tags.push('الطقس · Open-Meteo');   // the weather lines
   lines.push('كانت هذه أبرز العناوين. شكرا لمتابعتكم.');
-  const out = lines.map(spokenArabic); out.tags = tags;
+  const out = lines.map(spokenArabic); out.tags = tags; out.info = info;
   return out;   // voweled, so the voice says Murrākush, not Marākish
 }
 async function runNews(manual) {
@@ -1646,6 +1647,7 @@ async function runNews(manual) {
   if (id !== runId) return;
   $('capKind').textContent = 'الأخبار';
   const lines = arabicBulletin(n);
+  try { localStorage.setItem('pbd-news-last', JSON.stringify({ at: Date.now(), lines: lines.map((t, i) => ({ said: t, tag: lines.tags[i] || '', ...(lines.info[i] || {}) })) })); } catch {}
   newsArrows(true);
   let jumped = false;
   for (let li = 0; li < lines.length; ) {
@@ -2211,6 +2213,14 @@ $('btnNewsCheck').onclick = async () => {
     return `✓ ${s.name}: ${r.items.length} found\n` + r.items.slice(0, 4).map(x => `   · ${x.title}${x.date ? ' (' + x.date + ')' : ''}`).join('\n');
   }).join('\n\n');
 };
+const dURI = u => { try { return decodeURI(u); } catch { return u; } };
+$('btnNewsLast').onclick = () => {   // everything the last bulletin read, with where each headline came from
+  let last = null; try { last = JSON.parse(localStorage.getItem('pbd-news-last') || 'null'); } catch {}
+  $('reportText').textContent = !last ? 'No bulletin has been read on this device yet. Play the news, then come back here.'
+    : `Last bulletin, read ${new Date(last.at).toLocaleString('en-GB')}\n\n` + last.lines.map((l, i) => [`${i + 1}. ${l.said}`, l.tag && `   ${l.tag}`, l.link && `   link: ${dURI(l.link)}`, l.page && `   from page: ${dURI(l.page)}`].filter(Boolean).join('\n')).join('\n\n');
+  openSheet('shReport');
+};
+$('reportCopy').onclick = async () => { const t = $('reportText').textContent; try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast('Copied.'); } catch {} a.remove(); } };
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
