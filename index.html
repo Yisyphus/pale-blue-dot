@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T15:11:16Z">
+<meta name="pbd-version" content="2026-10-27T22:43:53Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -120,6 +120,10 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .focus-menu small{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--mute);text-transform:uppercase}
 .focus-menu button{text-align:left;padding:8px 10px;border-radius:8px;color:var(--cream);font-size:13px}
 .focus-menu button:hover,.focus-menu button.on{background:var(--panel);color:var(--amber)}
+.focus-stations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}
+.focus-stations button{display:flex;flex-direction:column;gap:2px;padding:7px 10px}
+.focus-stations em{font-style:normal;font-size:11px;line-height:1.3;color:var(--mute)}
+@media (max-width:420px){.focus-stations{grid-template-columns:1fr}}
 .run-info{align-self:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--amber);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-align:center}
 .titlerow{display:flex;align-items:center;justify-content:center;gap:10px}
 .heart{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--mute);flex:none}
@@ -210,7 +214,7 @@ body.mini .app{gap:6px}
     <button class="ico" id="btnFocus" title="Focus mode" aria-label="Focus mode"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0116 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg></button>
     <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button>
   </div>
-  <div class="focus-menu" id="focusMenu" role="menu"><small>Focus mode: no talk, no commercials · the news stays</small><button data-v="music" role="menuitem">Instrumental music</button><button data-v="sounds" role="menuitem">Ambient sounds</button><button data-v="" role="menuitem">Off</button></div>
+  <div class="focus-menu" id="focusMenu" role="menu"><small>Focus mode: no talk, no commercials · the news stays</small><small>Instrumental</small><div id="focusStations" class="focus-stations"></div><small>Or</small><button data-v="sounds" role="menuitem">Ambient sounds</button><button data-v="" role="menuitem">Off</button></div>
 
   <!-- add song -->
   <div class="sheet" id="shAdd">
@@ -370,13 +374,13 @@ body.mini .app{gap:6px}
 <script src="content20.js?v=5b3d991b435b2d2a"></script>
 <script src="content21.js?v=db801564b6bdd4c3"></script>
 <script src="content22.js?v=97b2806116f2a4e7"></script>
-<script src="content23.js?v=4fa62b55816a92c9"></script>
+<script src="content23.js?v=09beb45052b9245a"></script>
 <script src="jingles.js?v=82e560f3edddbd37"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=308f45a256696f2c"></script>
+<script src="app.js?v=fdf22fc2d5ada157"></script>
 </body>
 </html>

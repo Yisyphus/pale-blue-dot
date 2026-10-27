@@ -762,8 +762,11 @@ function pick() {
 }
 // ---------- Focus mode: instrumental only (or ambient sounds), no talk, no commercials, until you turn it off ----------
 // Its tracks (content23.js) live apart from the library; the news still comes every 4 hours.
+// Instrumental music is split into stations (R.focusStations): the one you pick plays alone until you change it.
+const focusStations = (R.focusStations || []).map(st => ({ ...st, songs: st.tracks.map(l => { const [a, t] = l.split('|'); return { a, t, style: st.id, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() }; }) }));
+const focusStation = id => focusStations.find(st => st.id === id);
 let focusMode = ''; try { focusMode = localStorage.getItem('pbd-focus') || ''; } catch {}
-const focusSongs = (R.focusTracks || []).map(l => { const [a, t, style] = l.split('|'); return { a, t, style, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() }; });
+if (focusMode && focusMode !== 'sounds' && !focusStation(focusMode)) focusMode = focusStations.length ? focusStations[0].id : '';   // 'music' from before the stations
 function focusPick() {
   if (focusMode === 'sounds') {
     const all = R.focusSounds || []; let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-snd') || '[]'); } catch {}
@@ -772,7 +775,8 @@ function focusPick() {
     return { a: 'Ambient sounds', t: x.label, q: x.q, genre: 'focus', tags: [], focus: true, sounds: true, key: 'focus-sound|' + x.label.toLowerCase() };
   }
   let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-used') || '[]'); } catch {}
-  let pool = focusSongs.filter(s => !used.includes(s.key) && !restingBroken(s) && (!current || s.a !== current.a)); if (!pool.length) { used = []; pool = focusSongs; }
+  const songs = focusStation(focusMode).songs;
+  let pool = songs.filter(s => !used.includes(s.key) && !restingBroken(s) && (!current || s.a !== current.a)); if (!pool.length) { used = used.filter(k => !songs.some(s => s.key === k)); pool = songs; }
   const s = Object.assign({}, rnd(pool)); used.push(s.key); try { localStorage.setItem('pbd-focus-used', JSON.stringify(used.slice(-120))); } catch {}
   return s;
 }
@@ -788,7 +792,7 @@ async function resolveFocus(s) {
   } catch { return []; }
 }
 function paintFocus() {
-  const b = $('btnFocus'); if (b) { b.classList.toggle('on', !!focusMode); b.title = focusMode ? 'Focus mode is on (' + (focusMode === 'sounds' ? 'ambient sounds' : 'instrumental music') + ')' : 'Focus mode'; }
+  const b = $('btnFocus'); if (b) { b.classList.toggle('on', !!focusMode); b.title = focusMode ? 'Focus mode is on (' + (focusMode === 'sounds' ? 'ambient sounds' : focusStation(focusMode).label) + ')' : 'Focus mode'; }
   document.querySelectorAll('#focusMenu button').forEach(x => x.classList.toggle('on', x.dataset.v === focusMode));
 }
 function setFocus(mode) {
@@ -797,7 +801,7 @@ function setFocus(mode) {
   focusMode = mode; try { localStorage.setItem('pbd-focus', mode); } catch {}
   paintFocus(); planned = null; preload = null;
   rlog('focus mode', { mode: mode || 'off' });
-  toast(mode === 'sounds' ? 'Focus: ambient sounds. No talk, no commercials.' : mode ? 'Focus: instrumental music. No talk, no lyrics, no commercials.' : 'Focus mode off. Back to the radio.');
+  toast(mode === 'sounds' ? 'Focus: ambient sounds. No talk, no commercials.' : mode ? 'Focus: ' + focusStation(mode).label + '. No talk, no lyrics, no commercials.' : 'Focus mode off. Back to the radio.');
   if (started && !newsOn) { stopSpeech(); advance({ silent: true, noCount: true, quick: true }); }   // switch now, with a crossfade
 }
 const takePlanned = () => { const p = planned; planned = null; return p || pick(); };
@@ -2642,6 +2646,7 @@ $('btnNewsLast').onclick = () => {   // everything the last bulletin read, with 
 };
 $('reportCopy').onclick = async () => { const t = $('reportText').textContent; try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast('Copied.'); } catch {} a.remove(); } };
 $('btnFocus').onclick = e => { e.stopPropagation(); $('focusMenu').classList.toggle('open'); paintFocus(); };
+focusStations.forEach(st => { const b = document.createElement('button'); b.dataset.v = st.id; b.setAttribute('role', 'menuitem'); b.innerHTML = '<span></span><em></em>'; b.firstChild.textContent = st.label; b.lastChild.textContent = st.note; $('focusStations').appendChild(b); });
 document.querySelectorAll('#focusMenu button').forEach(b => b.onclick = () => { $('focusMenu').classList.remove('open'); setFocus(b.dataset.v); });
 document.addEventListener('click', e => { if (!e.target.closest('#focusMenu, #btnFocus')) $('focusMenu').classList.remove('open'); });
 paintFocus();
