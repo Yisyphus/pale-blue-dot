@@ -128,7 +128,7 @@ function saveLib() {
 if (window.Cloud) {
   Cloud.merge = mergeLib;
   // signed in later than the start (a slow sign-in, or signing in from Settings): merge first, like at the start
-  Cloud.onSignedIn = async () => { if (!libLoaded) return; await syncWithCloud(); normalizeLib(); buildSongs(); updateHeart(); };
+  Cloud.onSignedIn = async () => { if (!libLoaded) return; await syncWithCloud(); normalizeLib(); buildSongs(); updateHeart(); await syncAds(); runAdCleanups(); };
 }
 if (window.Cloud) Cloud.onRemote = ({ lib: rl, savedAt }) => {
   if (!rl) return;
@@ -999,11 +999,14 @@ async function pushAdsToCloud() {   // after an edit on the PC (or at start): se
     lastAdsPushed = sig; await Cloud.pushAds(edits, pool);
   } catch {}
 }
-async function syncAds() {   // at start: edits made on another device (newer than the helper's) are applied here first
+async function syncAds() {   // at start: your commercial edits from every device are MERGED into this PC's list, never swapped
   if (HELPER && cloudAds) {
     try {
-      const e = await (await fetch('/api/ads/edits')).json();
-      if ((cloudAds.savedAt || 0) > (e.at || 0)) await fetch('/api/ads/edits', { method: 'POST', body: cloudAds.edits || '{}' });
+      const e = await (await fetch('/api/ads/edits')).json(), c = JSON.parse(cloudAds.edits || '{}');
+      const removed = [...new Set([...(e.removed || []), ...(c.removed || [])])];
+      const added = []; [...(e.added || []), ...(c.added || [])].forEach(v => { if (v && v.id && !removed.includes(v.id) && !added.some(x => x.id === v.id)) added.push(v); });
+      if (JSON.stringify([removed.slice().sort(), added.map(v => v.id).sort()]) !== JSON.stringify([(e.removed || []).slice().sort(), (e.added || []).map(v => v.id).sort()]))
+        await fetch('/api/ads/edits', { method: 'POST', body: JSON.stringify({ removed, added }) });
     } catch {}
   }
   await loadAds(); pushAdsToCloud();
@@ -1184,16 +1187,20 @@ const AD_CLEANUPS = [
   { id: '2026-10-25-playlist', addPlaylist: 'PLe8DdggI3F7k' },   // reading a playlist needs the PC; tried at 3 openings at most
 ];
 async function runAdCleanups() {
-  const tries = lib.adCleanupTries = lib.adCleanupTries || {};
-  const todo = AD_CLEANUPS.filter(c => !(lib.adCleanups || []).includes(c.id) && (tries[c.id] || 0) < 3);
+  let tries = lib.adCleanupTries = lib.adCleanupTries || {};
+  if (HELPER) { try { tries = JSON.parse(localStorage.getItem('pbd-adcleanup-tries') || '{}'); } catch { tries = {}; } }   // counted per PC
+  const saveTries = () => { if (HELPER) try { localStorage.setItem('pbd-adcleanup-tries', JSON.stringify(tries)); } catch {} else saveLib(); };
+  let here = []; try { here = JSON.parse(localStorage.getItem('pbd-adcleanups-here') || '[]'); } catch {}
+  const doneHere = id => { here.push(id); try { localStorage.setItem('pbd-adcleanups-here', JSON.stringify(here)); } catch {} };
+  const todo = AD_CLEANUPS.filter(c => !(HELPER ? here : (lib.adCleanups || [])).includes(c.id) && (tries[c.id] || 0) < 3);
   if (!todo.length || !(HELPER || (window.Cloud && Cloud.user && cloudAds))) return;
   for (const c of todo) {
     if (c.addPlaylist) {
       if (!HELPER) continue;
-      tries[c.id] = (tries[c.id] || 0) + 1; saveLib();
+      tries[c.id] = (tries[c.id] || 0) + 1; saveTries();
       try {
         const x = await adsFromPlaylist(c.addPlaylist);
-        lib.adCleanups = [...(lib.adCleanups || []), c.id]; saveLib();
+        lib.adCleanups = [...new Set([...(lib.adCleanups || []), c.id])]; saveLib(); doneHere(c.id);
         rlog('commercials playlist added', { playlist: c.addPlaylist, ...x }); toast(playlistToast(x));
       } catch (e) {
         rlog('commercials playlist failed', { playlist: c.addPlaylist, error: e.message, attempt: tries[c.id] });
@@ -1205,7 +1212,7 @@ async function runAdCleanups() {
     let n = 0;
     for (const id of c.remove) { const v = items.find(x => x.id === id); if (v && !v.removed) { try { await adsEditCall({ action: 'remove', id }); n++; } catch {} } }
     if (c.hideRemoved) { items = await allAds(); lib.adsHidden = [...new Set([...(lib.adsHidden || []), ...items.filter(v => v.removed).map(v => v.id)])]; }
-    lib.adCleanups = [...(lib.adCleanups || []), c.id]; saveLib();
+    lib.adCleanups = [...new Set([...(lib.adCleanups || []), c.id])]; saveLib(); if (HELPER) doneHere(c.id);
     rlog('commercials cleaned up', { cleanup: c.id, removed: n });
     if (n) toast(`${n} commercials removed, as you asked.`);
   }
