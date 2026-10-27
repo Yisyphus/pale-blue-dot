@@ -782,8 +782,8 @@ function focusPick() {
     return { a: 'Ambient sounds', t: x.label, q: x.q, genre: 'focus', tags: [], focus: true, sounds: true, key: 'focus-sound|' + x.label.toLowerCase() };
   }
   let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-used') || '[]'); } catch {}
-  let st = focusStation(focusMode), songs = st ? stationSongs(st) : [];
-  if (!songs.length) { st = focusStations[0]; songs = stationSongs(st); focusMode = st.id; try { localStorage.setItem('pbd-focus', focusMode); } catch {} paintFocus(); }   // a genre deleted on another device
+  let st = focusStation(focusMode), songs = st ? stationSongs(st).filter(s => !lib.removed.includes(st.id + '>' + s.key)) : [];
+  if (!songs.length) { st = focusStations[0]; songs = stationSongs(st).filter(s => !lib.removed.includes(st.id + '>' + s.key)); focusMode = st.id; try { localStorage.setItem('pbd-focus', focusMode); } catch {} paintFocus(); }   // a genre deleted on another device
   let pool = songs.filter(s => !used.includes(s.key) && !restingBroken(s) && (!current || s.a !== current.a)); if (!pool.length) { used = used.filter(k => !songs.some(s => s.key === k)); pool = songs; }
   const s = Object.assign({}, rnd(pool)); used.push(s.key); try { localStorage.setItem('pbd-focus-used', JSON.stringify(used.slice(-120))); } catch {}
   return s;
@@ -1379,7 +1379,7 @@ function marathonPool(src) {
   const m = new Map(), put = l => l.forEach(x => { if (x && x.key && !m.has(x.key)) m.set(x.key, x); });
   src.forEach(id => {
     if (id === 'lib') put(songs);
-    else if (id === 'fav') put((lib.fav || []).map(favToSong));
+    else if (id === 'fav') put((lib.fav || []).map(favToSong).filter(s => !lib.removed.includes(s.key)));
     else if (id.startsWith('list:')) { const L = (lib.lists || []).find(x => 'list:' + x.key === id); if (L) put(listSongs(L)); }
     else if (id.startsWith('run:')) { const r = (R.runs || []).find(x => 'run:' + x.id === id); if (r) put(songs.filter(x => r.genres.includes(x.genre))); }
   });
@@ -2142,7 +2142,7 @@ const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { c
 function startRun(id) {
   let favList = null, pack = (R.runs || []).find(p => p.id === id);
   if (id === 'fav') {   // a run made of your favorites
-    favList = (lib.fav || []).map(favToSong);
+    favList = (lib.fav || []).map(favToSong).filter(s => !lib.removed.includes(s.key));   // a song you removed stays out, even if it was a favorite
     if (!favList.length) return toast('No favorites yet. Press the heart on a song you love.');
     pack = { id: 'fav', label: 'Your favorites', short: 'Favorites', genres: [], langs: [], songs: [], tags: [], genre: '' };
   }
@@ -2527,6 +2527,7 @@ const libMatch = (...fields) => { const ws = fold($('libQ').value).split(' ').fi
 const noMatch = () => `<p style="color:var(--mute);font-size:13px">Nothing here matches "${$('libQ').value.replace(/[<&"]/g, '')}".</p>`;
 const favIdx = k => (lib.fav || []).findIndex(f => f.key === k);
 function updateHeart() {
+  const r = $('btnRemoveSong'); if (r) { r.style.display = current && !current.podcast && !current.sounds ? '' : 'none'; r.classList.remove('sure'); r.innerHTML = '&#10005; remove this song'; }
   const b = $('btnHeart'); if (!b) return;
   const on = !!current && favIdx(current.key) >= 0;
   b.classList.toggle('on', on); b.disabled = !current || !!current.podcast || !!current.focus;
@@ -2866,6 +2867,23 @@ $('btnReset').onclick = () => { lib.removed.forEach(k => markDeleted('removed', 
 
 $('vol').oninput = e => { S.vol = +e.target.value; if (ytReady && !busy && !P()._fading) setVol(P(), S.vol); saveLib(); };
 $('btnWrong').onclick = openVersions;
+// Remove the song that is playing: from the library on the radio, from the station in Focus mode. It takes a second tap,
+// so a slip of the finger removes nothing. Settings > Restore removed songs brings everything back.
+let removeSure = 0;
+$('btnRemoveSong').onclick = () => {
+  const s = current, b = $('btnRemoveSong'); if (!s || s.podcast || s.sounds) return;
+  if (Date.now() > removeSure) { removeSure = Date.now() + 4000; b.classList.add('sure'); b.textContent = 'tap again to remove'; setTimeout(() => { if (Date.now() > removeSure) { b.classList.remove('sure'); b.innerHTML = '&#10005; remove this song'; } }, 4100); return; }
+  removeSure = 0;
+  const st = s.focus && focusStation(s.style), k = st ? st.id + '>' + s.key : s.key;
+  if (!lib.removed.includes(k)) lib.removed.push(k);
+  lib.removedTs = lib.removedTs || {}; lib.removedTs[k] = Date.now();
+  if (!st) { if (lib.user.some(x => x.key === s.key)) markDeleted('user', s.key); lib.user = lib.user.filter(x => x.key !== s.key); buildSongs(); }
+  if (marathon && marathon.bag) marathon.bag = marathon.bag.filter(x => x.key !== s.key);
+  if (marathon && marathon.pool) marathon.pool = marathon.pool.filter(x => x.key !== s.key);
+  saveLib();
+  toast('"' + s.t + '" ' + (st ? 'is out of ' + st.label : 'is out of your library') + '. Settings > Restore removed songs brings it back.');
+  next();
+};
 $('btnPlay').onclick = togglePlay; $('btnNext').onclick = next; $('btnPrev').onclick = prev; $('btnTune').onclick = tuneIn;
 $('bar').onclick = e => { if (!ytReady || !playing) return; const r = $('bar').getBoundingClientRect(); P().seekTo(P().getDuration() * (e.clientX - r.left) / r.width, true); };
 $('btnMini').onclick = () => { const m = document.body.classList.toggle('mini'); try { window.resizeTo(m ? 420 : 440, m ? 220 : 760); } catch {} };

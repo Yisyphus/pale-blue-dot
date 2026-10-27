@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T23:14:26Z">
+<meta name="pbd-version" content="2026-10-27T23:18:40Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -150,6 +150,8 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .heart:disabled{opacity:.3;cursor:default}
 .mini-btn{font-family:var(--mono);font-size:11px;color:var(--mute);padding:4px 7px;border-radius:6px}
 .mini-btn:hover{color:var(--amber);background:var(--bg2)}
+.np-acts{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 6px}
+#btnRemoveSong.sure{color:#ff9aa8;border:1px solid #ff9aa8}
 .themes{display:flex;gap:6px;flex-wrap:wrap}
 .themes label{font-family:var(--mono);font-size:10.5px;padding:3px 9px;border:1px solid var(--line);border-radius:99px;color:var(--mute);cursor:pointer}
 .themes input{display:none}
@@ -204,7 +206,7 @@ body.mini .app{gap:6px}
       <div class="titlerow"><h1 id="title">Pale Blue Dot</h1><button class="heart" id="btnHeart" aria-label="Favorite this song" aria-pressed="false" title="Add to favorites" disabled><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></button></div>
       <p id="artist">Press play to tune in</p>
       <div class="chips" id="chips"></div>
-      <button class="mini-btn" id="btnWrong" title="Play another upload of this song">no sound or wrong song? try another version</button>
+      <div class="np-acts"><button class="mini-btn" id="btnWrong" title="Play another upload of this song">no sound or wrong song? try another version</button><button class="mini-btn" id="btnRemoveSong" style="display:none" title="Never play this song again">&#10005; remove this song</button></div>
     </div>
   </div>
 
@@ -424,6 +426,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=ab8d88ddcfc55d2d"></script>
+<script src="app.js?v=9f77e8d98fd04db9"></script>
 </body>
 </html>
