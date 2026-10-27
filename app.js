@@ -745,7 +745,7 @@ function choose(cur, rs) {
 function lastHeard() { const h = (lib.hist || []).slice(-1)[0]; return h ? songs.find(s => s.key === h.k) : null; }
 function pick() {
   if (upNext.length) return upNext.shift();
-  if (focusMode) return focusPick();
+  if (focusMode && HELPER) return focusPick();   // the phone and the web cannot search YouTube for them
   if (batch) { const s = nextFromRun(); if (s) return s; }
   const c = choose(current || lastHeard(), recentSets());
   lastPick = { key: c.song.key, why: c.why };
@@ -783,6 +783,7 @@ function paintFocus() {
   document.querySelectorAll('#focusMenu button').forEach(x => x.classList.toggle('on', x.dataset.v === focusMode));
 }
 function setFocus(mode) {
+  if (mode && !HELPER) { focusMode = ''; paintFocus(); return toast('Focus mode works on the PC radio: it finds its tracks on YouTube through your PC.'); }
   if (mode === focusMode) return;
   focusMode = mode; try { localStorage.setItem('pbd-focus', mode); } catch {}
   paintFocus(); planned = null; preload = null;
