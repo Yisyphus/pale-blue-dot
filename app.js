@@ -1406,18 +1406,13 @@ function marathonSegs(kind) {
 async function marathonStep() {
   if (marathon.songsOn && (!marathon.kinds.length || marathon.sl > 0)) {   // a song, played like any other but with no host: `every` of them between the other parts
     const s = marathonSong();
-    if (s) { marathon.sl--; marathon.last = 'songs'; caption('Marathon', ''); return advance({ song: s, silent: true, noCount: true, marSong: true }); }
+    if (s) { marathon.sl--; return marathonPlay({ song: s }); }
   }
   marathon.sl = marathon.every;
   if (!marathon.kinds.length) { busy = false; toast('No song can play right now.'); return stopMarathon(); }
-  if (globalPaused) clearPause();
-  if (newsOn) { newsOn = false; newsBack = null; }
-  stopSpeech(); const id = runId; busy = true; curBreak = null; curPod = null; planned = null; preload = null; nextPending = false; nextOverride = null;
-  const old = P(); fadeP(old, 0, 2500).then(() => { try { if (pl[ai] === old && id === runId) old.pauseVideo(); } catch {} });
-  if (current) { current = null; setNow(null); updateHeart(); }
+  const id = marathonQuiet();
   for (let tries = 0; tries < marathon.kinds.length + 1; tries++) {
     const kind = marathon.kinds[marathon.i++ % marathon.kinds.length];
-    $('kind').textContent = 'marathon';
     if (kind === 'podcast') {
       if (!HELPER || !marathon.pods.length) continue;
       const which = marathon.pods[(marathon.pi = (marathon.pi || 0) + 1) % marathon.pods.length];
@@ -1425,21 +1420,44 @@ async function marathonStep() {
       const pod = which === 'regular' ? await findRegular() : await findShow(which);
       if (id !== runId || !marathon) return;
       if (!pod) { rlog('marathon: no podcast found', { which }); continue; }
-      marathon.last = 'podcast';
-      return playPodcast(pod, null, {}, id);   // when the episode ends, the marathon goes on
+      return marathonPlay({ pod }, id);
     }
     if (kind === 'songs') continue;   // no song could be found: the next part instead
     const segs = marathonSegs(kind); if (!segs) continue;
-    marathon.last = kind;
-    curBreak = { segs, idx: 0, next: null };
-    const ok = await runSegments(segs, id);
-    if (!ok) return;
-    curBreak = null; bedOff(1.5); busy = false; caption('Marathon', '');
-    await sleep(700);
-    if (id === runId && marathon) advance();
-    return;
+    return marathonPlay({ kind, segs }, id);
   }
   busy = false; toast('Nothing in this marathon can play right now.'); stopMarathon();
+}
+// Before a spoken part or an episode: stop what is on and let the song fade out
+function marathonQuiet() {
+  if (globalPaused) clearPause();
+  if (newsOn) { newsOn = false; newsBack = null; }
+  stopSpeech(); const id = runId; busy = true; curBreak = null; curPod = null; planned = null; preload = null; nextPending = false; nextOverride = null;
+  const old = P(); fadeP(old, 0, 2500).then(() => { try { if (pl[ai] === old && id === runId) old.pauseVideo(); } catch {} });
+  if (current) { current = null; setNow(null); updateHeart(); }
+  $('kind').textContent = 'marathon';
+  return id;
+}
+// Play one part of the marathon ({ song } | { pod } | { kind, segs }) and remember it, so Previous can go back to it
+async function marathonPlay(e, id) {
+  marathon.hist = marathon.hist || []; marathon.hist.push(e); if (marathon.hist.length > 40) marathon.hist.shift();
+  if (e.song) { marathon.last = 'songs'; caption('Marathon', ''); return advance({ song: e.song, prev: e.back ? null : undefined, silent: true, noCount: true, quick: !!e.back, marSong: true }); }
+  if (id === undefined) id = marathonQuiet();
+  if (e.pod) { marathon.last = 'podcast'; return playPodcast(e.pod, null, {}, id); }   // when the episode ends, the marathon goes on
+  marathon.last = e.kind;
+  curBreak = { segs: e.segs, idx: 0, next: null };
+  const ok = await runSegments(e.segs, id);
+  if (!ok) return;
+  curBreak = null; bedOff(1.5); busy = false; caption('Marathon', '');
+  await sleep(700);
+  if (id === runId && marathon) advance();
+}
+// Previous in a marathon: the part before this one (a song, a letter, a talk, an episode…), from its start
+function marathonBack() {
+  const h = marathon.hist || [];
+  if (h.length < 2) return toast('Nothing earlier in this marathon yet.');
+  h.pop(); const e = h.pop();
+  marathonPlay(Object.assign({}, e, { back: true }));
 }
 function startMarathon(kinds, pods, src = [], every = 2) {
   if (!started) return toast('Press play first, then start the marathon.');
@@ -2231,7 +2249,7 @@ function next() {
   } catch {}
   advance({ quick: true });
 }
-function prev() { if (started && globalPaused) resumeAll(); if (!started || !history.length) return toast('No earlier song yet.'); const p = history.pop(); advance({ song: p, prev: null, silent: true, noCount: true, quick: true }); }
+function prev() { if (started && globalPaused) resumeAll(); if (started && marathon && !newsOn) return marathonBack(); if (!started || !history.length) return toast('No earlier song yet.'); const p = history.pop(); advance({ song: p, prev: null, silent: true, noCount: true, quick: true }); }
 async function tuneIn() {
   if (!songs.length) { $('tuneSub').textContent = 'one moment, loading your library…'; await bootDone; }   // play pressed while the library (or a slow sign-in) is still loading
   started = true; $('tune').style.display = 'none'; unlockAudio();
