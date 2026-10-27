@@ -1,5 +1,5 @@
 // Your Firebase web app settings (Firebase console > Project settings > Your apps). These values are not secret:
-// the Firestore security rules are what protect your data (only ymoumou.axigeo@gmail.com can read or write it).
+// the Firestore security rules are what protect your data (only your own Google account can read or write it).
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCtvHkI6Zg89d73n17MZ3r4fyT_GNBNdo0",
   authDomain: "helical-clock-512312-b4.firebaseapp.com",
