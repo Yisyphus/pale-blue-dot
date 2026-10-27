@@ -1306,7 +1306,8 @@ async function playPodcast(pod, prev, opts, id) {
   if (opts.first) segs.push({ kind: R.station, lines: [{ t: sub(fresh('welcome:' + period(), R.welcomes[period()]), ep) }] });
   else if (prev) segs.push({ kind: R.station, lines: [{ t: backFor(prev) }] });
   const extra = { min: Math.max(1, Math.round(v.seconds / 60)), topic: pod.topic.label };
-  segs.push({ kind: midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
+  const lead = fresh('podlead', ['Podcast time.', 'And now, a podcast.', 'Time for a podcast.', 'A podcast now.', 'Let us make room for a podcast.']);
+  segs.push({ kind: midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: lead + ' ' + sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
   console.info('[radio] podcast', ep.t, '|', ep.a, '|', extra.min + ' min');
   const ok = await runSegments(segs, id);
   if (!ok) return;
@@ -1316,7 +1317,7 @@ async function playPodcast(pod, prev, opts, id) {
   if (!okEp) { busy = false; bedOff(); return advance({ noCount: true }); }
   $('vinyl').classList.remove('talk');
   bedOff(2.5);
-  caption(R.host, '');
+  caption('Podcast' + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), 'Now playing a podcast: ' + ep.t + (ep.a ? ', from ' + ep.a : '') + '. The music returns when it ends.');
   busy = false;
 }
 
@@ -2551,7 +2552,7 @@ $('btnNewsLast').onclick = () => {   // everything the last bulletin read, with 
   openSheet('shReport');
 };
 $('reportCopy').onclick = async () => { const t = $('reportText').textContent; try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast('Copied.'); } catch {} a.remove(); } };
-$('btnFocus').onclick = e => { e.stopPropagation(); $('podMenu').classList.remove('open'); $('focusMenu').classList.toggle('open'); paintFocus(); };
+$('btnFocus').onclick = e => { e.stopPropagation(); $('focusMenu').classList.toggle('open'); paintFocus(); };
 document.querySelectorAll('#focusMenu button').forEach(b => b.onclick = () => { $('focusMenu').classList.remove('open'); setFocus(b.dataset.v); });
 document.addEventListener('click', e => { if (!e.target.closest('#focusMenu, #btnFocus')) $('focusMenu').classList.remove('open'); });
 paintFocus();
@@ -2560,18 +2561,15 @@ async function podNow(kind) {
   if (!started) return toast('Press play first, then choose a podcast.');
   if (!HELPER) return toast('Podcasts are found on YouTube through your PC, so they play on the PC radio.');
   if (newsOn) return toast('Right after the news.');
-  const b = $('btnPod'); b.classList.add('on'); toast('Looking for an episode…');
+  openSheet(null); toast('Looking for an episode…');
   const pod = kind === 'regular' ? await findRegular() : await findShow(kind);
-  b.classList.remove('on');
   if (!pod) return toast('No episode found right now. Try again in a moment.');
   if (globalPaused) clearPause();
   stopSpeech(); const id = runId; busy = true; clearTimeout(startWatch); planned = null; preload = null;
   rlog('podcast now', { kind });
   await playPodcast(pod, current, {}, id);
 }
-$('btnPod').onclick = e => { e.stopPropagation(); $('focusMenu').classList.remove('open'); $('podMenu').classList.toggle('open'); };
-document.querySelectorAll('#podMenu button').forEach(b => b.onclick = () => { $('podMenu').classList.remove('open'); podNow(b.dataset.v); });
-document.addEventListener('click', e => { if (!e.target.closest('#podMenu, #btnPod')) $('podMenu').classList.remove('open'); });
+document.querySelectorAll('#podNow button').forEach(b => b.onclick = () => podNow(b.dataset.v));
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
