@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T22:51:09Z">
+<meta name="pbd-version" content="2026-10-27T22:57:03Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -123,6 +123,10 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .focus-stations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}
 .focus-stations button{display:flex;flex-direction:column;gap:2px;padding:7px 10px}
 .focus-stations em{font-style:normal;font-size:11px;line-height:1.3;color:var(--mute)}
+.focus-stations button{position:relative}
+.focus-stations .edit{position:absolute;top:6px;right:8px;font-style:normal;font-size:10.5px;font-family:var(--mono);color:var(--mute);padding:2px 6px;border:1px solid var(--line);border-radius:6px}
+.focus-stations .edit:hover{color:var(--amber)}
+.focus-stations .add span{color:var(--amber)}
 @media (max-width:420px){.focus-stations{grid-template-columns:1fr}}
 .run-info{align-self:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--amber);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-align:center}
 .titlerow{display:flex;align-items:center;justify-content:center;gap:10px}
@@ -290,6 +294,17 @@ body.mini .app{gap:6px}
     <div class="list" id="verRes"></div>
   </div>
 
+  <!-- Focus > Add a genre -->
+  <div class="sheet" id="shGenre">
+    <div class="hd"><h2 id="genreTitle">Add a genre</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="field"><input type="text" id="genreName" maxlength="40" autocomplete="off" placeholder="Name: Bossa Nova Guitar, Gnawa Instrumental…"></div>
+    <div class="field"><input type="text" id="genreQ" placeholder="Artist - track title (instrumental)"><button class="btn" id="genreGo">Search</button></div>
+    <div class="list" id="genreRes" style="flex:0 0 auto"></div>
+    <p id="genreCount" style="color:var(--mute);font-size:12.5px;line-height:1.5;margin:0"></p>
+    <div class="list" id="genreTracks"></div>
+    <div class="field" style="flex-wrap:wrap"><button class="btn" id="genreSave">Create the station</button><button class="btn ghost" id="genreDel" style="margin-left:auto">Delete this station</button></div>
+  </div>
+
   <!-- commercials -->
   <div class="sheet" id="shAds">
     <div class="hd"><h2>Commercials <span id="adCount" style="color:var(--mute);font-size:14px"></span></h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -381,6 +396,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=63af088bd5441e82"></script>
+<script src="app.js?v=ebf81ebc1376a849"></script>
 </body>
 </html>

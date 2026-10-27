@@ -72,7 +72,7 @@ function mergeLib(a, b) {
   const newer = (a.savedAt || 0) >= (b.savedAt || 0) ? a : b, older = newer === a ? b : a;
   const out = Object.assign({}, older, newer);   // settings, history, letter rotation...: from the newer copy
   const del = {};
-  ['fav', 'user', 'removed', 'lists'].forEach(k => {
+  ['fav', 'user', 'removed', 'lists', 'focusAdd', 'focusCustom'].forEach(k => {
     del[k] = {};
     [older, newer].forEach(c => Object.entries((c.del || {})[k] || {}).forEach(([key, t]) => { if ((del[k][key] || 0) < t) del[k][key] = t; }));
   });
@@ -89,12 +89,13 @@ function mergeLib(a, b) {
   Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
   out.adCleanups = [...new Set([...(older.adCleanups || []), ...(newer.adCleanups || [])])];
   out.adsHidden = [...new Set([...(older.adsHidden || []), ...(newer.adsHidden || [])])];
-  out.focusAdd = byKey([...(older.focusAdd || []), ...(newer.focusAdd || [])], x => x.added || 0);   // tracks you suggested to a Focus station
+  out.focusAdd = byKey([...(older.focusAdd || []), ...(newer.focusAdd || [])], x => x.added || 0).filter(x => alive('focusAdd', x.key, x.added));   // tracks you suggested to a Focus station
+  out.focusCustom = byKey([...(older.focusCustom || []), ...(newer.focusCustom || [])], x => x.ts || 0).filter(c => alive('focusCustom', c.key, c.added)).sort((x, y) => (x.added || 0) - (y.added || 0));   // your own Focus genres
   out.b = Math.max(older.b || 0, newer.b || 0);
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key)]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key), (l.focusCustom || []).map(c => c.key + c.ts)]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 let cloudSyncing = null;
 function syncWithCloud() { return cloudSyncing || (cloudSyncing = syncWithCloudNow().finally(() => { cloudSyncing = null; })); }
@@ -766,11 +767,13 @@ function pick() {
 // Instrumental music is split into stations (R.focusStations): the one you pick plays alone until you change it.
 const focusSong = (a, t, st) => ({ a, t, style: st, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() });
 const focusStations = (R.focusStations || []).map(st => ({ ...st, songs: st.tracks.map(l => { const [a, t] = l.split('|'); return focusSong(a, t, st.id); }) }));
-const focusStation = id => focusStations.find(st => st.id === id);
+// Your own genres (Focus > Add a genre, lib.focusCustom, synced): only the tracks you chose for them, in lib.focusAdd
+const allStations = () => focusStations.concat((lib.focusCustom || []).map(c => ({ id: c.key, label: c.label, note: 'your genre', songs: [], custom: true })));
+const focusStation = id => allStations().find(st => st.id === id);
 // A station's tracks: the hand-picked ones, plus the ones you suggested to it (lib.focusAdd, synced; never in the library)
 const stationSongs = st => st.songs.concat((lib.focusAdd || []).filter(x => x.st === st.id && !st.songs.some(s => s.key === x.k)).map(x => Object.assign(focusSong(x.a, x.t, st.id), { pin: x.v ? [x.v] : null })));
 let focusMode = ''; try { focusMode = localStorage.getItem('pbd-focus') || ''; } catch {}
-if (focusMode && focusMode !== 'sounds' && !focusStation(focusMode)) focusMode = focusStations.length ? focusStations[0].id : '';   // 'music' from before the stations
+if (focusMode === 'music') focusMode = focusStations.length ? focusStations[0].id : '';   // from before the stations
 function focusPick() {
   if (focusMode === 'sounds') {
     const all = R.focusSounds || []; let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-snd') || '[]'); } catch {}
@@ -779,7 +782,8 @@ function focusPick() {
     return { a: 'Ambient sounds', t: x.label, q: x.q, genre: 'focus', tags: [], focus: true, sounds: true, key: 'focus-sound|' + x.label.toLowerCase() };
   }
   let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-used') || '[]'); } catch {}
-  const songs = stationSongs(focusStation(focusMode));
+  let st = focusStation(focusMode), songs = st ? stationSongs(st) : [];
+  if (!songs.length) { st = focusStations[0]; songs = stationSongs(st); focusMode = st.id; try { localStorage.setItem('pbd-focus', focusMode); } catch {} paintFocus(); }   // a genre deleted on another device
   let pool = songs.filter(s => !used.includes(s.key) && !restingBroken(s) && (!current || s.a !== current.a)); if (!pool.length) { used = used.filter(k => !songs.some(s => s.key === k)); pool = songs; }
   const s = Object.assign({}, rnd(pool)); used.push(s.key); try { localStorage.setItem('pbd-focus-used', JSON.stringify(used.slice(-120))); } catch {}
   return s;
@@ -797,8 +801,16 @@ async function resolveFocus(s) {
   } catch { return []; }
 }
 function paintFocus() {
-  const b = $('btnFocus'); if (b) { b.classList.toggle('on', !!focusMode); b.title = focusMode ? 'Focus mode is on (' + (focusMode === 'sounds' ? 'ambient sounds' : focusStation(focusMode).label) + ')' : 'Focus mode'; }
-  document.querySelectorAll('#focusMenu button').forEach(x => x.classList.toggle('on', x.dataset.v === focusMode));
+  const b = $('btnFocus'); if (b) { b.classList.toggle('on', !!focusMode); b.title = focusMode ? 'Focus mode is on (' + (focusMode === 'sounds' ? 'ambient sounds' : (focusStation(focusMode) || { label: 'instrumental music' }).label) + ')' : 'Focus mode'; }
+  const box = $('focusStations'); box.innerHTML = '';
+  allStations().forEach(st => {
+    const b = document.createElement('button'); b.dataset.v = st.id; b.setAttribute('role', 'menuitem'); b.innerHTML = '<span></span><em></em>';
+    b.firstChild.textContent = st.label; b.lastChild.textContent = st.note;
+    if (st.custom) { const e = document.createElement('i'); e.className = 'edit'; e.dataset.edit = st.id; e.title = 'Edit ' + st.label; e.textContent = 'Edit'; b.appendChild(e); }
+    box.appendChild(b);
+  });
+  const add = document.createElement('button'); add.className = 'add'; add.dataset.act = 'add'; add.innerHTML = '<span>+ Add a genre</span><em>your own station, from tracks you choose</em>'; box.appendChild(add);
+  document.querySelectorAll('#focusMenu button').forEach(x => x.classList.toggle('on', x.hasAttribute('data-v') && x.dataset.v === focusMode));
 }
 function setFocus(mode) {
   if (mode && !HELPER) { focusMode = ''; paintFocus(); return toast('Focus mode works on the PC radio: it finds its tracks on YouTube through your PC.'); }
@@ -806,7 +818,7 @@ function setFocus(mode) {
   focusMode = mode; try { localStorage.setItem('pbd-focus', mode); } catch {}
   paintFocus(); planned = null; preload = null;
   rlog('focus mode', { mode: mode || 'off' });
-  toast(mode === 'sounds' ? 'Focus: ambient sounds. No talk, no commercials.' : mode ? 'Focus: ' + focusStation(mode).label + '. No talk, no lyrics, no commercials.' : 'Focus mode off. Back to the radio.');
+  toast(mode === 'sounds' ? 'Focus: ambient sounds. No talk, no commercials.' : mode ? 'Focus: ' + (focusStation(mode) || { label: 'instrumental music' }).label + '. No talk, no lyrics, no commercials.' : 'Focus mode off. Back to the radio.');
   if (started && !newsOn) { stopSpeech(); advance({ silent: true, noCount: true, quick: true }); }   // switch now, with a crossfade
 }
 const takePlanned = () => { const p = planned; planned = null; return p || pick(); };
@@ -2231,7 +2243,7 @@ $('btnUpdate').onclick = async () => {
 };
 
 // ---------- panels ----------
-const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport', 'shLabel', 'shMarathon'];
+const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport', 'shLabel', 'shMarathon', 'shGenre'];
 $('btnReport').onclick = () => {
   const head = [`device: ${/Android|iPhone|iPad/i.test(navigator.userAgent) ? (navigator.userAgent.match(/Android[^;)]*|iPhone|iPad/) || [''])[0] : 'computer'} · ${(navigator.userAgent.match(/(EdgA|Edg|Brave|SamsungBrowser|Firefox|Chrome)\/[\d.]+/) || ['browser'])[0]}`,
     `helper on this device: ${HELPER ? 'yes' : 'no'} · cloud: ${window.Cloud && Cloud.user ? 'signed in' : 'not signed in'} · now: ${current ? current.a + ' - ' + current.t : 'nothing'}`, ''];
@@ -2671,8 +2683,83 @@ $('btnNewsLast').onclick = () => {   // everything the last bulletin read, with 
 };
 $('reportCopy').onclick = async () => { const t = $('reportText').textContent; try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast('Copied.'); } catch {} a.remove(); } };
 $('btnFocus').onclick = e => { e.stopPropagation(); $('focusMenu').classList.toggle('open'); paintFocus(); };
-focusStations.forEach(st => { const b = document.createElement('button'); b.dataset.v = st.id; b.setAttribute('role', 'menuitem'); b.innerHTML = '<span></span><em></em>'; b.firstChild.textContent = st.label; b.lastChild.textContent = st.note; $('focusStations').appendChild(b); });
-document.querySelectorAll('#focusMenu button').forEach(b => b.onclick = () => { $('focusMenu').classList.remove('open'); setFocus(b.dataset.v); });
+$('focusMenu').onclick = e => {
+  const ed = e.target.closest('[data-edit]'), b = e.target.closest('button'); if (!b) return;
+  $('focusMenu').classList.remove('open');
+  if (ed) return openGenre(ed.dataset.edit);
+  if (b.dataset.act === 'add') return openGenre(null);
+  if (b.hasAttribute('data-v')) setFocus(b.dataset.v);
+};
+
+// ---------- Focus > Add a genre: your own station, from 3 or more tracks you choose (nothing is found for you) ----------
+// Kept with your data and synced (lib.focusCustom, its tracks in lib.focusAdd); never in the library. Suggest adds to it later.
+let gEdit = null, gTracks = [];
+function openGenre(id) {
+  if (!HELPER) return toast(NEEDS_PC);
+  const st = id && focusStation(id); gEdit = st ? id : null;
+  gTracks = st ? (lib.focusAdd || []).filter(x => x.st === id).map(x => ({ a: x.a, t: x.t, k: x.k, v: x.v, key: x.key })) : [];
+  $('genreName').value = st ? st.label : ''; $('genreQ').value = ''; $('genreRes').innerHTML = '';
+  $('genreTitle').textContent = st ? 'Edit ' + st.label : 'Add a genre';
+  $('genreDel').style.display = st ? '' : 'none';
+  paintGenre(); openSheet('shGenre'); setTimeout(() => $(st ? 'genreQ' : 'genreName').focus(), 50);
+}
+function paintGenre() {
+  const box = $('genreTracks'); box.innerHTML = '';
+  gTracks.forEach((x, i) => {
+    const d = document.createElement('div'); d.className = 'item';
+    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="btn ghost" style="padding:6px 11px">Remove</button>`;
+    d.querySelector('b').textContent = x.t; d.querySelector('span').textContent = x.a;
+    d.querySelector('button').onclick = () => { gTracks.splice(i, 1); paintGenre(); };
+    box.appendChild(d);
+  });
+  const need = gEdit ? 1 : 3, n = gTracks.length;
+  $('genreCount').textContent = n < need ? (gEdit ? 'Keep at least one track.' : `Choose at least 3 tracks to start the station (${n} so far). Only instrumentals: the station plays nothing else.`) : `${n} track${n === 1 ? '' : 's'}. You can add more later with Suggest while it plays.`;
+  $('genreSave').textContent = gEdit ? 'Save' : 'Create the station';
+  $('genreSave').disabled = n < need || !$('genreName').value.trim();
+}
+async function genreSearch() {
+  const q = $('genreQ').value.trim(); if (!q) return;
+  $('genreRes').innerHTML = '<p style="color:var(--mute)">Searching…</p>';
+  try {
+    const r = await (await fetch('/api/search?q=' + encodeURIComponent(q))).json(); if (!r.length) throw 0;
+    $('genreRes').innerHTML = '';
+    r.slice(0, 5).forEach(v => {
+      const d = document.createElement('div'); d.className = 'item';
+      d.innerHTML = `<img src="https://i.ytimg.com/vi/${v.id}/default.jpg" width="48" height="36" style="border-radius:6px;object-fit:cover"><div class="meta"><b></b><span></span></div><button class="btn" style="padding:6px 11px">Add</button>`;
+      d.querySelector('b').textContent = cleanTitle(v.title); d.querySelector('span').textContent = `${v.channel} · ${fmt(v.seconds)}`;
+      d.querySelector('button').onclick = () => {
+        const { a, t } = splitTitle(v), k = focusSong(a, t, '').key;
+        if (!gTracks.some(x => x.k === k || (x.v && x.v.id === v.id))) gTracks.push({ a, t, k, v: { id: v.id, title: v.title, channel: v.channel, seconds: v.seconds } });
+        $('genreRes').innerHTML = ''; $('genreQ').value = ''; paintGenre(); $('genreQ').focus();
+      };
+      $('genreRes').appendChild(d);
+    });
+  } catch { $('genreRes').innerHTML = '<p style="color:var(--mute)">Nothing found, or the search failed. Try different words.</p>'; }
+}
+function genreSave() {
+  const label = $('genreName').value.trim().slice(0, 40); if (!label) return;
+  const now = Date.now(), id = gEdit || 'my-' + now.toString(36);
+  const was = (lib.focusCustom || []).find(c => c.key === id);
+  lib.focusCustom = (lib.focusCustom || []).filter(c => c.key !== id);
+  lib.focusCustom.push({ key: id, label, added: (was && was.added) || now, ts: now });
+  lib.focusAdd = lib.focusAdd || [];
+  const keep = new Set(gTracks.map(x => id + '>' + x.k));
+  lib.focusAdd = lib.focusAdd.filter(x => { if (x.st !== id || keep.has(x.key)) return true; markDeleted('focusAdd', x.key); return false; });
+  gTracks.forEach(x => { const k = id + '>' + x.k; if (!lib.focusAdd.some(y => y.key === k)) lib.focusAdd.push({ key: k, st: id, k: x.k, a: x.a, t: x.t, v: x.v, added: now }); });
+  lib.focusCustom.sort((x, y) => (x.added || 0) - (y.added || 0));
+  saveLib(); openSheet(null); paintFocus();
+  if (gEdit) toast(label + ' saved.'); else setFocus(id);
+}
+function genreDelete() {
+  const st = gEdit && focusStation(gEdit); if (!st || !confirm('Delete the station "' + st.label + '" and its tracks? Your library is not touched.')) return;
+  markDeleted('focusCustom', st.id); lib.focusCustom = (lib.focusCustom || []).filter(c => c.key !== st.id);
+  lib.focusAdd = (lib.focusAdd || []).filter(x => { if (x.st !== st.id) return true; markDeleted('focusAdd', x.key); return false; });
+  saveLib(); openSheet(null);
+  if (focusMode === st.id) setFocus(focusStations[0].id); else paintFocus();
+  toast(st.label + ' was deleted.');
+}
+$('genreGo').onclick = genreSearch; $('genreQ').onkeydown = e => { if (e.key === 'Enter') genreSearch(); };
+$('genreName').oninput = paintGenre; $('genreSave').onclick = genreSave; $('genreDel').onclick = genreDelete;
 document.addEventListener('click', e => { if (!e.target.closest('#focusMenu, #btnFocus')) $('focusMenu').classList.remove('open'); });
 paintFocus();
 // The podcast button: an episode now, of the kind you choose (the 64-song cycle is not changed)
