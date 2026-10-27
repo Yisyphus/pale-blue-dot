@@ -1253,6 +1253,7 @@ let curBreak = null, curPod = null;
 const POD_TURNS = ['regular', 'hadara', 'regular', 'dahih'];
 async function findShow(id) {
   const show = (R.podShows || {})[id]; if (!show) return null;
+  lib.pod = lib.pod || [];
   for (const q of [...show.queries].sort(() => Math.random() - 0.5)) {
     try {
       const r = await (await fetch('/api/podcast?min=480&q=' + encodeURIComponent(q))).json(); if (!Array.isArray(r)) continue;
@@ -1268,6 +1269,10 @@ async function findPodcast() {
   lib.pod = lib.pod || [];
   const turn = POD_TURNS[(lib.podTurn || 0) % POD_TURNS.length]; lib.podTurn = (lib.podTurn || 0) + 1; saveLib();
   if (turn !== 'regular') { const sp = await findShow(turn); if (sp) return sp; rlog('podcast show not found, a regular episode instead', { show: turn }); }
+  return findRegular();
+}
+async function findRegular() {
+  lib.pod = lib.pod || [];
   for (let attempt = 0; attempt < 3; attempt++) {
     const topic = fresh('podtopic', R.podcastTopics);
     try {
@@ -2539,10 +2544,27 @@ $('btnNewsLast').onclick = () => {   // everything the last bulletin read, with 
   openSheet('shReport');
 };
 $('reportCopy').onclick = async () => { const t = $('reportText').textContent; try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast('Copied.'); } catch {} a.remove(); } };
-$('btnFocus').onclick = e => { e.stopPropagation(); $('focusMenu').classList.toggle('open'); paintFocus(); };
+$('btnFocus').onclick = e => { e.stopPropagation(); $('podMenu').classList.remove('open'); $('focusMenu').classList.toggle('open'); paintFocus(); };
 document.querySelectorAll('#focusMenu button').forEach(b => b.onclick = () => { $('focusMenu').classList.remove('open'); setFocus(b.dataset.v); });
 document.addEventListener('click', e => { if (!e.target.closest('#focusMenu, #btnFocus')) $('focusMenu').classList.remove('open'); });
 paintFocus();
+// The podcast button: an episode now, of the kind you choose (the 64-song cycle is not changed)
+async function podNow(kind) {
+  if (!started) return toast('Press play first, then choose a podcast.');
+  if (!HELPER) return toast('Podcasts are found on YouTube through your PC, so they play on the PC radio.');
+  if (newsOn) return toast('Right after the news.');
+  const b = $('btnPod'); b.classList.add('on'); toast('Looking for an episode…');
+  const pod = kind === 'regular' ? await findRegular() : await findShow(kind);
+  b.classList.remove('on');
+  if (!pod) return toast('No episode found right now. Try again in a moment.');
+  if (globalPaused) clearPause();
+  stopSpeech(); const id = runId; busy = true; clearTimeout(startWatch); planned = null; preload = null;
+  rlog('podcast now', { kind });
+  await playPodcast(pod, current, {}, id);
+}
+$('btnPod').onclick = e => { e.stopPropagation(); $('focusMenu').classList.remove('open'); $('podMenu').classList.toggle('open'); };
+document.querySelectorAll('#podMenu button').forEach(b => b.onclick = () => { $('podMenu').classList.remove('open'); podNow(b.dataset.v); });
+document.addEventListener('click', e => { if (!e.target.closest('#podMenu, #btnPod')) $('podMenu').classList.remove('open'); });
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };

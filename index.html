@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T10:59:29Z">
+<meta name="pbd-version" content="2026-10-27T11:36:24Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -207,9 +207,11 @@ body.mini .app{gap:6px}
     <button class="pill" id="btnLib">Library</button>
     <button class="ico" id="btnRun" title="Genre run: play the next 20 to 40 songs from one genre" aria-label="Genre run"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg></button>
     <button class="ico" id="btnNewsNow" title="The news, now" aria-label="Play the news now"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H6a2 2 0 01-2-2z"/><path d="M17 9h3v8a2 2 0 01-2 2"/><path d="M7 9h7M7 12h7M7 15h4"/></svg></button>
+    <button class="ico" id="btnPod" title="A podcast, now" aria-label="Play a podcast now"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3M9 21h6"/></svg></button>
     <button class="ico" id="btnFocus" title="Focus mode" aria-label="Focus mode"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0116 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg></button>
     <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button>
   </div>
+  <div class="focus-menu" id="podMenu" role="menu"><small>A podcast, now</small><button data-v="dahih" role="menuitem">الدحيح · El Da7ee7</button><button data-v="hadara" role="menuitem">في الحضارة · Fi Al Hadara</button><button data-v="regular" role="menuitem">A regular podcast</button></div>
   <div class="focus-menu" id="focusMenu" role="menu"><small>Focus mode: no talk, no commercials · the news stays</small><button data-v="music" role="menuitem">Instrumental music</button><button data-v="sounds" role="menuitem">Ambient sounds</button><button data-v="" role="menuitem">Off</button></div>
 
   <!-- add song -->
@@ -353,6 +355,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=33c9331bcc30deb8"></script>
+<script src="app.js?v=dca7e0c217c06b2c"></script>
 </body>
 </html>
