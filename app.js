@@ -1227,10 +1227,23 @@ $('adPlayNow').onclick = () => {
 };
 function openAds() { $('adRes').innerHTML = ''; renderAds(); openSheet('shAds'); }
 
+// In a marathon nothing promises music: no "back to the music", "before the next song", "the songs will wait"…
+const MUSIC_TALK = /\b(back to (the )?(music|songs?|it)|more music|right back|be back|back in a (moment|minute)|the (songs?|music) (will )?(wait|return|resume|come back)|(music|songs?) returns?|here comes (more )?(music|a song)|we return|stay with (us|me)|after the break|(before|after|for) the next song|the next song|then we come back|then the music|let the (music|song)|music continues|between songs)\b/i;
+function marathonLines(seg) {
+  const last = seg.lines.length - 1;
+  return seg.lines.map((l, i) => {
+    if (!MUSIC_TALK.test(l.t)) return l;
+    if (i === last && seg.lines.length > 2) return null;   // a talk's closing paragraph that hands back to the music
+    const kept = splitParts(l.t).filter(x => !MUSIC_TALK.test(x)).join(' ');
+    return kept ? { ...l, t: kept } : null;
+  }).filter(Boolean);
+}
 async function runSegments(segs, id) {
+  if (marathon) segs = segs.filter(s => !(s.adGroup && s.lines));   // commercials back to back: no "short break" or "back to the music"
   for (let si = 0; si < segs.length; si++) {
-    const seg = segs[si];
+    let seg = segs[si];
     if (id !== runId) return false;
+    if (marathon && seg.lines) seg = { ...seg, lines: marathonLines(seg) };
     if (curBreak && curBreak.segs === segs) curBreak.idx = si;   // where the news would pick this break up again
     $('vinyl').classList.add('talk');
     $('kind').textContent = seg.kind.toLowerCase();
@@ -1317,7 +1330,7 @@ async function playPodcast(pod, prev, opts, id) {
   if (!okEp) { busy = false; bedOff(); return advance({ noCount: true }); }
   $('vinyl').classList.remove('talk');
   bedOff(2.5);
-  caption('Podcast' + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), 'Now playing a podcast: ' + ep.t + (ep.a ? ', from ' + ep.a : '') + '. The music returns when it ends.');
+  caption('Podcast' + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), 'Now playing a podcast: ' + ep.t + (ep.a ? ', from ' + ep.a : '') + (marathon ? '.' : '. The music returns when it ends.'));
   busy = false;
 }
 
