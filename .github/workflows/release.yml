@@ -1,14 +1,12 @@
 # Builds the Windows installer and the portable zip, and publishes them as a GitHub Release.
-# Runs when a version tag is pushed (git tag v2026.10.27 && git push origin v2026.10.27), or by hand from the Actions tab.
+# Runs when tools/release/VERSION changes on main (put the new version in it, e.g. v2026.10.27), or by hand from the
+# Actions tab. GitHub creates the version tag itself when it publishes the release.
 name: Release
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['tools/release/VERSION']
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version (for example v2026.10.27)'
-        required: true
 permissions:
   contents: write
 jobs:
@@ -18,12 +16,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the installer and the portable zip
         shell: pwsh
-        run: ./tools/release/build.ps1 -Version "${{ github.event.inputs.version || github.ref_name }}"
+        run: ./tools/release/build.ps1 -Version (Get-Content tools/release/VERSION -Raw).Trim()
       - name: Publish the release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $v = "${{ github.event.inputs.version || github.ref_name }}"
+          $v = (Get-Content tools/release/VERSION -Raw).Trim()
           $notes = "Pale Blue Dot Radio $v for Windows.`n`n- **PaleBlueDotRadio-Setup-*.exe**: install it (no administrator rights needed). Installing over an older version keeps your data.`n- **PaleBlueDotRadio-*-portable.zip**: the same radio without installing. Unzip it anywhere and open ``Pale Blue Dot Radio.vbs``.`n`nBoth update themselves from https://yisyphus.github.io/pale-blue-dot/ after that. Sign in under Settings > Cloud sync to bring your library."
           gh release create $v (Get-ChildItem dist\*.exe, dist\*.zip).FullName --title "Pale Blue Dot Radio $v" --notes $notes --target ${{ github.sha }}
