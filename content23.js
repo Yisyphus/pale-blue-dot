@@ -113,16 +113,20 @@
       queries: ['الدحيح', 'الدحيح حلقة', 'Da7ee7', 'الدحيح كبريت', 'الدحيح نيو ميديا أكاديمي', 'الدحيح متحف المستقبل'],
       channel: /كبريت|aj\s?\+|new media academy|الدحيح|da7ee7|museum of the future|متحف المستقبل/i, title: /الدحيح|da7ee7/i,
       intros: [
-        'And now, El Da7ee7, in Arabic: science, history and the absurdity of it all, explained very fast. Today: {t}. About {min} minutes.',
-        'Time for El Da7ee7. Ahmed El Ghandour talks, quickly, about {t}. Around {min} minutes. Hold on.',
-        'A lighter kind of podcast now, in Arabic. El Da7ee7: {t}.',
-        'Here is El Da7ee7, the curious one, with {t}. About {min} minutes, and a lot of words.',
+        'And now, El Daheeh, in Arabic: science, history and the absurdity of it all, explained very fast. Today: {t}. About {min} minutes.',
+        'Time for El Daheeh. Ahmed El Ghandour talks, quickly, about {t}. Around {min} minutes. Hold on.',
+        'A lighter kind of podcast now, in Arabic. El Daheeh: {t}.',
+        'Here is El Daheeh, the curious one, with {t}. About {min} minutes, and a lot of words.',
       ],
       outros: [
-        'That was El Da7ee7. Breathe. Back to the music.',
-        'El Da7ee7, as fast as ever. Now, something slower.',
-        'That was El Da7ee7. Let a song settle what we just learned.',
+        'That was El Daheeh. Breathe. Back to the music.',
+        'El Daheeh, as fast as ever. Now, something slower.',
+        'That was El Daheeh. Let a song settle what we just learned.',
       ],
     },
   };
+
+  // How the host says names that are written for the eye: "Da7ee7" uses 7 for ح, and the voice read it as "seven".
+  // Applied to everything Astro and Luna say, episode titles included.
+  R.sayAs = [[/\bel[\s-]*da7ee7\b/gi, 'El Daheeh'], [/\bda7ee7\b/gi, 'Daheeh']];
 })();

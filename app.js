@@ -362,6 +362,7 @@ async function sayArabic(text) {
 }
 
 function say(text, who = 'h') {
+  (R.sayAs || []).forEach(([re, to]) => { text = String(text).replace(re, to); });
   return new Promise(res => {
     const id = runId, parts = splitParts(text);
     const hv = who === 'ar' ? arabicVoice() : hostVoice();
