@@ -205,16 +205,16 @@ function loadVoices() {
   voices = speechSynthesis.getVoices();
   const sel = $('voiceSel'); sel.innerHTML = '';
   const add = (val, label) => { const o = document.createElement('option'); o.value = val; o.textContent = label; sel.appendChild(o); };
-  add('', 'Automatic (best English voice)');
+  add('', 'Automatic (Brian Multilingual, natural)');
   add(ONLINE, 'Online English voice (fallback)');
   [...voices].sort((a, b) => (isEn(b) - isEn(a)) || a.name.localeCompare(b.name)).forEach(v => add(v.name, `${v.name.replace('Microsoft ', '')} · ${v.lang}`));
   sel.value = S.voice || '';
   // Luna (the readings) and the news voice: Automatic keeps the radio's own choice
   const fill = (id, autoLabel, list, key) => { const el = $(id); if (!el) return; el.innerHTML = ''; const o = document.createElement('option'); o.value = ''; o.textContent = autoLabel; el.appendChild(o);
     list.forEach(v => { const x = document.createElement('option'); x.value = v.name; x.textContent = `${v.name.replace('Microsoft ', '').replace(/ Online \(Natural\)/, ' (Natural)')} · ${v.lang}`; el.appendChild(x); }); el.value = list.some(v => v.name === S[key]) ? S[key] : ''; };
-  fill('lunaSel', 'Automatic (Sonia, natural)', [...voices].filter(isEn).sort((a, b) => /natural/i.test(b.name) - /natural/i.test(a.name) || a.name.localeCompare(b.name)), 'lunaVoice');
+  fill('lunaSel', 'Automatic (Emily, Ireland, natural)', [...voices].filter(isEn).sort((a, b) => /natural/i.test(b.name) - /natural/i.test(a.name) || a.name.localeCompare(b.name)), 'lunaVoice');
   const arList = [...voices].filter(v => /^ar/i.test(v.lang)).sort((a, b) => /natural/i.test(b.name) - /natural/i.test(a.name) || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
-  fill('newsVoiceSel', 'Automatic (a Moroccan voice first)', arList, 'newsVoice');
+  fill('newsVoiceSel', 'Automatic (Mouna, Morocco, natural)', arList, 'newsVoice');
   if ($('newsVoiceNote')) $('newsVoiceNote').textContent = arList.length ? `Arabic · ${arList.length} on this device` : 'no Arabic voice on this device: the online voice reads the news (Microsoft Edge has free natural ones: Hamed, Zariyah, Jamal, Mouna…)';
   const note = $('voiceNote');
   if (note) note.textContent = voices.some(isEn) ? '' : 'No English voice is installed on this computer, so the host uses the online English fallback. For a better voice: Windows Settings > Time & language > Speech > Add voices > English, or open the radio in Microsoft Edge for its free natural voices.';
@@ -232,18 +232,18 @@ function guestVoice() { const host = hostVoice(); const en = voices.filter(v => 
 // "Conversations with You": y = you, younger; o = you, older; r = the part that refuses; k = the part that keeps going;
 // b = you on your best day. Each takes the first installed natural voice from its list that is not the host's.
 const VOICE_PREFS = {
-  s: [/sonia.*natural/i, /libby.*natural/i, /(emma|ava|jenny|aria).*natural/i],
+  s: [/emily.*natural/i, /sonia.*natural/i, /libby.*natural/i, /(emma|ava|jenny|aria).*natural/i],
   y: [/liam.*natural/i, /andrew.*natural/i, /connor.*natural/i],
   o: [/roger.*natural/i, /christopher.*natural/i, /thomas.*natural/i],
   r: [/ryan.*natural/i, /thomas.*natural/i, /guy.*natural/i],
   k: [/steffan.*natural/i, /eric.*natural/i, /guy.*natural/i],
   b: [/william.*natural/i, /connor.*natural/i, /andrew.*natural/i],
 };
-// the news is read in Arabic: a Moroccan natural voice (Edge: Jamal, Mouna) if there is one, then any Arabic voice
+// the news is read in Arabic: Mouna (Moroccan, natural) if there is one, then another Moroccan natural voice, then any Arabic voice
 function arabicVoice() {
   const ar = voices.filter(v => /^ar/i.test(v.lang));
   if (S.newsVoice) { const v = ar.find(v => v.name === S.newsVoice); if (v) return v; }   // chosen in Settings
-  return ar.find(v => /ar-MA/i.test(v.lang) && /natural/i.test(v.name)) || ar.find(v => /natural/i.test(v.name)) || ar.find(v => /ar-MA/i.test(v.lang)) || ar[0] || null;
+  return ar.find(v => /mouna.*natural/i.test(v.name)) || ar.find(v => /ar-MA/i.test(v.lang) && /natural/i.test(v.name)) || ar.find(v => /natural/i.test(v.name)) || ar.find(v => /ar-MA/i.test(v.lang)) || ar[0] || null;
 }
 function voiceFor(code) {
   if (code === 'ar') return arabicVoice();
@@ -1731,7 +1731,7 @@ const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وح
 // Said as words, not letters: كلغ is a kilogram, كلم a kilometre; Marrakech is voweled so it sounds Murrākush
 const AR_UNIT = { 'كلغ': 'كيلوغرام', 'كغ': 'كيلوغرام', 'كلم': 'كيلومتر', 'ملم': 'مليمتر', 'سنتم': 'سنتيمتر' };
 // Places said the way people say them: voweled, and with a real "g" where the Arabic spelling has ك, ج or غ for it
-// (Gueliz, Targa, Ben Guerir, Gabon). {G} is the letter chosen in Settings > News > The "g" sound (voices differ).
+// (Gueliz, Targa, Ben Guerir, Gabon). {G} is گ (or the letter you picked earlier, when the setting existed).
 const PLACES = [
   // Marrakech and around
   [['جليز', 'كليز', 'غليز', 'كيليز', 'جيليز'], '{G}ِيلِيز'], [['تاركة', 'تارگة', 'تارجة', 'تاركا'], 'تارْ{G}َة'],
@@ -2433,7 +2433,7 @@ $('libQ').onkeydown = e => { if (e.key === 'Escape' && $('libQ').value) { e.stop
 
 function seg(id, k, cast = v => v) { const el = $(id); const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(S[k]) === b.dataset.v)); el.querySelectorAll('button').forEach(b => b.onclick = () => { S[k] = cast(b.dataset.v); paint(); saveLib(); if (k === 'sleep') setSleep(); }); paint(); }
 function setSleep() { sleepAt = S.sleep ? Date.now() + S.sleep * 60000 : 0; if (S.sleep) toast(`Sleep timer set: ${S.sleep} minutes.`); }
-$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segFade', 'fade', Number); seg('segNews', 'news'); S.gSound = S.gSound || 'گ'; seg('segG', 'gSound'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
+$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segFade', 'fade', Number); seg('segNews', 'news'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('lunaSel').onchange = e => { S.lunaVoice = e.target.value; saveLib(); };
 $('newsVoiceSel').onchange = e => { S.newsVoice = e.target.value; saveLib(); };
@@ -2445,11 +2445,6 @@ $('btnNewsVoiceTest').onclick = () => {
 };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
 $('btnNews').onclick = () => { unlockAudio(); openSheet(null); runNews(true); };
-$('btnGTest').onclick = () => {   // the chosen letter, in the news voice
-  unlockAudio(); if (newsOn) return toast('Try it after the news.');
-  const line = spokenArabic('جليز، تاركة، ابن جرير، أكادير، زاكورة، الغابون، السنغال.');
-  toast(line); mobileWeb() ? sayArabic(line) : sayNewsComputer(line);
-};
 const ago = t => { const h = Math.round((Date.now() - t) / 36e5); return h < 1 ? 'just now' : h < 48 ? h + ' h ago' : Math.round(h / 24) + ' days ago'; };
 $('btnNewsCheck').onclick = async () => {
   $('reportText').textContent = 'Asking every source… this can take up to a minute.'; openSheet('shReport');
