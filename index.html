@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T23:08:39Z">
+<meta name="pbd-version" content="2026-10-27T23:14:26Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -138,6 +138,7 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .mar-h small{color:var(--mute);font-size:11.5px;line-height:1.4}
 .mar-h em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--mute)}
 .mar-c:empty{display:none}
+.mar-every{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;border-top:1px solid var(--line);padding-top:8px}
 .mar-more summary{font-family:var(--mono);font-size:10.5px;color:var(--mute);cursor:pointer;letter-spacing:.04em}
 .mar-more[open] summary{margin-bottom:6px}
 .run-info{align-self:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--amber);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-align:center}
@@ -272,12 +273,13 @@ body.mini .app{gap:6px}
   <!-- playback report: the last events, to send when something does not play -->
   <div class="sheet" id="shMarathon">
     <div class="hd"><h2>Marathon</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <p style="color:var(--mute);font-size:13px;line-height:1.5">Tick one or more. They take turns, mixed, until you stop. With only Songs ticked, it is all music. The news still comes every 4 hours. Next skips to the next part.</p>
+    <p style="color:var(--mute);font-size:13px;line-height:1.5">Tick one or more. They take turns, mixed, until you stop. With only Songs ticked, it is all music, no host. The news still comes every 4 hours. Next skips to the next part.</p>
     <div class="mar" id="marBox">
       <div class="mar-g" data-g="songs">
-        <label class="mar-h"><input type="checkbox" value="songs"><span>Songs only<small>100% music, no talk. From:</small></span><em></em></label>
+        <label class="mar-h"><input type="checkbox" value="songs"><span>Songs<small>no host over the music. From:</small></span><em></em></label>
         <div class="themes mar-c" id="marSrc"></div>
         <details class="mar-more"><summary>Genre groups</summary><div class="themes mar-c" id="marGenres"></div></details>
+        <div class="mar-every" id="marEvery" style="display:none"><span>Songs between parts</span><div class="seg"><button data-v="1">1</button><button data-v="2" class="on">2</button><button data-v="3">3</button><button data-v="5">5</button></div></div>
       </div>
       <div class="mar-g" data-g="voices">
         <label class="mar-h"><input type="checkbox"><span>Voices<small>Astro and Luna</small></span><em></em></label>
@@ -422,6 +424,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=fcff0f1b5f0a6f95"></script>
+<script src="app.js?v=ab8d88ddcfc55d2d"></script>
 </body>
 </html>

@@ -1404,10 +1404,12 @@ function marathonSegs(kind) {
   return null;
 }
 async function marathonStep() {
-  if (marathon.kinds[marathon.i % marathon.kinds.length] === 'songs') {   // a song: played like any other, only without talk
-    marathon.i++; const s = marathonSong();
-    if (s) { marathon.last = 'songs'; caption('Marathon', ''); return advance({ song: s, silent: true, noCount: true, marSong: true }); }
+  if (marathon.songsOn && (!marathon.kinds.length || marathon.sl > 0)) {   // a song, played like any other but with no host: `every` of them between the other parts
+    const s = marathonSong();
+    if (s) { marathon.sl--; marathon.last = 'songs'; caption('Marathon', ''); return advance({ song: s, silent: true, noCount: true, marSong: true }); }
   }
+  marathon.sl = marathon.every;
+  if (!marathon.kinds.length) { busy = false; toast('No song can play right now.'); return stopMarathon(); }
   if (globalPaused) clearPause();
   if (newsOn) { newsOn = false; newsBack = null; }
   stopSpeech(); const id = runId; busy = true; curBreak = null; curPod = null; planned = null; preload = null; nextPending = false; nextOverride = null;
@@ -1439,15 +1441,16 @@ async function marathonStep() {
   }
   busy = false; toast('Nothing in this marathon can play right now.'); stopMarathon();
 }
-function startMarathon(kinds, pods, src = []) {
+function startMarathon(kinds, pods, src = [], every = 2) {
   if (!started) return toast('Press play first, then start the marathon.');
   if (!kinds.length) return toast('Tick at least one thing.');
   if (kinds.includes('podcast') && !pods.length) return toast('Tick which podcasts.');
   const pool = kinds.includes('songs') ? marathonPool(src) : [];
   if (kinds.includes('songs') && !pool.length) return toast(src.length ? 'No songs there yet.' : 'Tick where the songs come from.');
-  marathon = { kinds: [...kinds].sort(() => Math.random() - 0.5), pods: [...pods].sort(() => Math.random() - 0.5), src, pool, i: 0, pi: -1 };
+  const songsOn = kinds.includes('songs');
+  marathon = { all: kinds, kinds: shuffle(kinds.filter(k => k !== 'songs')), songsOn, every, sl: every, pods: shuffle(pods), src, pool, i: 0, pi: -1 };
   $('marStop').style.display = '';
-  rlog('marathon', { kinds, pods, src, songs: pool.length });
+  rlog('marathon', { kinds, pods, src, songs: pool.length, every: songsOn && kinds.length > 1 ? every : null });
   toast('Marathon: ' + kinds.map(k => MAR_LABEL[k]).join(', ') + '. Until you stop it.');
   openSheet(null); advance();
 }
@@ -2813,6 +2816,8 @@ function marPaint() {
     head.checked = n > 0; head.indeterminate = false;
     g.querySelector('.mar-h em').textContent = n ? (g.dataset.g === 'songs' ? n + ' chosen' : n + ' of ' + kids.length) : '';
   });
+  const gs = marGroups(), songsOn = gs[0].head.checked, others = gs.slice(1).some(x => x.head.checked);
+  $('marEvery').style.display = songsOn && others ? '' : 'none';   // how many songs between the other parts: only when there are both
 }
 $('marBox').addEventListener('change', e => {
   const grp = marGroups().find(x => x.g.contains(e.target)); if (!grp) return;
@@ -2822,6 +2827,8 @@ $('marBox').addEventListener('change', e => {
   }
   marPaint();
 });
+let marEvery = 2;
+document.querySelectorAll('#marEvery button').forEach(b => b.onclick = () => { marEvery = +b.dataset.v; document.querySelectorAll('#marEvery button').forEach(x => x.classList.toggle('on', x === b)); });
 $('btnMarathon').onclick = () => {
   const sel = S.marathon || { kinds: ['letter', 'talk'], pods: ['regular', 'dahih', 'hadara'] };
   const src = $('marSrc'); src.innerHTML = '';
@@ -2837,17 +2844,18 @@ $('btnMarathon').onclick = () => {
       : sel.kinds.includes(v);
   }));
   $('marBox').querySelector('.mar-more').open = on.some(v => v.startsWith('run:'));
+  marEvery = sel.every || 2; document.querySelectorAll('#marEvery button').forEach(b => b.classList.toggle('on', +b.dataset.v === marEvery));
   marPaint();
-  $('marNote').textContent = marathon ? 'A marathon is playing now: ' + marathon.kinds.map(k => MAR_LABEL[k]).join(', ') + '.' : HELPER ? '' : 'Podcasts play on the PC radio only.';
+  $('marNote').textContent = marathon ? 'A marathon is playing now: ' + marathon.all.map(k => MAR_LABEL[k]).join(', ') + '.' : HELPER ? '' : 'Podcasts play on the PC radio only.';
   openSheet('shMarathon');
 };
 $('marGo').onclick = () => {
   const val = q => [...document.querySelectorAll(q)].map(i => i.value);
   const src = val('#marBox [data-g="songs"] .mar-c input:checked'), pods = val('#marPods input:checked');
   const kinds = [...(src.length ? ['songs'] : []), ...val('#marBox [data-g="voices"] .mar-c input:checked'), ...(pods.length ? ['podcast'] : []), ...val('#marBox [data-g="ads"] input:checked')];
-  S.marathon = { kinds, pods, src }; saveLib();
+  S.marathon = { kinds, pods, src, every: marEvery }; saveLib();
   if (marathon) { marathon = null; }
-  startMarathon(kinds, pods, src);
+  startMarathon(kinds, pods, src, marEvery);
 };
 $('marEnd').onclick = () => { openSheet(null); stopMarathon(); };
 $('marStop').onclick = e => { e.stopPropagation(); stopMarathon(); };
