@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T09:46:42Z">
+<meta name="pbd-version" content="2026-10-27T09:56:05Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -285,7 +285,9 @@ body.mini .app{gap:6px}
   <div class="sheet" id="shSet" style="overflow-y:auto">
     <div class="hd"><h2>Settings</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="set"><span>Host speaks</span><div class="seg" id="segTalk"><button data-v="normal">every 2 songs</button><button data-v="high">every song</button></div></div>
-    <div class="set"><span>Voice</span><select id="voiceSel"></select></div>
+    <div class="set"><span>Astro's voice</span><select id="voiceSel"></select></div>
+    <div class="set"><span>Luna's voice<br><small style="color:var(--mute);font-size:11px;line-height:1.4">the readings after the letters</small></span><div style="display:flex;gap:8px;align-items:center;min-width:0"><select id="lunaSel" style="max-width:190px"></select><button class="btn ghost" id="btnLunaTest">Test</button></div></div>
+    <div class="set"><span>News voice<br><small id="newsVoiceNote" style="color:var(--mute);font-size:11px;line-height:1.4">Arabic</small></span><div style="display:flex;gap:8px;align-items:center;min-width:0"><select id="newsVoiceSel" style="max-width:190px"></select><button class="btn ghost" id="btnNewsVoiceTest">Test</button></div></div>
     <div class="set"><span>Speaking pace</span><input type="range" id="rate" min="70" max="110" value="90" style="width:120px"></div>
     <div class="set"><span>Sleep timer</span><div class="seg" id="segSleep"><button data-v="0">off</button><button data-v="30">30m</button><button data-v="60">1h</button><button data-v="120">2h</button></div></div>
     <div class="set"><span>Fade between songs<br><small style="color:var(--mute);font-size:11px;line-height:1.4">the old song fades out under what comes next</small></span><div class="seg" id="segFade"><button data-v="3">3s</button><button data-v="5">5s</button><button data-v="8">8s</button><button data-v="12">12s</button></div></div>
@@ -342,6 +344,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=50b8e81100683637"></script>
-<script src="app.js?v=ab84c08a010b905e"></script>
+<script src="app.js?v=bce1b0cfdec3be85"></script>
 </body>
 </html>
