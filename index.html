@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T11:45:08Z">
+<meta name="pbd-version" content="2026-10-27T12:01:36Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -188,7 +188,7 @@ body.mini .app{gap:6px}
   </div>
 
   <div class="run-info" id="runInfo" style="display:none"></div>
-  <div class="cap idle" id="cap"><button class="mini-btn" id="btnAdRemove" style="display:none;position:absolute;right:8px;bottom:6px">&#10005; never play this ad</button><button class="cap-arrow" id="newsPrev" style="display:none;left:2px" aria-label="Previous headline" title="Previous headline">&#8249;</button><button class="cap-arrow" id="newsNext" style="display:none;right:2px" aria-label="Next headline" title="Next headline">&#8250;</button><small id="capKind">Astro</small><div id="capText">He will be with you in a moment.</div><span id="capSrc"></span></div>
+  <div class="cap idle" id="cap"><button class="mini-btn" id="marStop" style="display:none;position:absolute;right:8px;top:6px;z-index:2">&#9632; stop marathon</button><button class="mini-btn" id="btnAdRemove" style="display:none;position:absolute;right:8px;bottom:6px">&#10005; never play this ad</button><button class="cap-arrow" id="newsPrev" style="display:none;left:2px" aria-label="Previous headline" title="Previous headline">&#8249;</button><button class="cap-arrow" id="newsNext" style="display:none;right:2px" aria-label="Next headline" title="Next headline">&#8250;</button><small id="capKind">Astro</small><div id="capText">He will be with you in a moment.</div><span id="capSrc"></span></div>
 
   <div>
     <div class="bar" id="bar"><i id="barfill"></i></div>
@@ -250,6 +250,28 @@ body.mini .app{gap:6px}
   </div>
 
   <!-- playback report: the last events, to send when something does not play -->
+  <div class="sheet" id="shMarathon">
+    <div class="hd"><h2>Marathon</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p style="color:var(--mute);font-size:13px;line-height:1.5">Tick one or more. They play one after another, mixed, with no songs in between, until you stop. The news still comes every 4 hours. Next skips to the next part.</p>
+    <div class="themes" id="marKinds" style="flex-direction:column;align-items:flex-start;gap:10px">
+      <label><input type="checkbox" value="ads"><span>Commercials</span></label>
+      <label><input type="checkbox" value="letter"><span>Letters to the Absurd, and to You (with Luna's readings)</span></label>
+      <label><input type="checkbox" value="longletter"><span>A Long Letter to You</span></label>
+      <label><input type="checkbox" value="talk"><span>The Long Hour (talks)</span></label>
+      <label><input type="checkbox" value="convo"><span>Conversations with You</span></label>
+      <label><input type="checkbox" value="checkin"><span>Check-ins and small advice</span></label>
+      <label><input type="checkbox" value="reading"><span>Poems and readings (Luna)</span></label>
+      <label><input type="checkbox" value="podcast"><span>Podcasts</span></label>
+      <div id="marPods" style="display:flex;gap:14px;flex-wrap:wrap;padding-left:26px">
+        <label><input type="checkbox" value="regular"><span>Regular</span></label>
+        <label><input type="checkbox" value="dahih"><span>الدحيح</span></label>
+        <label><input type="checkbox" value="hadara"><span>في الحضارة</span></label>
+      </div>
+    </div>
+    <div class="field" style="margin-top:6px"><button class="btn" id="marGo">Start the marathon</button><button class="btn ghost" id="marEnd">Stop</button></div>
+    <p id="marNote" style="color:var(--mute);font-size:12px;line-height:1.5"></p>
+  </div>
+
   <div class="sheet" id="shReport">
     <div class="hd"><h2>Playback report</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <p style="color:var(--mute);font-size:13px;line-height:1.5">If songs do not play on this device, take a screenshot of this page and send it. Newest lines are at the top.</p>
@@ -303,6 +325,7 @@ body.mini .app{gap:6px}
     <div class="set"><span>Programming</span><span style="color:var(--mute);font-size:12px;text-align:right;line-height:1.5">a 64-song cycle, one big part every 8:<br>ads 8 · long talk 16 · ads 24 · long letter 32<br>ads 40 · conversation 48 · ads 56 · podcast 64<br>plus the news every 4 hours, on the hour</span></div>
     <div class="set" style="flex-wrap:wrap"><span style="flex:1 1 100%">News<br><small id="newsNote" style="color:var(--mute);font-size:11px;line-height:1.4">every 4 hours on the hour, in Arabic</small></span><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-left:auto"><div class="seg" id="segNews"><button data-v="on">on</button><button data-v="off">off</button></div><button class="btn ghost" id="btnNews">Play now</button><button class="btn ghost" id="btnNewsCheck" title="See what every news source gives right now">Check sources</button><button class="btn ghost" id="btnNewsLast" title="Every line of the last bulletin, with the link of each headline">Last bulletin</button></div></div>
     <div class="set" style="flex-wrap:wrap"><span style="flex:1 1 200px">A podcast, now<br><small style="color:var(--mute);font-size:11px;line-height:1.4">plays right away, then the music continues (on the PC radio)</small></span><div id="podNow" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto"><button class="btn ghost" data-v="dahih">الدحيح</button><button class="btn ghost" data-v="hadara">في الحضارة</button><button class="btn ghost" data-v="regular">Regular</button></div></div>
+    <div class="set"><span>Marathon<br><small style="color:var(--mute);font-size:11px;line-height:1.4">non-stop: commercials, letters, talks, podcasts… no songs in between</small></span><button class="btn ghost" id="btnMarathon">Choose…</button></div>
     <div class="set"><span>Commercials</span><button class="btn ghost" id="btnAds">Manage commercials</button></div>
     <div class="set"><span>Playback report<br><small style="color:var(--mute);font-size:11px">what YouTube did, for fixing problems</small></span><button class="btn ghost" id="btnReport">Show</button></div>
     <div class="set"><span>Cloud sync<br><small id="cloudNote" style="color:var(--mute);font-size:11px;line-height:1.4">off</small></span><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button class="btn ghost" id="btnUpdate" title="Get the newest version of the radio now, without closing it">Update</button><button class="btn ghost" id="btnCloud">Sign in with Google</button></div></div>
@@ -354,6 +377,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=ba36e87aecba3a8d"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=cff700e91fbf6984"></script>
+<script src="app.js?v=9608a2119398ea3f"></script>
 </body>
 </html>

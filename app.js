@@ -1321,7 +1321,65 @@ async function playPodcast(pod, prev, opts, id) {
   busy = false;
 }
 
+// ---------- Marathon: chosen parts back to back (commercials, letters, talks, podcasts…), no songs, until you stop ----------
+let marathon = null;   // { kinds, pods, i }
+const MAR_LABEL = { ads: 'commercials', letter: 'letters', longletter: 'long letters', talk: 'talks', convo: 'conversations', checkin: 'check-ins', reading: 'readings', podcast: 'podcasts' };
+function marathonSegs(kind) {
+  if (kind === 'ads') return adPool.length ? adBreakSegs() : null;
+  if (kind === 'letter') return [letterSeg(fresh('letter', R.letters), false)];
+  if (kind === 'longletter') return [letterSeg(fresh('longletter', (R.longLetters || []).filter(x => !x.birthday)), true)];
+  if (kind === 'talk') { const t = fresh('talk', R.talks); return [{ kind: 'The Long Hour', title: t.title, lines: [{ t: sub(fresh('talkbridge', R.talkBridges).replace(/\{title\}/g, t.title)) }, ...t.p.map(x => ({ t: sub(x) }))] }]; }
+  if (kind === 'convo') { const c = fresh('convo', R.conversations); return [{ kind: 'Conversations with You', title: c.title, lines: [{ t: sub(c.intro) }, ...c.lines.map(l => ({ t: sub(l.t), w: l.w }))] }]; }
+  if (kind === 'checkin') return [{ kind: 'Check-in', lines: [{ t: sub(fresh('checkin', R.checkins)) }] }];
+  if (kind === 'reading') { const rd = pickReading({ tags: [] }); return rd ? [{ kind: 'Luna · reading', title: rd.title, lines: [{ t: sub(fresh('sonia', R.soniaHandoffs)).replace(/\{title\}/g, rd.title).replace(/\{by\}/g, rd.by) }, { t: rd.t, w: 's' }] }] : null; }
+  return null;
+}
+async function marathonStep() {
+  if (globalPaused) clearPause();
+  if (newsOn) { newsOn = false; newsBack = null; }
+  stopSpeech(); const id = runId; busy = true; curBreak = null; curPod = null; planned = null; preload = null; nextPending = false; nextOverride = null;
+  const old = P(); fadeP(old, 0, 2500).then(() => { try { if (pl[ai] === old && id === runId) old.pauseVideo(); } catch {} });
+  if (current) { current = null; setNow(null); updateHeart(); }
+  for (let tries = 0; tries < marathon.kinds.length + 1; tries++) {
+    const kind = marathon.kinds[marathon.i++ % marathon.kinds.length];
+    $('kind').textContent = 'marathon';
+    if (kind === 'podcast') {
+      if (!HELPER || !marathon.pods.length) continue;
+      const which = marathon.pods[(marathon.pi = (marathon.pi || 0) + 1) % marathon.pods.length];
+      caption('Marathon', 'Looking for a podcast…');
+      const pod = which === 'regular' ? await findRegular() : await findShow(which);
+      if (id !== runId || !marathon) return;
+      if (!pod) { rlog('marathon: no podcast found', { which }); continue; }
+      return playPodcast(pod, null, {}, id);   // when the episode ends, the marathon goes on
+    }
+    const segs = marathonSegs(kind); if (!segs) continue;
+    curBreak = { segs, idx: 0, next: null };
+    const ok = await runSegments(segs, id);
+    if (!ok) return;
+    curBreak = null; bedOff(1.5); busy = false; caption('Marathon', '');
+    await sleep(700);
+    if (id === runId && marathon) advance();
+    return;
+  }
+  busy = false; toast('Nothing in this marathon can play right now.'); stopMarathon();
+}
+function startMarathon(kinds, pods) {
+  if (!started) return toast('Press play first, then start the marathon.');
+  if (!kinds.length) return toast('Tick at least one thing.');
+  if (kinds.includes('podcast') && !pods.length) return toast('Tick which podcasts.');
+  marathon = { kinds: [...kinds].sort(() => Math.random() - 0.5), pods: [...pods].sort(() => Math.random() - 0.5), i: 0, pi: -1 };
+  $('marStop').style.display = '';
+  rlog('marathon', { kinds, pods });
+  toast('Marathon: ' + kinds.map(k => MAR_LABEL[k]).join(', ') + '. Until you stop it.');
+  openSheet(null); advance();
+}
+function stopMarathon() {
+  if (!marathon) return;
+  marathon = null; $('marStop').style.display = 'none'; toast('Marathon over. Back to the music.');
+  if (started) { stopSpeech(); bedOff(1); advance({ silent: true, noCount: true }); }
+}
 async function advance(opts = {}) {
+  if (marathon) return marathonStep();
   if (globalPaused) clearPause();   // anything new starts un-paused
   if (newsOn) { newsOn = false; newsBack = null; }   // you chose something else during the news
   stopSpeech();
@@ -2133,7 +2191,7 @@ $('btnUpdate').onclick = async () => {
 };
 
 // ---------- panels ----------
-const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport', 'shLabel'];
+const sheets = ['shAdd', 'shLib', 'shSet', 'shRun', 'shAds', 'shVer', 'shReport', 'shLabel', 'shMarathon'];
 $('btnReport').onclick = () => {
   const head = [`device: ${/Android|iPhone|iPad/i.test(navigator.userAgent) ? (navigator.userAgent.match(/Android[^;)]*|iPhone|iPad/) || [''])[0] : 'computer'} · ${(navigator.userAgent.match(/(EdgA|Edg|Brave|SamsungBrowser|Firefox|Chrome)\/[\d.]+/) || ['browser'])[0]}`,
     `helper on this device: ${HELPER ? 'yes' : 'no'} · cloud: ${window.Cloud && Cloud.user ? 'signed in' : 'not signed in'} · now: ${current ? current.a + ' - ' + current.t : 'nothing'}`, ''];
@@ -2570,6 +2628,21 @@ async function podNow(kind) {
   await playPodcast(pod, current, {}, id);
 }
 document.querySelectorAll('#podNow button').forEach(b => b.onclick = () => podNow(b.dataset.v));
+$('btnMarathon').onclick = () => {
+  const sel = S.marathon || { kinds: ['letter', 'talk'], pods: ['regular', 'dahih', 'hadara'] };
+  document.querySelectorAll('#marKinds > label input').forEach(i => { i.checked = sel.kinds.includes(i.value); });
+  document.querySelectorAll('#marPods input').forEach(i => { i.checked = sel.pods.includes(i.value); });
+  $('marNote').textContent = marathon ? 'A marathon is playing now: ' + marathon.kinds.map(k => MAR_LABEL[k]).join(', ') + '.' : HELPER ? '' : 'Podcasts play on the PC radio only.';
+  openSheet('shMarathon');
+};
+$('marGo').onclick = () => {
+  const kinds = [...document.querySelectorAll('#marKinds > label input:checked')].map(i => i.value), pods = [...document.querySelectorAll('#marPods input:checked')].map(i => i.value);
+  S.marathon = { kinds, pods }; saveLib();
+  if (marathon) { marathon = null; }
+  startMarathon(kinds, pods);
+};
+$('marEnd').onclick = () => { openSheet(null); stopMarathon(); };
+$('marStop').onclick = e => { e.stopPropagation(); stopMarathon(); };
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
