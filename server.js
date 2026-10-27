@@ -143,13 +143,13 @@ async function search(q, a = '', t = '') {
 
 // Long-form talks for the podcast slot: 15 to 90 minutes, preferring podcasts, lectures, and conversations.
 const NOT_TALK = /\b(music|mix|playlist|lofi|lo-fi|asmr|binaural|sleep|meditation|hz|chill|beats|ambient|full album|live ?stream|sermon|prayer|compilation|shorts|reaction|trailer|official video|lyrics|soundtrack|gameplay|walkthrough|workout|subliminal|hypnosis|study with me)\b/i;
-async function podcast(q) {
+async function podcast(q, min = 900) {
   const r = await fetch('https://www.youtube.com/results?search_query=' + encodeURIComponent(q) + '&sp=EgQQARgC', { headers: HEADERS });
   const html = await r.text();
   const data = extractJSON(html, 'var ytInitialData =') || extractJSON(html, 'ytInitialData = ');
   if (!data) throw new Error('could not parse results');
   const vids = walk(data, 'videoRenderer', []).map(v => ({ id: v.videoId, title: txt(v.title), channel: chan(v.ownerText) || chan(v.longBylineText), seconds: secs(txt(v.lengthText)) }))
-    .filter(v => v.id && v.seconds >= 900 && v.seconds <= 5400);
+    .filter(v => v.id && v.seconds >= min && v.seconds <= 5400);
   return vids.map(v => {
     const t = v.title.toLowerCase(); let s = 0;
     if (/podcast|conversation|interview|talk|lecture|discussion|essay|philosoph|documentary|episode/.test(t)) s += 2;
@@ -157,6 +157,14 @@ async function podcast(q) {
     if (/#shorts/.test(t)) s -= 8;
     return { ...v, score: s };
   }).filter(v => v.score > -5).sort((a, b) => b.score - a.score).slice(0, 10);
+}
+// Focus mode > Ambient sounds: long recordings (rain, waves, space), half an hour or more
+async function longVideos(q) {
+  const r = await fetch('https://www.youtube.com/results?search_query=' + encodeURIComponent(q) + '&sp=EgQQARgC', { headers: HEADERS });
+  const html = await r.text(), data = extractJSON(html, 'var ytInitialData =') || extractJSON(html, 'ytInitialData = ');
+  if (!data) throw new Error('could not parse results');
+  return walk(data, 'videoRenderer', []).map(v => ({ id: v.videoId, title: txt(v.title), channel: chan(v.ownerText) || chan(v.longBylineText), seconds: secs(txt(v.lengthText)) }))
+    .filter(v => v.id && v.seconds >= 1800 && !/live|#shorts/i.test(v.title)).slice(0, 10);
 }
 // ---------- news: the radio page reads the news sites through here (only these sites), and picks the headlines itself ----------
 const NEWS_HOSTS = /(^|\.)(kech24\.com|marrakechalaan\.com|hespress\.com|le360\.ma|map\.ma|mapnews\.ma|bbci\.co\.uk|aljazeera\.net|france24\.com|aitnews\.com|cnn\.com|bbc\.com|alarabiya\.net|snrtnews\.com|hitradio\.ma|news\.google\.com|open\.er-api\.com|aladhan\.com|open-meteo\.com|usgs\.gov)$/i;
@@ -363,7 +371,8 @@ const server = http.createServer(async (req, res) => {
       const cmd = process.platform === 'win32' ? ['explorer.exe', [url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
       try { require('child_process').spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore' }).unref(); return send(res, 200, { ok: true }); } catch (e) { return send(res, 500, { error: String(e.message || e) }); }
     }
-    if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || ''));
+    if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || '', Math.max(300, +u.searchParams.get('min') || 900)));
+    if (u.pathname === '/api/long') return send(res, 200, await longVideos(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
     if (u.pathname === '/api/ads/all') return send(res, 200, { items: adsAll() });
     if (u.pathname === '/api/ads/search') return send(res, 200, (await searchShort(u.searchParams.get('q') || '')).filter(v => v.id && v.seconds > 0 && v.seconds <= 240).slice(0, 12));

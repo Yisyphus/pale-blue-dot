@@ -1,8 +1,8 @@
 {
- "version": "2026-10-27T10:14:49Z",
+ "version": "2026-10-27T10:58:02Z",
  "files": {
-  "app.js": "1d5b6a8d230609fc",
-  "cloud.js": "50b8e81100683637",
+  "app.js": "ce3467721ca21855",
+  "cloud.js": "2fb3e9b1301d659f",
   "content.js": "45f00d7b85dcbf83",
   "content10.js": "9275cf846195a692",
   "content11.js": "aadeac5b4aeca01a",
@@ -18,6 +18,7 @@
   "content20.js": "5b3d991b435b2d2a",
   "content21.js": "db801564b6bdd4c3",
   "content22.js": "97b2806116f2a4e7",
+  "content23.js": "03b85ab60374a6e8",
   "content3.js": "56b08beafc4c1707",
   "content4.js": "b388dbfded469022",
   "content5.js": "db4717ce75765663",
@@ -29,7 +30,7 @@
   "firebase-config.js": "ba36e87aecba3a8d",
   "icon.png": "414972388b2218eb",
   "jingles.js": "82e560f3edddbd37",
-  "index.html": "a79ee16d5005e4f6"
+  "index.html": "206e2d8088c2bfec"
  },
- "server": "b584687f59551638"
+ "server": "58ac2df16136550d"
 }

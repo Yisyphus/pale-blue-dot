@@ -98,6 +98,26 @@
   }
   C.flush = flush;
   C.markReady = () => { C.ready = true; if (pending) flush(); };
+
+  // ---- daily backups: one dated copy of the library a day (without the video cache), the last 30 days kept ----
+  const day = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  C.backupDaily = async lib => {
+    if (!C.user || !C.ready || !lib) return;
+    const today = day();
+    try {
+      const idx = await ref('backups').get(), list = idx.exists ? JSON.parse(idx.data().json || '[]') : [];
+      if (list.some(b => b.day === today)) return;
+      const { cache, ...rest } = lib;
+      await ref('backup-' + today).set({ json: JSON.stringify(rest), savedAt: Date.now(), device: DEVICE });
+      list.push({ day: today, fav: (lib.fav || []).length, lists: (lib.lists || []).length, user: (lib.user || []).length });
+      list.sort((a, b) => a.day < b.day ? -1 : 1);
+      const old = list.splice(0, Math.max(0, list.length - 30));
+      await ref('backups').set({ json: JSON.stringify(list), savedAt: Date.now() });
+      await Promise.all(old.map(b => ref('backup-' + b.day).delete().catch(() => {})));
+    } catch (e) { console.warn('[cloud] daily backup failed', e); }
+  };
+  C.listBackups = async () => { if (!C.user) return []; const d = await ref('backups').get(); return d.exists ? JSON.parse(d.data().json || '[]').reverse() : []; };
+  C.getBackup = async dayId => { if (!C.user) return null; const d = await ref('backup-' + dayId).get(); return d.exists ? JSON.parse(d.data().json || '{}') : null; };
   C.pushAds = async (edits, pool) => {
     if (!C.user) return;
     try { await ref('ads').set({ edits: JSON.stringify(edits || {}), pool: JSON.stringify(pool || []), savedAt: Date.now(), device: DEVICE }); } catch (e) { console.warn('[cloud] ads save failed', e); }

@@ -98,6 +98,7 @@ async function syncWithCloudNow() {
     lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, merged);
     if (changedHere && HELPER) fetch('/api/library', { method: 'POST', body: JSON.stringify(lib) }).catch(() => {});   // refresh the local copy
     Cloud.markReady();   // from now on this device may write to the cloud (always merging first)
+    setTimeout(() => Cloud.backupDaily(lib), 30000);   // today's backup, if no device has made it yet
     if (changedThere) { lib.savedAt = Date.now(); Cloud.push(lib, true); }
     rlog('cloud sync', { favorites: (lib.fav || []).length, yourSongs: (lib.user || []).length, removed: (lib.removed || []).length, sentUp: changedThere });
   } catch (e) { console.warn('[cloud]', e); toast('Cloud: ' + (e.code === 'permission-denied' ? 'this Google account is not allowed.' : 'could not sync right now.')); }
@@ -105,10 +106,19 @@ async function syncWithCloudNow() {
 // Recording what you deliberately take away, so merging does not bring it back.
 function markDeleted(kind, key) { lib.del = lib.del || {}; lib.del[kind] = lib.del[kind] || {}; lib.del[kind][key] = Date.now(); }
 let saveT;
+// Focus mode never touches the library: the videos it finds are kept apart, on this device, and nothing else of it is saved
+function keepFocusOut() {
+  let fc = {}; try { fc = JSON.parse(localStorage.getItem('pbd-focus-cache') || '{}'); } catch {}
+  let moved = false;
+  ['cache', 'trim', 'bad'].forEach(k => Object.keys(lib[k] || {}).forEach(x => { if (/^focus/.test(x)) { if (k === 'cache') { fc[x] = lib.cache[x]; moved = true; } delete lib[k][x]; } }));
+  if (lib.hist) lib.hist = lib.hist.filter(h => !/^focus/.test(h.k));
+  if (moved) try { localStorage.setItem('pbd-focus-cache', JSON.stringify(fc)); } catch {}
+}
 function saveLib() {
   clearTimeout(saveT);
   saveT = setTimeout(() => {
     lib.settings = S; lib.savedAt = Date.now();
+    keepFocusOut();
     if (HELPER) fetch('/api/library', { method: 'POST', body: JSON.stringify(lib) }).catch(() => {});
     else { try { localStorage.setItem('pbd-lib', JSON.stringify(lib)); } catch {} }
     if (window.Cloud && Cloud.user) Cloud.push(lib);
@@ -496,6 +506,7 @@ function fadeP(p, to, ms) {
 }
 async function resolve(s) {
   if (s.cands && s.cands.length) return s.cands;
+  if (s.focus) return resolveFocus(s);
   try {
     const r = await fetch('/api/search?q=' + encodeURIComponent(s.a + ' ' + s.t) + '&a=' + encodeURIComponent(s.a) + '&t=' + encodeURIComponent(s.t));
     const c = (await r.json()).slice(0, 5);
@@ -528,7 +539,7 @@ async function startSong(s, startVol, fadeInMs = 0, outMs = fadeMs()) {
   setNow(s);
   clearTimeout(startWatch); startWatch = setTimeout(() => { if (!playing && !globalPaused) tryNextCand(); }, 14000);
   if (fadeInMs) fadeP(np, S.vol, fadeInMs);
-  if (!s.podcast) {   // remembered across sessions, so the radio does not replay the same songs every time it opens
+  if (!s.podcast && !s.focus) {   // remembered across sessions, so the radio does not replay the same songs every time it opens
     lib.hist = lib.hist || []; lib.hist.push({ k: s.key, a: s.a }); if (lib.hist.length > 400) lib.hist.splice(0, lib.hist.length - 400); saveLib();
   }
   return true;
@@ -734,10 +745,50 @@ function choose(cur, rs) {
 function lastHeard() { const h = (lib.hist || []).slice(-1)[0]; return h ? songs.find(s => s.key === h.k) : null; }
 function pick() {
   if (upNext.length) return upNext.shift();
+  if (focusMode) return focusPick();
   if (batch) { const s = nextFromRun(); if (s) return s; }
   const c = choose(current || lastHeard(), recentSets());
   lastPick = { key: c.song.key, why: c.why };
   return c.song;
+}
+// ---------- Focus mode: instrumental only (or ambient sounds), no talk, no commercials, until you turn it off ----------
+// Its tracks (content23.js) live apart from the library; the news still comes every 4 hours.
+let focusMode = ''; try { focusMode = localStorage.getItem('pbd-focus') || ''; } catch {}
+const focusSongs = (R.focusTracks || []).map(l => { const [a, t, style] = l.split('|'); return { a, t, style, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() }; });
+function focusPick() {
+  if (focusMode === 'sounds') {
+    const all = R.focusSounds || []; let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-snd') || '[]'); } catch {}
+    let pool = all.filter(x => !used.includes(x.label)); if (!pool.length) { used = []; pool = all; }
+    const x = rnd(pool); used.push(x.label); try { localStorage.setItem('pbd-focus-snd', JSON.stringify(used)); } catch {}
+    return { a: 'Ambient sounds', t: x.label, q: x.q, genre: 'focus', tags: [], focus: true, sounds: true, key: 'focus-sound|' + x.label.toLowerCase() };
+  }
+  let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-used') || '[]'); } catch {}
+  let pool = focusSongs.filter(s => !used.includes(s.key) && !restingBroken(s) && (!current || s.a !== current.a)); if (!pool.length) { used = []; pool = focusSongs; }
+  const s = Object.assign({}, rnd(pool)); used.push(s.key); try { localStorage.setItem('pbd-focus-used', JSON.stringify(used.slice(-120))); } catch {}
+  return s;
+}
+async function resolveFocus(s) {
+  let fc = {}; try { fc = JSON.parse(localStorage.getItem('pbd-focus-cache') || '{}'); } catch {}
+  if (!s.sounds && fc[s.key] && fc[s.key].length) return (s.cands = fc[s.key]);
+  try {
+    const r = await fetch(s.sounds ? '/api/long?q=' + encodeURIComponent(s.q) : '/api/search?q=' + encodeURIComponent(s.a + ' ' + s.t) + '&a=' + encodeURIComponent(s.a) + '&t=' + encodeURIComponent(s.t));
+    let c = await r.json(); if (!Array.isArray(c) || !c.length) return [];
+    c = s.sounds ? [...c].sort(() => Math.random() - 0.5).slice(0, 5) : c.slice(0, 5);
+    s.cands = c; if (!s.sounds) { fc[s.key] = c; try { localStorage.setItem('pbd-focus-cache', JSON.stringify(fc)); } catch {} }
+    return c;
+  } catch { return []; }
+}
+function paintFocus() {
+  const b = $('btnFocus'); if (b) { b.classList.toggle('on', !!focusMode); b.title = focusMode ? 'Focus mode is on (' + (focusMode === 'sounds' ? 'ambient sounds' : 'instrumental music') + ')' : 'Focus mode'; }
+  document.querySelectorAll('#focusMenu button').forEach(x => x.classList.toggle('on', x.dataset.v === focusMode));
+}
+function setFocus(mode) {
+  if (mode === focusMode) return;
+  focusMode = mode; try { localStorage.setItem('pbd-focus', mode); } catch {}
+  paintFocus(); planned = null; preload = null;
+  rlog('focus mode', { mode: mode || 'off' });
+  toast(mode === 'sounds' ? 'Focus: ambient sounds. No talk, no commercials.' : mode ? 'Focus: instrumental music. No talk, no lyrics, no commercials.' : 'Focus mode off. Back to the radio.');
+  if (started && !newsOn) { stopSpeech(); advance({ silent: true, noCount: true, quick: true }); }   // switch now, with a crossfade
 }
 const takePlanned = () => { const p = planned; planned = null; return p || pick(); };
 function planPreload() {
@@ -789,7 +840,13 @@ function genreNote(s) {
   if (!pool.length) pool = R.genreNotes.map(x => x.t);
   return fresh('genre:' + (g || 'any'), pool);
 }
+// Dedications from Suggest: kept only here, in memory, until Astro has said them; never saved, synced or logged.
+const dedications = new Map();
 function introFor(s, prev) {
+  if (dedications.has(s.key)) {   // a few words from Astro, your words exactly, then the song
+    const d = dedications.get(s.key).replace(/[.!?،]+$/, ''); dedications.delete(s.key);
+    return sub(fresh('dedication', R.dedicationLines || ['A dedication now. {d}. Here is {a}, {t}.']), s).replace('{d}', () => d);
+  }
   // a small bridge when the new song shares a theme with the last one, or a word about the detour
   let bridge = '';
   const shared = prev ? (s.tags || []).filter(t => (prev.tags || []).includes(t)) : [];
@@ -814,6 +871,7 @@ function introFor(s, prev) {
   return parts.join(' ');
 }
 function backFor(s) {
+  if (s.podcast && s.show && R.podShows && R.podShows[s.show]) return sub(fresh('podshowout:' + s.show, R.podShows[s.show].outros), s);
   if (s.podcast) return sub(s.midnight ? fresh('podoutro', R.podcastOutros) : fresh('podoutroday', R.podcastOutrosDay), s);
   const sc = scriptFor(s);
   if (sc && sc.backs && sc.backs.length) return sub(fresh('back:' + s.key, sc.backs), s);
@@ -1190,8 +1248,25 @@ async function runSegments(segs, id) {
 // What is playing or being said right now, so the news can bring it back from the start: a break (from the part that
 // was interrupted, a talk from its first sentence), a podcast being introduced, or the song or episode itself.
 let curBreak = null, curPod = null;
+// The podcast slot takes turns: a regular episode, في الحضارة, a regular episode, الدحيح (content23.js).
+const POD_TURNS = ['regular', 'hadara', 'regular', 'dahih'];
+async function findShow(id) {
+  const show = (R.podShows || {})[id]; if (!show) return null;
+  for (const q of [...show.queries].sort(() => Math.random() - 0.5)) {
+    try {
+      const r = await (await fetch('/api/podcast?min=480&q=' + encodeURIComponent(q))).json(); if (!Array.isArray(r)) continue;
+      const ok = r.filter(x => show.channel.test(x.channel || '') && show.title.test(x.title || '') && !lib.pod.includes(x.id)).slice(0, 5);
+      if (!ok.length) continue;
+      const v = rnd(ok);
+      return { topic: { label: show.name }, show: id, v, alts: ok.filter(x => x.id !== v.id) };
+    } catch {}
+  }
+  return null;
+}
 async function findPodcast() {
   lib.pod = lib.pod || [];
+  const turn = POD_TURNS[(lib.podTurn || 0) % POD_TURNS.length]; lib.podTurn = (lib.podTurn || 0) + 1; saveLib();
+  if (turn !== 'regular') { const sp = await findShow(turn); if (sp) return sp; rlog('podcast show not found, a regular episode instead', { show: turn }); }
   for (let attempt = 0; attempt < 3; attempt++) {
     const topic = fresh('podtopic', R.podcastTopics);
     try {
@@ -1209,7 +1284,7 @@ async function playPodcast(pod, prev, opts, id) {
   const midnight = false;
   curBreak = null; curPod = pod;
   const v = pod.v;
-  const ep = { a: v.channel, t: cleanTitle(v.title), key: 'podcast|' + v.id, podcast: true, midnight, tags: [], genre: 'podcast', cands: [v, ...pod.alts] };
+  const ep = { a: v.channel, t: cleanTitle(v.title), key: 'podcast|' + v.id, podcast: true, show: pod.show || '', midnight, tags: [], genre: 'podcast', cands: [v, ...pod.alts] };
   if (!lib.pod.includes(v.id)) { lib.pod.push(v.id); if (lib.pod.length > 300) lib.pod.shift(); saveLib(); }
   const old = P();
   if (!opts.first) fadeP(old, 0, opts.fadeOldMs || fadeMs()).then(() => { try { if (pl[ai] === old) old.pauseVideo(); } catch {} });
@@ -1218,7 +1293,7 @@ async function playPodcast(pod, prev, opts, id) {
   if (opts.first) segs.push({ kind: R.station, lines: [{ t: sub(fresh('welcome:' + period(), R.welcomes[period()]), ep) }] });
   else if (prev) segs.push({ kind: R.station, lines: [{ t: backFor(prev) }] });
   const extra = { min: Math.max(1, Math.round(v.seconds / 60)), topic: pod.topic.label };
-  segs.push({ kind: midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: sub(midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
+  segs.push({ kind: midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
   console.info('[radio] podcast', ep.t, '|', ep.a, '|', extra.min + ' min');
   const ok = await runSegments(segs, id);
   if (!ok) return;
@@ -1246,9 +1321,9 @@ async function advance(opts = {}) {
   if (!next) { busy = false; return; }
   if (prev && !afterPod) { if (opts.prev !== null) { history.push(prev); if (history.length > 60) history.shift(); } if (!played.includes(prev.key)) played.push(prev.key); }
   current = null; updateHeart();   // the heart is only active while a song is playing
-  if (!opts.noCount && !afterPod) songsSinceBreak++;
+  if (!opts.noCount && !afterPod && !next.focus) songsSinceBreak++;
   const endRunNow = !!(prev && lastRunSong && prev.key === lastRunSong.key);
-  const talk = !opts.silent && (opts.first || afterPod || endRunNow || songsSinceBreak >= breakEvery() || opts.forceTalk);
+  const talk = !opts.silent && !next.focus && (opts.first || afterPod || endRunNow || songsSinceBreak >= breakEvery() || opts.forceTalk || dedications.has(next.key));
   console.info('[radio] advance', { next: next.t, talk, count: songsSinceBreak, every: breakEvery() });
   if (talk) songsSinceBreak = 0;
   const old = P();
@@ -1999,7 +2074,7 @@ function next() {
   if (globalPaused) resumeAll();
   if (breakSkip) { const b = breakSkip; breakSkip = null; b(); return; }   // during a commercial break: skip the current jingle, ad or spoken line
   try { // learn where a silent tail begins: if you skip near the end, trim there from now on
-    if (current && !current.podcast && playing && !busy) { const d = P().getDuration(), c = P().getCurrentTime(); if (d > 60 && d - c < 90 && d - c > 3) { lib.trim[current.key] = Math.max(0, c - 1); saveLib(); toast('Got it. I will end this song right here from now on.'); } }
+    if (current && !current.podcast && !current.focus && playing && !busy) { const d = P().getDuration(), c = P().getCurrentTime(); if (d > 60 && d - c < 90 && d - c > 3) { lib.trim[current.key] = Math.max(0, c - 1); saveLib(); toast('Got it. I will end this song right here from now on.'); } }
   } catch {}
   advance({ quick: true });
 }
@@ -2075,12 +2150,14 @@ async function doSearch() {
 async function addSong(v, q) {
   // a suggested song is added to your library and plays next. Nothing else is pulled in with it.
   const ts = [...document.querySelectorAll('#addThemes input:checked')].map(i => i.value);
+  const ded = ($('addDed').value || '').trim().slice(0, 200); $('addDed').value = '';
   const { a, t } = splitTitle(v);
   const draft = { a, t, q, tags: ts.length ? ts : (current && current.tags && current.tags.length ? current.tags.slice() : ['absurd']), genre: '', user: true, cands: [v], added: Date.now() };
   draft.key = key(draft);
   let s = songs.find(x => (x.cands || []).some(c => c.id === v.id)) || songs.find(x => x.key === draft.key);
   const isNew = !s;
   if (isNew) { lib.user.push(draft); lib.cache[draft.key] = draft.cands; buildSongs(); saveLib(); s = songs.find(x => x.key === draft.key); }
+  if (ded) dedications.set(s.key, ded); else dedications.delete(s.key);
   queueNext(s);
   openSheet(null); $('addq').value = ''; document.querySelectorAll('#addThemes input').forEach(i => i.checked = false);
   toast(isNew ? '"' + s.t + '" was added to your library and plays next.' : '"' + s.t + '" plays next.');
@@ -2279,7 +2356,7 @@ const favIdx = k => (lib.fav || []).findIndex(f => f.key === k);
 function updateHeart() {
   const b = $('btnHeart'); if (!b) return;
   const on = !!current && favIdx(current.key) >= 0;
-  b.classList.toggle('on', on); b.disabled = !current || !!current.podcast;
+  b.classList.toggle('on', on); b.disabled = !current || !!current.podcast || !!current.focus;
   b.title = on ? 'Remove from favorites' : 'Add to favorites'; b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 function toggleFav() {
@@ -2461,6 +2538,10 @@ $('btnNewsLast').onclick = () => {   // everything the last bulletin read, with 
   openSheet('shReport');
 };
 $('reportCopy').onclick = async () => { const t = $('reportText').textContent; try { await navigator.clipboard.writeText(t); toast('Copied.'); } catch { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast('Copied.'); } catch {} a.remove(); } };
+$('btnFocus').onclick = e => { e.stopPropagation(); $('focusMenu').classList.toggle('open'); paintFocus(); };
+document.querySelectorAll('#focusMenu button').forEach(b => b.onclick = () => { $('focusMenu').classList.remove('open'); setFocus(b.dataset.v); });
+document.addEventListener('click', e => { if (!e.target.closest('#focusMenu, #btnFocus')) $('focusMenu').classList.remove('open'); });
+paintFocus();
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
@@ -2548,6 +2629,25 @@ $('btnLibSave').onclick = () => {
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 };
 $('btnLibRestore').onclick = () => $('libFile').click();
+$('btnLibDays').onclick = async () => {
+  if (!window.Cloud || !Cloud.user) return toast('Sign in (Cloud sync) to see the daily backups.');
+  const list = await Cloud.listBackups().catch(() => []);
+  const box = $('libDays'); box.innerHTML = list.length ? '' : '<p style="color:var(--mute);font-size:12px">No daily backup yet. The first one is made today.</p>';
+  list.forEach(b => {
+    const r = document.createElement('div'); r.className = 'set'; r.style.padding = '6px 0';
+    r.innerHTML = `<span style="font-size:13px">${b.day}<br><small style="color:var(--mute);font-size:11px">${b.fav} favorites · ${b.lists} lists · ${b.user} songs</small></span><button class="btn ghost">Merge back</button>`;
+    r.querySelector('button').onclick = async () => {
+      const old = await Cloud.getBackup(b.day).catch(() => null); if (!old) return toast('Could not read that backup.');
+      const before = { fav: (lib.fav || []).length, lists: (lib.lists || []).length, user: (lib.user || []).length };
+      lib = Object.assign({ user: [], cache: {}, removed: [], settings: {}, trim: {}, disc: {} }, mergeLib(lib, Object.assign(old, { savedAt: 0 })));
+      normalizeLib(); buildSongs(); updateHeart(); saveLib(); Cloud.push(lib, true);
+      const d = k => (lib[k] || []).length - before[k];
+      toast(`Merged ${b.day}: ${d('fav')} favorites, ${d('lists')} lists and ${d('user')} songs came back.`);
+    };
+    box.appendChild(r);
+  });
+  box.style.display = 'block';
+};
 $('libFile').onchange = async e => {
   const files = [...e.target.files]; e.target.value = '';
   let n = 0; const before = { fav: (lib.fav || []).length, lists: (lib.lists || []).length, user: (lib.user || []).length };
