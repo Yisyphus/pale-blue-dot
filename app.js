@@ -3,12 +3,20 @@
 // less, which stretched the fades between songs into long silences; a background worker's timers are not slowed.
 const { setTimeout, setInterval, clearTimeout, clearInterval } = (() => {
   const native = { setTimeout: window.setTimeout.bind(window), setInterval: window.setInterval.bind(window), clearTimeout: window.clearTimeout.bind(window), clearInterval: window.clearInterval.bind(window) };
-  let w; try { w = new Worker(URL.createObjectURL(new Blob([`const t={};onmessage=e=>{const[k,id,ms]=e.data;if(k==='c'){clearTimeout(t[id]);clearInterval(t[id]);delete t[id];}else if(k==='t')t[id]=setTimeout(()=>{delete t[id];postMessage(id);},ms);else t[id]=setInterval(()=>postMessage(id),ms);};`], { type: 'text/javascript' }))); } catch { return native; }
-  const fns = new Map(), once = new Set(); let next = 1;
-  w.onmessage = e => { const id = e.data, f = fns.get(id); if (!f) return; if (once.has(id)) { fns.delete(id); once.delete(id); } try { f(); } catch (err) { console.error(err); } };
+  let w; try { w = new Worker(URL.createObjectURL(new Blob([`const t={};onmessage=e=>{const[k,id,ms]=e.data;if(k==='p')return;if(k==='c'){clearTimeout(t[id]);clearInterval(t[id]);delete t[id];}else if(k==='t')t[id]=setTimeout(()=>{delete t[id];postMessage(id);},ms);else t[id]=setInterval(()=>postMessage(id),ms);};`], { type: 'text/javascript' }))); } catch { return native; }
+  const fns = new Map(), once = new Set(), backup = new Map(); let next = 1;
+  const fire = id => { const f = fns.get(id); if (!f) return; if (once.has(id)) { fns.delete(id); once.delete(id); native.clearTimeout(backup.get(id)); backup.delete(id); } try { f(); } catch (err) { console.error(err); } };
+  w.onmessage = e => fire(e.data);
   w.onerror = () => {};
-  const start = (kind, f, ms, args) => { const id = next++; fns.set(id, args.length ? () => f(...args) : f); if (kind === 't') once.add(id); w.postMessage([kind, id, Math.max(0, +ms || 0)]); return id; };
-  const clear = id => { if (!fns.has(id)) return; fns.delete(id); once.delete(id); w.postMessage(['c', id]); };
+  // a worker can sit idle and hold its timers until it hears from the page: a light nudge keeps it awake, and every
+  // one-off timer also has an ordinary timer as a backup (slowed when minimized, but never lost)
+  native.setInterval(() => w.postMessage(['p']), 250);
+  const start = (kind, f, ms, args) => {
+    const id = next++, wait = Math.max(0, +ms || 0); fns.set(id, args.length ? () => f(...args) : f);
+    if (kind === 't') { once.add(id); backup.set(id, native.setTimeout(() => fire(id), wait + 400)); }
+    w.postMessage([kind, id, wait]); return id;
+  };
+  const clear = id => { if (!fns.has(id)) return; fns.delete(id); once.delete(id); native.clearTimeout(backup.get(id)); backup.delete(id); w.postMessage(['c', id]); };
   return { setTimeout: (f, ms, ...a) => start('t', f, ms, a), setInterval: (f, ms, ...a) => start('i', f, ms, a), clearTimeout: clear, clearInterval: clear };
 })();
 window.PBD_TIMERS = { setTimeout, setInterval, clearTimeout, clearInterval };   // jingles.js uses them too
@@ -1012,7 +1020,8 @@ async function syncAds() {   // at start: your commercial edits from every devic
   await loadAds(); pushAdsToCloud();
 }
 if (window.Cloud) Cloud.onRemoteAds = a => { cloudAds = a; syncAds(); };
-const nextAd = () => adPool.length ? fresh('adpick', adPool) : null;   // a shuffle bag: no ad repeats until all have played
+let lastAdId = '';
+const nextAd = () => { if (!adPool.length) return null; let a = fresh('adpick', adPool); if (a.id === lastAdId && adPool.length > 1) a = fresh('adpick', adPool); lastAdId = a.id; return a; };   // a shuffle bag: no ad repeats until all have played, and never the same one twice in a row
 
 async function runJingle() {
   $('kind').textContent = 'jingle'; $('capKind').textContent = 'Commercial break'; $('capText').textContent = '♪';
@@ -1338,7 +1347,7 @@ async function playPodcast(pod, prev, opts, id) {
 let marathon = null;   // { kinds, pods, i }
 const MAR_LABEL = { ads: 'commercials', letter: 'letters', longletter: 'long letters', talk: 'talks', convo: 'conversations', checkin: 'check-ins', reading: 'readings', podcast: 'podcasts' };
 function marathonSegs(kind) {
-  if (kind === 'ads') return adPool.length ? adBreakSegs() : null;
+  if (kind === 'ads') { if (!adPool.length) return null; const segs = adBreakSegs(); return marathon && marathon.last === 'ads' ? segs.slice(segs.findIndex(x => x.jingle) + 1) : segs; }   // sets back to back: one jingle between them, not two
   if (kind === 'letter') return [letterSeg(fresh('letter', R.letters), false)];
   if (kind === 'longletter') return [letterSeg(fresh('longletter', (R.longLetters || []).filter(x => !x.birthday)), true)];
   if (kind === 'talk') { const t = fresh('talk', R.talks); return [{ kind: 'The Long Hour', title: t.title, lines: [{ t: sub(fresh('talkbridge', R.talkBridges).replace(/\{title\}/g, t.title)) }, ...t.p.map(x => ({ t: sub(x) }))] }]; }
@@ -1363,9 +1372,11 @@ async function marathonStep() {
       const pod = which === 'regular' ? await findRegular() : await findShow(which);
       if (id !== runId || !marathon) return;
       if (!pod) { rlog('marathon: no podcast found', { which }); continue; }
+      marathon.last = 'podcast';
       return playPodcast(pod, null, {}, id);   // when the episode ends, the marathon goes on
     }
     const segs = marathonSegs(kind); if (!segs) continue;
+    marathon.last = kind;
     curBreak = { segs, idx: 0, next: null };
     const ok = await runSegments(segs, id);
     if (!ok) return;
