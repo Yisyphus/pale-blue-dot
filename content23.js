@@ -109,9 +109,9 @@
       ],
     },
     dahih: {
-      name: 'الدحيح',
-      queries: ['الدحيح', 'الدحيح حلقة', 'Da7ee7', 'الدحيح كبريت', 'الدحيح نيو ميديا أكاديمي'],
-      channel: /كبريت|aj\s?\+|new media academy|الدحيح|da7ee7/i, title: /الدحيح|da7ee7/i,
+      name: 'الدحيح',   // channels: AJ+ كبريت, New Media Academy Life, Da7ee7 - الدحيح, Museum of The Future متحف المستقبل
+      queries: ['الدحيح', 'الدحيح حلقة', 'Da7ee7', 'الدحيح كبريت', 'الدحيح نيو ميديا أكاديمي', 'الدحيح متحف المستقبل'],
+      channel: /كبريت|aj\s?\+|new media academy|الدحيح|da7ee7|museum of the future|متحف المستقبل/i, title: /الدحيح|da7ee7/i,
       intros: [
         'And now, El Da7ee7, in Arabic: science, history and the absurdity of it all, explained very fast. Today: {t}. About {min} minutes.',
         'Time for El Da7ee7. Ahmed El Ghandour talks, quickly, about {t}. Around {min} minutes. Hold on.',
