@@ -823,7 +823,7 @@ function setFocus(mode) {
 }
 const takePlanned = () => { const p = planned; planned = null; return p || pick(); };
 function planPreload() {
-  if (planned) return; planned = pick(); if (!planned) return;
+  if (planned || marathon) return;   // a marathon chooses its next part when this one ends planned = pick(); if (!planned) return;
   const p = planned;
   resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; const n = 1 - ai; try { setVol(pl[n], 0); pl[n].cueVideoById(c[0].id); preload = { key: p.key, idx: n }; } catch {} });
 }
@@ -1372,8 +1372,27 @@ async function playPodcast(pod, prev, opts, id) {
 }
 
 // ---------- Marathon: chosen parts back to back (commercials, letters, talks, podcasts…), no songs, until you stop ----------
-let marathon = null;   // { kinds, pods, i }
-const MAR_LABEL = { ads: 'commercials', letter: 'letters', longletter: 'long letters', talk: 'talks', convo: 'conversations', checkin: 'check-ins', reading: 'readings', podcast: 'podcasts' };
+let marathon = null;   // { kinds, pods, src, i }
+// Songs in a marathon: from the sources you ticked (the whole library, favorites, your lists, genre groups), no talk,
+// shuffled with nothing repeated until all have played
+function marathonPool(src) {
+  const m = new Map(), put = l => l.forEach(x => { if (x && x.key && !m.has(x.key)) m.set(x.key, x); });
+  src.forEach(id => {
+    if (id === 'lib') put(songs);
+    else if (id === 'fav') put((lib.fav || []).map(favToSong));
+    else if (id.startsWith('list:')) { const L = (lib.lists || []).find(x => 'list:' + x.key === id); if (L) put(listSongs(L)); }
+    else if (id.startsWith('run:')) { const r = (R.runs || []).find(x => 'run:' + x.id === id); if (r) put(songs.filter(x => r.genres.includes(x.genre))); }
+  });
+  return [...m.values()];
+}
+function marathonSong() {
+  const pool = marathon.pool || []; if (!pool.length) return null;
+  if (!marathon.bag || !marathon.bag.length) marathon.bag = shuffle(pool);
+  const lastA = current && current.a ? current.a.toLowerCase() : '';
+  let i = marathon.bag.findIndex(x => (x.a || '').toLowerCase() !== lastA && !restingBroken(x)); if (i < 0) i = 0;
+  return marathon.bag.splice(i, 1)[0];
+}
+const MAR_LABEL = { songs: 'songs', ads: 'commercials', letter: 'letters', longletter: 'long letters', talk: 'talks', convo: 'conversations', checkin: 'check-ins', reading: 'readings', podcast: 'podcasts' };
 function marathonSegs(kind) {
   if (kind === 'ads') { if (!adPool.length) return null; const segs = adBreakSegs(); return marathon && marathon.last === 'ads' ? segs.slice(segs.findIndex(x => x.jingle) + 1) : segs; }   // sets back to back: one jingle between them, not two
   if (kind === 'letter') return [letterSeg(fresh('letter', R.letters), false)];
@@ -1385,6 +1404,10 @@ function marathonSegs(kind) {
   return null;
 }
 async function marathonStep() {
+  if (marathon.kinds[marathon.i % marathon.kinds.length] === 'songs') {   // a song: played like any other, only without talk
+    marathon.i++; const s = marathonSong();
+    if (s) { marathon.last = 'songs'; caption('Marathon', ''); return advance({ song: s, silent: true, noCount: true, marSong: true }); }
+  }
   if (globalPaused) clearPause();
   if (newsOn) { newsOn = false; newsBack = null; }
   stopSpeech(); const id = runId; busy = true; curBreak = null; curPod = null; planned = null; preload = null; nextPending = false; nextOverride = null;
@@ -1403,6 +1426,7 @@ async function marathonStep() {
       marathon.last = 'podcast';
       return playPodcast(pod, null, {}, id);   // when the episode ends, the marathon goes on
     }
+    if (kind === 'songs') continue;   // no song could be found: the next part instead
     const segs = marathonSegs(kind); if (!segs) continue;
     marathon.last = kind;
     curBreak = { segs, idx: 0, next: null };
@@ -1415,13 +1439,15 @@ async function marathonStep() {
   }
   busy = false; toast('Nothing in this marathon can play right now.'); stopMarathon();
 }
-function startMarathon(kinds, pods) {
+function startMarathon(kinds, pods, src = []) {
   if (!started) return toast('Press play first, then start the marathon.');
   if (!kinds.length) return toast('Tick at least one thing.');
   if (kinds.includes('podcast') && !pods.length) return toast('Tick which podcasts.');
-  marathon = { kinds: [...kinds].sort(() => Math.random() - 0.5), pods: [...pods].sort(() => Math.random() - 0.5), i: 0, pi: -1 };
+  const pool = kinds.includes('songs') ? marathonPool(src) : [];
+  if (kinds.includes('songs') && !pool.length) return toast(src.length ? 'No songs there yet.' : 'Tick where the songs come from.');
+  marathon = { kinds: [...kinds].sort(() => Math.random() - 0.5), pods: [...pods].sort(() => Math.random() - 0.5), src, pool, i: 0, pi: -1 };
   $('marStop').style.display = '';
-  rlog('marathon', { kinds, pods });
+  rlog('marathon', { kinds, pods, src, songs: pool.length });
   toast('Marathon: ' + kinds.map(k => MAR_LABEL[k]).join(', ') + '. Until you stop it.');
   openSheet(null); advance();
 }
@@ -1431,7 +1457,7 @@ function stopMarathon() {
   if (started) { stopSpeech(); bedOff(1); advance({ silent: true, noCount: true }); }
 }
 async function advance(opts = {}) {
-  if (marathon) return marathonStep();
+  if (marathon && !opts.marSong) return marathonStep();
   if (globalPaused) clearPause();   // anything new starts un-paused
   if (newsOn) { newsOn = false; newsBack = null; }   // you chose something else during the news
   stopSpeech();
@@ -2776,18 +2802,52 @@ async function podNow(kind) {
   await playPodcast(pod, current, {}, id);
 }
 document.querySelectorAll('#podNow button').forEach(b => b.onclick = () => podNow(b.dataset.v));
+// The marathon sheet: four groups (songs, voices, podcasts, commercials). A group's box ticks or clears all of it
+// (Songs starts from the whole library); ticking anything inside ticks the group.
+const chip = (v, label) => { const l = document.createElement('label'); l.innerHTML = '<input type="checkbox"><span></span>'; l.firstChild.value = v; l.lastChild.textContent = label; return l; };
+function marGroups() { return [...document.querySelectorAll('#marBox .mar-g')].map(g => ({ g, head: g.querySelector('.mar-h input'), kids: [...g.querySelectorAll('.mar-c input')] })); }
+function marPaint() {
+  marGroups().forEach(({ g, head, kids }) => {
+    if (!kids.length) return;
+    const n = kids.filter(k => k.checked).length;
+    head.checked = n > 0; head.indeterminate = false;
+    g.querySelector('.mar-h em').textContent = n ? (g.dataset.g === 'songs' ? n + ' chosen' : n + ' of ' + kids.length) : '';
+  });
+}
+$('marBox').addEventListener('change', e => {
+  const grp = marGroups().find(x => x.g.contains(e.target)); if (!grp) return;
+  if (e.target === grp.head && grp.kids.length) {
+    if (grp.g.dataset.g === 'songs') grp.kids.forEach(k => { k.checked = grp.head.checked && k.value === 'lib'; });
+    else grp.kids.forEach(k => { k.checked = grp.head.checked; });
+  }
+  marPaint();
+});
 $('btnMarathon').onclick = () => {
   const sel = S.marathon || { kinds: ['letter', 'talk'], pods: ['regular', 'dahih', 'hadara'] };
-  document.querySelectorAll('#marKinds > label input').forEach(i => { i.checked = sel.kinds.includes(i.value); });
-  document.querySelectorAll('#marPods input').forEach(i => { i.checked = sel.pods.includes(i.value); });
+  const src = $('marSrc'); src.innerHTML = '';
+  src.appendChild(chip('lib', `Whole library · ${songs.length}`)); src.appendChild(chip('fav', `Favorites · ${(lib.fav || []).length}`));
+  (lib.lists || []).forEach(L => src.appendChild(chip('list:' + L.key, `${L.name} · ${listSongs(L).length}`)));
+  const gen = $('marGenres'); gen.innerHTML = '';
+  (R.runs || []).forEach(r => gen.appendChild(chip('run:' + r.id, `${r.short} · ${songs.filter(x => r.genres.includes(x.genre)).length}`)));
+  const on = sel.src || [];
+  document.querySelectorAll('#marBox .mar-g').forEach(g => g.querySelectorAll('input').forEach(i => {
+    const v = i.value, kind = g.dataset.g;
+    i.checked = kind === 'songs' ? v !== 'songs' && sel.kinds.includes('songs') && on.includes(v)
+      : kind === 'podcast' ? v !== 'podcast' && sel.kinds.includes('podcast') && sel.pods.includes(v)
+      : sel.kinds.includes(v);
+  }));
+  $('marBox').querySelector('.mar-more').open = on.some(v => v.startsWith('run:'));
+  marPaint();
   $('marNote').textContent = marathon ? 'A marathon is playing now: ' + marathon.kinds.map(k => MAR_LABEL[k]).join(', ') + '.' : HELPER ? '' : 'Podcasts play on the PC radio only.';
   openSheet('shMarathon');
 };
 $('marGo').onclick = () => {
-  const kinds = [...document.querySelectorAll('#marKinds > label input:checked')].map(i => i.value), pods = [...document.querySelectorAll('#marPods input:checked')].map(i => i.value);
-  S.marathon = { kinds, pods }; saveLib();
+  const val = q => [...document.querySelectorAll(q)].map(i => i.value);
+  const src = val('#marBox [data-g="songs"] .mar-c input:checked'), pods = val('#marPods input:checked');
+  const kinds = [...(src.length ? ['songs'] : []), ...val('#marBox [data-g="voices"] .mar-c input:checked'), ...(pods.length ? ['podcast'] : []), ...val('#marBox [data-g="ads"] input:checked')];
+  S.marathon = { kinds, pods, src }; saveLib();
   if (marathon) { marathon = null; }
-  startMarathon(kinds, pods);
+  startMarathon(kinds, pods, src);
 };
 $('marEnd').onclick = () => { openSheet(null); stopMarathon(); };
 $('marStop').onclick = e => { e.stopPropagation(); stopMarathon(); };

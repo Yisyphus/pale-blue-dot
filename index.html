@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-10-27T22:57:03Z">
+<meta name="pbd-version" content="2026-10-27T23:08:39Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -91,6 +91,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .row{display:flex;align-items:center;gap:8px}
 .row .grow{flex:1}
 .vol{display:flex;align-items:center;gap:8px;flex:1;color:var(--mute)}
+.volrow{justify-content:center;padding:0 4px}
+.volrow .vol{flex:0 1 320px}
 .vol svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
 input[type=range]{-webkit-appearance:none;appearance:none;height:3px;background:var(--line);border-radius:3px;width:100%}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--glow)}
@@ -128,6 +130,16 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .focus-stations .edit:hover{color:var(--amber)}
 .focus-stations .add span{color:var(--amber)}
 @media (max-width:420px){.focus-stations{grid-template-columns:1fr}}
+.mar{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0}
+.mar-g{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.mar-g:has(.mar-h input:checked){border-color:var(--amber2)}
+.mar-h{display:flex;align-items:center;gap:10px;cursor:pointer}
+.mar-h span{display:flex;flex-direction:column;font-size:14px;flex:1}
+.mar-h small{color:var(--mute);font-size:11.5px;line-height:1.4}
+.mar-h em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--mute)}
+.mar-c:empty{display:none}
+.mar-more summary{font-family:var(--mono);font-size:10.5px;color:var(--mute);cursor:pointer;letter-spacing:.04em}
+.mar-more[open] summary{margin-bottom:6px}
 .run-info{align-self:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--amber);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-align:center}
 .titlerow{display:flex;align-items:center;justify-content:center;gap:10px}
 .heart{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--mute);flex:none}
@@ -210,7 +222,6 @@ body.mini .app{gap:6px}
   </div>
 
   <div class="row extras">
-    <div class="vol"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8a5 5 0 010 8"/></svg><input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume"></div>
     <button class="pill" id="btnAdd">+ Suggest</button>
     <button class="pill" id="btnLib">Library</button>
     <button class="ico" id="btnRun" title="Genre run: play the next 20 to 40 songs from one genre" aria-label="Genre run"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg></button>
@@ -218,6 +229,7 @@ body.mini .app{gap:6px}
     <button class="ico" id="btnFocus" title="Focus mode" aria-label="Focus mode"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0116 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg></button>
     <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button>
   </div>
+  <div class="row extras volrow"><div class="vol"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 8a5 5 0 010 8"/></svg><input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume"></div></div>
   <div class="focus-menu" id="focusMenu" role="menu"><small>Focus mode: no talk, no commercials · the news stays</small><small>Instrumental</small><div id="focusStations" class="focus-stations"></div><small>Or</small><button data-v="sounds" role="menuitem">Ambient sounds</button><button data-v="" role="menuitem">Off</button></div>
 
   <!-- add song -->
@@ -260,20 +272,34 @@ body.mini .app{gap:6px}
   <!-- playback report: the last events, to send when something does not play -->
   <div class="sheet" id="shMarathon">
     <div class="hd"><h2>Marathon</h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <p style="color:var(--mute);font-size:13px;line-height:1.5">Tick one or more. They play one after another, mixed, with no songs in between, until you stop. The news still comes every 4 hours. Next skips to the next part.</p>
-    <div class="themes" id="marKinds" style="flex-direction:column;align-items:flex-start;gap:10px">
-      <label><input type="checkbox" value="ads"><span>Commercials</span></label>
-      <label><input type="checkbox" value="letter"><span>Letters to the Absurd, and to You (with Luna's readings)</span></label>
-      <label><input type="checkbox" value="longletter"><span>A Long Letter to You</span></label>
-      <label><input type="checkbox" value="talk"><span>The Long Hour (talks)</span></label>
-      <label><input type="checkbox" value="convo"><span>Conversations with You</span></label>
-      <label><input type="checkbox" value="checkin"><span>Check-ins and small advice</span></label>
-      <label><input type="checkbox" value="reading"><span>Poems and readings (Luna)</span></label>
-      <label><input type="checkbox" value="podcast"><span>Podcasts</span></label>
-      <div id="marPods" style="display:flex;gap:14px;flex-wrap:wrap;padding-left:26px">
-        <label><input type="checkbox" value="regular"><span>Regular</span></label>
-        <label><input type="checkbox" value="dahih"><span>الدحيح</span></label>
-        <label><input type="checkbox" value="hadara"><span>في الحضارة</span></label>
+    <p style="color:var(--mute);font-size:13px;line-height:1.5">Tick one or more. They take turns, mixed, until you stop. With only Songs ticked, it is all music. The news still comes every 4 hours. Next skips to the next part.</p>
+    <div class="mar" id="marBox">
+      <div class="mar-g" data-g="songs">
+        <label class="mar-h"><input type="checkbox" value="songs"><span>Songs only<small>100% music, no talk. From:</small></span><em></em></label>
+        <div class="themes mar-c" id="marSrc"></div>
+        <details class="mar-more"><summary>Genre groups</summary><div class="themes mar-c" id="marGenres"></div></details>
+      </div>
+      <div class="mar-g" data-g="voices">
+        <label class="mar-h"><input type="checkbox"><span>Voices<small>Astro and Luna</small></span><em></em></label>
+        <div class="themes mar-c">
+          <label><input type="checkbox" value="letter"><span>Letters</span></label>
+          <label><input type="checkbox" value="longletter"><span>Long letters</span></label>
+          <label><input type="checkbox" value="talk"><span>The Long Hour</span></label>
+          <label><input type="checkbox" value="convo"><span>Conversations</span></label>
+          <label><input type="checkbox" value="checkin"><span>Check-ins</span></label>
+          <label><input type="checkbox" value="reading"><span>Readings</span></label>
+        </div>
+      </div>
+      <div class="mar-g" data-g="podcast">
+        <label class="mar-h"><input type="checkbox" value="podcast"><span>Podcasts<small>on the PC radio</small></span><em></em></label>
+        <div class="themes mar-c" id="marPods">
+          <label><input type="checkbox" value="regular"><span>Regular</span></label>
+          <label><input type="checkbox" value="dahih"><span>الدحيح</span></label>
+          <label><input type="checkbox" value="hadara"><span>في الحضارة</span></label>
+        </div>
+      </div>
+      <div class="mar-g" data-g="ads">
+        <label class="mar-h"><input type="checkbox" value="ads"><span>Commercials<small>one jingle between them</small></span><em></em></label>
       </div>
     </div>
     <div class="field" style="margin-top:6px"><button class="btn" id="marGo">Start the marathon</button><button class="btn ghost" id="marEnd">Stop</button></div>
@@ -396,6 +422,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=ebf81ebc1376a849"></script>
+<script src="app.js?v=fcff0f1b5f0a6f95"></script>
 </body>
 </html>
