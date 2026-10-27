@@ -221,7 +221,7 @@ function hostVoice() {
   return en[0] || null;
 }
 function guestVoice() { const host = hostVoice(); const en = voices.filter(v => isEn(v) && v !== host); return en.find(v => /(aria|jenny|ava|emma|ana|sonia|libby).*natural/i.test(v.name)) || en.find(v => /natural/i.test(v.name)) || null; }
-// Other voices, by the code a script line carries: s = Sonia (the readings), and the versions of you in
+// Other voices, by the code a script line carries: s = Luna (the readings, in the Sonia voice), and the versions of you in
 // "Conversations with You": y = you, younger; o = you, older; r = the part that refuses; k = the part that keeps going;
 // b = you on your best day. Each takes the first installed natural voice from its list that is not the host's.
 const VOICE_PREFS = {
@@ -829,7 +829,7 @@ function bigPartAt(n) {
 }
 let lastBreakN = 0, podcastDue = false;
 
-// Readings for the letters are read by a second voice (Sonia). A letter may name its reading; otherwise one that
+// Readings for the letters are read by a second voice (Luna). A letter may name its reading; otherwise one that
 // shares its themes is chosen, never one heard recently.
 function pickReading(L) {
   const all = (R.readings || []).filter(r => !(r.tags || []).includes('mortality'));   // death as rest is never offered as the answer to a letter
@@ -1166,7 +1166,7 @@ async function runSegments(segs, id) {
     for (const l of seg.lines) {
       if (id !== runId) return false;
       if (seg.adGroup) breakSkip = () => { speechSynthesis.cancel(); try { if (curAudio && curAudio.onended) curAudio.onended(); } catch {} };   // Next skips the spoken line
-      if (l.w === 's') $('capKind').textContent = 'Sonia · reading';
+      if (l.w === 's') $('capKind').textContent = 'Luna · reading';
       else if (seg.lines.some(x => x.w === 's')) $('capKind').textContent = seg.title ? `${seg.kind} · ${seg.title}` : seg.kind;
       await say(l.t, l.w && l.w !== 'h' ? l.w : 'h');
       breakSkip = null;

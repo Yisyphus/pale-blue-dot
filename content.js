@@ -1,8 +1,8 @@
-// Pale Blue Dot Radio — the DJ's brain. Everything Pale Blue Dot says lives here. Edit freely.
+// Pale Blue Dot Radio — the DJ's brain. Everything Astro says lives here. Edit freely.
 window.RADIO = {
   station: 'Pale Blue Dot Radio',
   tagline: 'the station at the edge of the night',
-  host: 'Pale Blue Dot',
+  host: 'Astro',
 
   // theme tags: time death alienation letting-go love hope routine absurd faith desire peace
   themeLine: {
@@ -78,7 +78,7 @@ window.RADIO = {
   // Deep talks (about every 30 minutes). Paragraphs are spoken with pauses.
   talks: [
     { id: 'love', title: 'What is love, anyway?', tags: ['love'], p: [
-      'Good evening. This is Pale Blue Dot, and this is the long hour. Let us ask a very old question, in a very quiet voice: what is love?',
+      'Good evening. This is Astro, and this is the long hour. Let us ask a very old question, in a very quiet voice: what is love?',
       'Biology says it is chemistry that keeps us together long enough to raise children. Poets say it is the only reason anything matters. Both can be true, and neither is comforting at four in the morning.',
       'Here is a stranger idea. Love is a decision to pay attention. Not a feeling that arrives, but a kind of work: you choose to see another person, in all their ordinary, inconvenient detail, and you keep choosing. It is the opposite of the absurd. In a universe that does not answer, love is a small place where something does.',
       'It also costs something. To love is to agree to lose. Every person you hold is a person you will, one way or another, let go. The existentialists did not hide from this. They said: yes, and that is exactly why it counts.',
@@ -86,7 +86,7 @@ window.RADIO = {
       'Stay with me. Here comes more music.',
     ] },
     { id: 'death', title: 'On death, without panic', tags: ['death', 'time'], p: [
-      'This is Pale Blue Dot, and this is the long hour. Tonight, a topic most radio stations avoid: death.',
+      'This is Astro, and this is the long hour. Tonight, a topic most radio stations avoid: death.',
       'The Stoics practiced it on purpose. They called it memento mori, remember that you will die. Not to make life gloomy, but to make it sharp. A day you know is finite is a day you cannot waste so easily.',
       'Epicurus had another answer. He said: when death is here, you are not. When you are here, death is not. So there is never a moment where the two meet. It is not a comforting trick for everyone, but it is worth turning over in your mind like a smooth stone.',
       'And then there is the plain, human fear. The fear of not being. It is allowed. It is the shadow cast by how much you love being alive.',
@@ -94,7 +94,7 @@ window.RADIO = {
       'Maybe call someone. Maybe walk. Maybe just drink tea slowly, as if it mattered, because it does. That is not a defeat of death. It is a quiet way of answering it.',
     ] },
     { id: 'absurd', title: 'The absurd, and Sisyphus', tags: ['absurd', 'routine', 'hope'], p: [
-      'Good evening, from the edge of the night. I am Pale Blue Dot, and for the next few minutes, I want to talk about a man pushing a rock.',
+      'Good evening, from the edge of the night. I am Astro, and for the next few minutes, I want to talk about a man pushing a rock.',
       'In the Greek myth, Sisyphus is condemned to roll a boulder up a hill, watch it fall, and begin again. Forever. In 1942, Albert Camus used him to describe our condition: we ask for meaning, and the universe stays silent. That mismatch is what he called the absurd.',
       'Camus said there are three responses. One is escape, to pretend there is a meaning, a promise from somewhere. Another is to give up entirely. The third, the hard one, is revolt: to keep going with open eyes, fully aware, and refuse to be crushed by the lack of an answer.',
       'And then his famous line, that we must imagine Sisyphus happy. Not because the rock is light. Because the struggle itself, chosen consciously, is enough to fill a heart.',
@@ -102,7 +102,7 @@ window.RADIO = {
       'The absurd does not have to be a curse. It can be a kind of freedom. If nothing is written, you are the one holding the pen.',
     ] },
     { id: 'antinatalism', title: 'Antinatalism, honestly', tags: ['death', 'absurd'], p: [
-      'This is Pale Blue Dot. Tonight, a heavy subject, handled gently: antinatalism.',
+      'This is Astro. Tonight, a heavy subject, handled gently: antinatalism.',
       'It is the philosophical view that bringing new people into existence is ethically problematic. The argument, in its best-known form, comes from the philosopher David Benatar. He says that the pleasures we enjoy do not make up for the harms we cannot avoid, and that nobody can consent to being born.',
       'It is a serious position, and I will not wave it away. If you have thought about it, you are not strange. It often comes from a place of compassion, from looking at suffering and refusing to pretend it is small.',
       'But here is where I want to stay honest on both sides. The argument is about hypothetical people. You are not hypothetical. You are here, which means the real question is not whether you should have been born, but what you will do now that you are.',
@@ -110,14 +110,14 @@ window.RADIO = {
       'And if the thought ever turns heavy, please speak to a human being. Philosophy is good company. It should never be your only company.',
     ] },
     { id: 'faith', title: 'Faith, doubt, and the quiet in between', tags: ['faith', 'peace'], p: [
-      'It is Pale Blue Dot. Let us talk, gently, about faith. Whatever you believe, or do not.',
+      'It is Astro. Let us talk, gently, about faith. Whatever you believe, or do not.',
       'Kierkegaard called faith a leap. Not a conclusion you reach by logic, but a jump you make in the dark, trembling. He thought doubt was not the enemy of belief, but its companion. To believe without ever wondering would be to believe nothing at all.',
       'Many traditions understand this. The mystics speak of silence. Of emptying the cup. Even Mother Teresa, we now know, lived through decades of spiritual dryness, and still she acted with love.',
       'You do not need to settle the question of God tonight. But notice that most people, believers or not, share something: a hunger for meaning that logic alone does not feed. Call it prayer, call it reflection, call it a walk at sunset. It does the same quiet work.',
       'If you are in doubt, you are in good company. If you are in faith, may it be a soft one, and not a hard fist. And if you are in neither, that is a place too. Stay there a while. It has a view.',
     ] },
     { id: 'routine', title: 'Routine: cage or rhythm?', tags: ['routine', 'peace'], p: [
-      'Pale Blue Dot here. Let us talk about Tuesday.',
+      'Astro here. Let us talk about Tuesday.',
       'We tend to treat routine as the enemy of a meaningful life. The alarm, the commute, the same coffee. Nietzsche had a thought experiment: imagine you had to live this exact life again and again, forever. Would you despair, or would you say yes?',
       'It is a hard test, but it points to something. If your days are a loop, then what you put into the loop matters enormously. Because you will repeat it.',
       'Routine is not only a cage. It can also be a rhythm. A heartbeat is a routine. So is breathing. So is the morning ritual that quietly holds you up on days when your head is a storm.',
@@ -125,21 +125,21 @@ window.RADIO = {
       'You do not need a revolution. You need a good Tuesday, repeated.',
     ] },
     { id: 'desire', title: 'Desire, the engine and the trap', tags: ['desire', 'peace'], p: [
-      'Good evening, this is Pale Blue Dot. Tonight: wanting.',
+      'Good evening, this is Astro. Tonight: wanting.',
       'The Buddha said that suffering comes from craving. Schopenhauer, in a darker mood, said that life swings like a pendulum between pain and boredom: we want, we suffer; we get, we are bored; we want again.',
       'And yet desire is also the thing that makes you get out of bed. It builds bridges, it writes songs, it falls in love. A life without wanting would be quiet, but also flat.',
       'So the question is not how to kill desire. It is how to choose which desires deserve your life. Ask: will this still matter when I am calm? Is this wanting mine, or was it installed by an advertisement?',
       'Try, tonight, to name one thing you want that no one has ever sold to you. A quiet one. A bench by the sea. A friend who laughs easily. A year of honest work. Start there.',
     ] },
     { id: 'addiction', title: 'Addiction and the hole it tries to fill', tags: ['desire', 'alienation'], p: [
-      'This is Pale Blue Dot. Let me say something with care. It is about addiction.',
+      'This is Astro. Let me say something with care. It is about addiction.',
       'We usually speak of it as a moral failure. But many people who study it, including the writer Johann Hari, argue the opposite. They say the opposite of addiction is not sobriety. It is connection. People reach for the bottle, the phone, the pill, the screen, when there is an ache that nothing else is touching.',
       'That is an existential idea. The ache is real. It is the gap between how you feel and how you wish to feel, between your life and some missing meaning. The substance is just a fast, false bridge across it.',
       'So when you catch yourself reaching, try asking, gently: what am I trying not to feel? What do I actually need? Rest, company, a walk, a cry, a reason?',
       'You are not weak. You are a person trying to feel better in the quickest way you know. Let us find slower, kinder ways together. And if the habit is bigger than you, there is no shame in asking for help. Strength is mostly knowing when to hand someone the other end of the rope.',
     ] },
     { id: 'peace', title: 'Peace of mind', tags: ['peace', 'letting-go'], p: [
-      'Pale Blue Dot, at the edge of the night. Tonight: peace of mind.',
+      'Astro, at the edge of the night. Tonight: peace of mind.',
       'Epictetus, a former slave who became one of the great Stoic teachers, divided the world into two piles. What is up to us: our judgments, our actions, our attitude. And what is not: everything else, including other people, the past, the weather, and the final outcome.',
       'Peace begins when you stop trying to carry the second pile. It sounds easy. It is the work of a lifetime.',
       'Try a small exercise. Name one worry that is circling you. Ask: is this in my control? If yes, what is the next small step? If not, can I let it sit beside me, like a passenger, instead of letting it drive?',
@@ -147,7 +147,7 @@ window.RADIO = {
       'Breathe in. Breathe out a little slower than you breathed in. There. You have just done what philosophers write books about.',
     ] },
     { id: 'meaning', title: 'Meaning, and how to build a good life anyway', tags: ['hope', 'absurd'], p: [
-      'This is Pale Blue Dot. A few words on success, in an unfair, absurd world.',
+      'This is Astro. A few words on success, in an unfair, absurd world.',
       'Let us be honest: it is not fair. Some people start with a head start, some with a headwind. Philosophy does not fix that. What it can do is help you decide what to do with your own hands.',
       'Viktor Frankl survived the camps and wrote that we cannot always choose our circumstances, but we can choose our attitude, our response. He said the last of the human freedoms is to choose one\'s way.',
       'Here is a practical version. Define success on your own terms, in a sentence you can say out loud. Then break it into a Tuesday-sized step. Do the step. Rest. Repeat.',
@@ -155,7 +155,7 @@ window.RADIO = {
       'You do not have to win. You only have to keep showing up, with your eyes open, and perhaps a song in your pocket.',
     ] },
     { id: 'time', title: 'The strange tyranny of time', tags: ['time', 'death'], p: [
-      'It is Pale Blue Dot. A quiet word about the clock.',
+      'It is Astro. A quiet word about the clock.',
       'Augustine once wrote that he knew perfectly well what time was, until someone asked him. It is the thing we measure constantly and understand barely.',
       'We treat time like money, spent or saved. But the philosopher Henri Bergson suggested another picture: time as something lived, a flowing inner river, not a row of ticks. An hour with a friend and an hour in a waiting room are not the same hour.',
       'Seneca said it is not that we have a short time to live, but that we waste a lot of it. Notice how true that is. Scrolling, rehearsing arguments that will never happen, worrying about tomorrow, regretting yesterday.',
@@ -163,7 +163,7 @@ window.RADIO = {
       'So, for the next song, try this. Do nothing else. Just listen. Let the song be the whole hour.',
     ] },
     { id: 'loneliness', title: 'Loneliness, the honest room', tags: ['alienation', 'love'], p: [
-      'Pale Blue Dot, in the lit window. Tonight I want to talk about loneliness.',
+      'Astro, in the lit window. Tonight I want to talk about loneliness.',
       'Existentialists said we are, in the end, alone in a specific way: no one else can feel your feelings from the inside, or die your death. But they did not conclude that we must be lonely. They said we must be honest.',
       'Loneliness is a signal, like hunger. It does not mean you are broken. It means you are a social animal who has gone too long without being truly seen.',
       'Solitude, on the other hand, is a different thing. It is the room where you meet yourself. Many artists, monks, and thinkers have used it. The difference is choice, and warmth. Solitude has a blanket. Loneliness has a draft.',
@@ -278,7 +278,7 @@ window.RADIO = {
   idents: [
     'You are listening to Pale Blue Dot Radio, the station at the edge of the night. It is {time}.',
     'It is {time} on Pale Blue Dot Radio. If you are awake, so are we.',
-    'This is Pale Blue Dot, with you at {time}. Pale Blue Dot Radio, where the lamp stays on.',
+    'This is Astro, with you at {time}. Pale Blue Dot Radio, where the lamp stays on.',
     'Pale Blue Dot Radio. {time}. Somewhere out there, someone else is awake and listening to the same song.',
     '{time} on Pale Blue Dot Radio. You have no meetings tonight, only thoughts. Let us keep them company.',
   ],

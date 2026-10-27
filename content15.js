@@ -1,5 +1,5 @@
 // Letters to the Absurd, and to You: general letters, part 1 of 2 (loneliness, the absurd).
-// Each letter is read by the host, then Sonia reads a poem or passage (content14.js).
+// Each letter is read by the host, then Luna reads a poem or passage (content14.js).
 // Format: L(title, tags, text, optional reading title)
 (function () {
   const R = window.RADIO;

@@ -1,4 +1,4 @@
-// A Long Letter to You: one at song 32 of every 64-song cycle (five to eight minutes), ending with a reading by Sonia.
+// A Long Letter to You: one at song 32 of every 64-song cycle (five to eight minutes), ending with a reading by Luna.
 // The birthday letter plays only on the listener's birthday, at the first free break of that day.
 (function () {
   const R = window.RADIO;

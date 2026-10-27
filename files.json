@@ -1,19 +1,19 @@
 {
- "version": "2026-10-27T09:21:44Z",
+ "version": "2026-10-27T09:46:42Z",
  "files": {
-  "app.js": "53bbb3a30c963499",
+  "app.js": "ab84c08a010b905e",
   "cloud.js": "50b8e81100683637",
-  "content.js": "c283e0c3c893c065",
+  "content.js": "45f00d7b85dcbf83",
   "content10.js": "9275cf846195a692",
   "content11.js": "aadeac5b4aeca01a",
   "content12.js": "26e13fb34a5f026a",
   "content13.js": "4ed0f16a115f260f",
-  "content14.js": "e9ee70b7cc4acaf2",
-  "content15.js": "731a19a2441034fe",
+  "content14.js": "88d02b90cff2fb51",
+  "content15.js": "26282eac091e34e6",
   "content16.js": "d16981e1813ad647",
   "content17.js": "fa82a3cfa0116ff4",
   "content18.js": "55dd5f381b1f8891",
-  "content19.js": "ad3524a0249ef52c",
+  "content19.js": "fe61c606500ba72f",
   "content2.js": "d3855b56ef45b9dd",
   "content20.js": "5b3d991b435b2d2a",
   "content21.js": "db801564b6bdd4c3",
@@ -29,7 +29,7 @@
   "firebase-config.js": "ba36e87aecba3a8d",
   "icon.png": "414972388b2218eb",
   "jingles.js": "82e560f3edddbd37",
-  "index.html": "2736676ada6ca808"
+  "index.html": "501c417006d3f8e3"
  },
  "server": "b584687f59551638"
 }

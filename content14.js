@@ -1,4 +1,4 @@
-// Readings for the letters. Every letter ends with a reading in a second voice (Sonia). A letter can name its
+// Readings for the letters. Every letter ends with a reading in a second voice (Luna). A letter can name its
 // reading (read: "title"); otherwise one that shares a theme is chosen, never one heard recently.
 // All texts are public domain (old enough), or short paraphrases marked as such.
 // Tags used by letters: loneliness solitude absurd desire money work family grief body time hope death love
@@ -134,20 +134,20 @@
       "From far enough away, this planet is a single pale blue point of light. Everything you have ever loved, every grief, every wish, every ordinary Tuesday, happened on that dot. It is very small. It is the only home we have ever known. Be kind on it. Be kind to the one who lives in your chest.", ["cosmos", "self", "loneliness"]),
   );
 
-  // How the host hands over to Sonia. {title} and {by} are the reading.
+  // How the host hands over to Luna. {title} and {by} are the reading.
   R.soniaHandoffs = [
-    "Sonia has something for you. {title}, by {by}.",
-    "And Sonia, would you read for us? {title}. {by}.",
-    "Sonia is here with a few lines. {by}: {title}.",
-    "Let me hand the microphone to Sonia. {title}, by {by}.",
-    "Sonia found something for this letter. {title}, from {by}.",
-    "Here is Sonia, with {by}. {title}.",
-    "And now, Sonia, softly. {title}, by {by}.",
-    "Something to keep, read by Sonia. {by}, {title}.",
-    "Sonia will close the letter for me. {title}. {by}.",
-    "A few old lines, in Sonia's voice. {title}, by {by}.",
-    "Sonia, the poem, please. {by}: {title}.",
-    "And the last word goes to {by}, read by Sonia. {title}.",
+    "Luna has something for you. {title}, by {by}.",
+    "And Luna, would you read for us? {title}. {by}.",
+    "Luna is here with a few lines. {by}: {title}.",
+    "Let me hand the microphone to Luna. {title}, by {by}.",
+    "Luna found something for this letter. {title}, from {by}.",
+    "Here is Luna, with {by}. {title}.",
+    "And now, Luna, softly. {title}, by {by}.",
+    "Something to keep, read by Luna. {by}, {title}.",
+    "Luna will close the letter for me. {title}. {by}.",
+    "A few old lines, in Luna's voice. {title}, by {by}.",
+    "Luna, the poem, please. {by}: {title}.",
+    "And the last word goes to {by}, read by Luna. {title}.",
   ];
   // How the host opens a long letter (at song 32 of each cycle).
   R.longLetterBridges = [
