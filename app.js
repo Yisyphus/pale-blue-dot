@@ -1336,7 +1336,7 @@ const NEWS_SOURCES = [
   { id: 'france24', name: 'France 24', topic: 'world', take: 1, urls: ['https://www.france24.com/ar/rss'] },
   { id: 'aitnews', name: 'AIT News', topic: 'techworld', take: 2, urls: ['https://aitnews.com/feed/', 'https://aitnews.com/'] },
   { id: 'ajtech', name: 'Al Jazeera tech', topic: 'techworld', take: 1, urls: ['https://www.aljazeera.net/tech/'] },
-  { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
+  { id: 'bbctech', name: 'BBC Arabic tech', topic: 'techworld', take: 1, only: 'tech', urls: ['https://feeds.bbci.co.uk/arabic/scienceandtech/rss.xml'] },
   { id: 'cnntech', name: 'CNN Arabic tech', topic: 'techworld', take: 1, urls: ['https://arabic.cnn.com/tech'] },
   // Hit Radio: only its stories written in Arabic, from the last 10 days (it posts every few days), and only about
   // art (songs, films, festivals, culture): it also posts politics and sport, which are left out
@@ -1365,7 +1365,7 @@ const SPORT_RX = /رياض[ةي]|كرة|مباراة|مباريات|المنتخ
 const TECH_RX = /ذكاء الاصطناعي|ذكاء اصطناعي|تكنولوجي|التقني|تقنية|التحول الرقمي|الرقمنة|إنترنت|هواتف ذكية|هاتف ذكي|الهاتف الذكي|آبل|أبل|غوغل|جوجل|مايكروسوفت|ميتا|تطبيقات|روبوت|شات ?جي ?بي ?تي|سيبراني|البرمجيات|حاسوب|رقائق|أشباه الموصلات|وكالة الفضاء|الفضاء الخارجي|ناسا|سبيس ?إكس|\/tech(nology)?\/|\/science\/|technolog/i;   // whole words where a shorter one would also match ordinary news
 const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنون|لفن(?![؀-ۿ])|سينما|سينمائي|فيلم|أفلام|مهرجان|معرض فني|معرض تشكيلي|تشكيلي|لمسرح(?! الجريمة)|مسرحي|ثقاف|رواية|روائي|لشعر(?![؀-ۿ])|شاعر|قصيدة|ألبوم|حفل غنائي|حفلا غنائيا|\/culture\/|\/arts?\/|\/art-?and-?culture/i;
 // trending on social media: viral videos, trends and online debates
-const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|مؤثر|مؤثرة|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
+const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|(?<![؀-ۿ])(?:ال|لل|و|ب)?مؤثر(?:ة|ين|ون)?(?![؀-ۿ])|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
 const POLITICS_RX = /جلالة الملك|الملك محمد|ولي العهد|الأمير|الانتخابات|انتخابات|التشريعية|البرلمان|مجلس النواب|مجلس المستشارين|الحكومة|رئيس الحكومة|وزير|وزارة|حزب|الأحزاب|سياسي|سياسة|يعين|تعيين|دبلوماسي|سفير/;
 const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/^(فيديو|شاهد|بالفيديو)\s*[,،:]\s*/, '').replace(/\s*[,،]\s*المدة\s*[\d,.:]+\s*$/, '').replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
 const CRIME_RX = /قتل|جريم|توقيف|اعتقال|حادث|حادثة|وفاة|مصرع|لقي حتفه|انتحار|سرقة|اعتداء|مخدرات|المخدرة|الدرك|السجن|محاولة قتل|طعن|اغتصاب|احتيال|نصب|اختطاف|غرق|حريق|الأمن يوقف|يوقف|يفكك|عصابة|جثة|جثمان|تنهي حياة/;
@@ -1556,6 +1556,7 @@ function pickNews(results, test) {
       .filter(x => { if (x.title.length <= 12 || SPORT_RX.test(x.title + ' ' + x.cats + ' ' + x.link) || WEATHER_RX.test(x.title) || JUNK_RX.test(x.title) || OPINION_RX.test(dURI(x.link || '') + ' ' + x.cats)) return false; const k = headKey(x.title); if (seen.has(k)) return false; seen.add(k); return true; })
       .filter(x => !NEWS_SOURCES[i].maxAgeDays || (x.when && Date.now() - x.when < NEWS_SOURCES[i].maxAgeDays * 864e5))   // "recent" means a date we could read
       .filter(x => NEWS_SOURCES[i].only !== 'art' || ART_RX.test(x.title + ' ' + x.cats + ' ' + x.link))   // a mixed source: only its stories on the topic
+      .filter(x => NEWS_SOURCES[i].only !== 'tech' || TECH_RX.test(x.title + ' ' + x.cats))
       .filter(x => !NEWS_SOURCES[i].noPolitics || !POLITICS_RX.test(x.title))
       .filter(x => NEWS_SOURCES[i].topic !== 'trend' || !/news\.google\./.test(x.link || '') || SOCIAL_RX.test(x.title))   // a search result must really be about social media
       .sort((p, q) => q.breaking - p.breaking);   // breaking first, then the order the source gives (its top stories)
@@ -1570,6 +1571,7 @@ function pickNews(results, test) {
     let capOn = topic === 'marrakech';   // the Marrakech section: at most 2 crime or accident stories while other news is left
     const take = x => {
       if (!room() || used.has(x)) return;
+      if (topic !== 'art' && /\/(culture|cultures|ثقافة|arts?|art-?and-?culture)\//i.test(dURI(x.link || ''))) return;   // a culture article is read only in الفن
       if (capOn && CRIME_RX.test(x.title) && picked.slice(start).filter(p => CRIME_RX.test(p.title)).length >= 2) return;
       used.add(x); picked.push({ ...x, topic });
     };
@@ -1719,7 +1721,49 @@ function vigilance(results) {
 const wxLine = (w, sky) => w.min === w.max ? `${sky || 'جو معتدل'}، وحرارة في حدود ${w.max} درجة.` : `${sky || 'جو معتدل'}، والحرارة بين ${w.min} و${w.max} درجة.`;
 // Said as words, not letters: كلغ is a kilogram, كلم a kilometre; Marrakech is voweled so it sounds Murrākush
 const AR_UNIT = { 'كلغ': 'كيلوغرام', 'كغ': 'كيلوغرام', 'كلم': 'كيلومتر', 'ملم': 'مليمتر', 'سنتم': 'سنتيمتر' };
-const spokenArabic = l => l.replace(/مراكش/g, 'مُرّاكُش')
+// Places said the way people say them: voweled, and with a real "g" where the Arabic spelling has ك, ج or غ for it
+// (Gueliz, Targa, Ben Guerir, Gabon). {G} is the letter chosen in Settings > News > The "g" sound (voices differ).
+const PLACES = [
+  // Marrakech and around
+  [['جليز', 'كليز', 'غليز', 'كيليز', 'جيليز'], '{G}ِيلِيز'], [['تاركة', 'تارگة', 'تارجة', 'تاركا'], 'تارْ{G}َة'],
+  [['ابن جرير', 'بن جرير', 'بنجرير', 'ابن كرير', 'بنكرير', 'بن كرير'], 'بِنْ {G}ْرِيرْ'], [['المحاميد'], 'المْحامِيد'],
+  [['تامنصورت'], 'تامَنْصُورْت'], [['الحوز'], 'الحَوْز'], [['أوريكة', 'اوريكة', 'أوريكا', 'اوريكا'], 'أُورِيكَة'], [['أمزميز'], 'أَمِزْمِيز'],
+  [['تحناوت'], 'تَحْناوْت'], [['شيشاوة'], 'شِيشاوَة'], [['الويدان'], 'الوِيدان'], [['آيت أورير', 'ايت اورير', 'أيت أورير'], 'آيْت أُورِير'],
+  [['قلعة السراغنة'], 'قَلْعَة السْراغْنَة'], [['الصويرة'], 'الصْوِيرَة'], [['آسفي', 'أسفي', 'اسفي'], 'آسْفِي'],
+  // Morocco
+  [['أكادير', 'اكادير', 'أگادير'], 'أَ{G}ادِير'], [['أكدال', 'اكدال'], 'أَ{G}ْدال'], [['الكويرة'], 'الْ{G}ْوِيرَة'],
+  [['كلميم'], '{G}ُلْمِيم'], [['كلميمة'], '{G}ُولْمِيمَة'], [['جرسيف', 'كرسيف'], '{G}َرْسِيف'], [['زاكورة', 'زاگورة'], 'زا{G}ُورَة'],
+  [['أكوراي'], 'أَ{G}ُوراي'], [['تامكروت'], 'تامْ{G}ْرُوت'], [['أمكون'], 'أَمْ{G}ُون'], [['الكارة'], 'الْ{G}ارَة'],
+  [['الرباط'], 'الرِّباط'], [['مكناس'], 'مِكْناس'], [['تطوان'], 'تِطْوان'], [['طنجة'], 'طَنْجَة'], [['الحسيمة'], 'الحُسَيْمَة'],
+  [['الناظور'], 'النّاظُور'], [['وجدة'], 'وَجْدَة'], [['الداخلة'], 'الدّاخْلَة'], [['القنيطرة'], 'القُنَيْطْرَة'], [['خريبكة'], 'خْرِيبْكَة'],
+  [['سطات'], 'سْطّات'], [['برشيد'], 'بَرْشِيد'], [['ورزازات'], 'وَرْزازات'], [['الرشيدية'], 'الرَّشِيدِيَّة'], [['إفران', 'افران'], 'إِفْران'],
+  [['بني ملال'], 'بْنِي مَلّال'], [['أزيلال', 'ازيلال'], 'أَزِيلال'], [['تارودانت'], 'تارُودانْت'], [['تزنيت', 'تيزنيت'], 'تِيزْنِيت'],
+  [['الدار البيضاء'], 'الدّار البَيْضاء'], [['المحمدية'], 'المُحَمَّدِيَّة'], [['تمارة'], 'تَمارَة'], [['الصخيرات'], 'الصْخِيرات'],
+  [['الفنيدق'], 'الفْنِيدَق'], [['شفشاون'], 'شَفْشاوَن'], [['العرائش'], 'العَرائِش'], [['القصر الكبير'], 'القْصَر الكْبِير'],
+  [['ميدلت'], 'مِيدَلْت'], [['تنغير'], 'تِنْغِير'], [['سلا'], 'سَلا'],
+  // the world
+  [['الغابون', 'الجابون'], 'ال{G}ابُون'], [['غانا'], '{G}انا'], [['غينيا', 'جينيا'], '{G}ِينْيا'], [['غواتيمالا', 'جواتيمالا'], '{G}ْواتِيمالا'],
+  [['الكونغو', 'الكونجو'], 'الكُونْ{G}ُو'], [['أوغندا', 'اوغندا', 'أوجندا'], 'أُو{G}َنْدا'], [['بلغاريا'], 'بُلْ{G}ارْيا'],
+  [['البرتغال'], 'البُرْتُ{G}ال'], [['السنغال'], 'السِّنِ{G}ال'], [['غرينلاند'], '{G}ْرِينْلانْد'], [['أنغولا', 'انغولا'], 'أَنْ{G}ُولا'],
+  [['أوروغواي', 'الأوروغواي'], 'أُورُو{G}ْواي'], [['باراغواي'], 'بارا{G}ْواي'], [['بوغوتا'], 'بُو{G}ُوتا'], [['سنغافورة'], 'سِنْ{G}افُورَة'],
+  [['بنغلاديش'], 'بَنْ{G}ْلادِيش'], [['هونغ كونغ', 'هونج كونج'], 'هُونْ{G} كُونْ{G}'], [['شيكاغو', 'شيكاجو'], 'شِيكا{G}ُو'],
+  [['سان دييغو', 'سان دييجو'], 'سان دِيِي{G}ُو'], [['لاس فيغاس'], 'لاس فِي{G}اس'], [['كوبنهاغن'], 'كُوبِنْها{G}ِن'],
+  [['هامبورغ'], 'هامْبُورْ{G}'], [['لوكسمبورغ'], 'لُوكْسِمْبُورْ{G}'], [['ستراسبورغ'], 'سْتْراسْبُورْ{G}'], [['سان بطرسبورغ'], 'سان بِطْرِسْبُورْ{G}'],
+  [['غوغل', 'جوجل', 'قوقل'], '{G}ُو{G}ِل'],
+];
+const PLACE_RX = (() => {
+  const alts = PLACES.flatMap(([names, say]) => names.map(n => [n, say]));
+  const map = new Map(alts); alts.forEach(([n, say]) => { if (n.startsWith('ال') && say.startsWith('ال')) map.set('ل' + n.slice(2), 'ل' + say.slice(2)); });   // للغابون
+  const keys = [...map.keys()].sort((a, b) => b.length - a.length).map(k => k.replace(/ /g, '\\s+'));
+  return { map, rx: new RegExp(`(^|[^\\u0600-\\u06FF])((?:و|ف)?(?:بال|ال|لل|ب|ل|ك)?)(${keys.join('|')})(?=$|[^\\u0600-\\u06FF])`, 'g') };   // "وبالغابون", "وللغابون"
+})();
+const gLetter = () => ({ 'گ': 'گ', 'ڭ': 'ڭ', 'ك': 'ك', 'غ': 'غ', 'ج': 'ج' })[S.gSound] || 'گ';
+const placesSaid = l => l.replace(PLACE_RX.rx, (m, pre, pfx, name) => {
+  let say = PLACE_RX.map.get(name.replace(/\s+/g, ' ')); if (!say) return m;
+  if (pfx && /ال$/.test(pfx) && say.startsWith('ال')) say = say.slice(2);   // "بالغابون": the article is already in the prefix
+  return pre + (pfx || '') + say.replace(/\{G\}/g, gLetter());
+});
+const spokenArabic = l => placesSaid(l.replace(/مراكش/g, 'مُرّاكُش'))
   .replace(/(^|[^\u0600-\u06FF])(بال|لل|ال|ب|ل|و)?(كلغ|كغ|كلم|ملم|سنتم)(?=$|[^\u0600-\u06FF])/g, (m, pre, pfx, u) => pre + (pfx || '') + AR_UNIT[u])
   .replace(/(\d)\s*[%٪]/g, '$1 في المائة').replace(/(\d)\s*°/g, '$1 درجة');
 const NEWS_SECTION_TAG = { marrakech: 'مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'التكنولوجيا والذكاء الاصطناعي', techworld: 'التكنولوجيا والذكاء الاصطناعي', art: 'الفن', trend: 'الأكثر تداولا على مواقع التواصل' };
@@ -1734,7 +1778,7 @@ function arabicBulletin(n) {
   const tags = [''];   // shown in cyan under each headline: its section · its source
   (n.items || []).forEach(x => {
     const title = x.topic === 'marrakech' ? x.title.replace(/^\s*(مراكش( ال[آا]ن)?|كش ?24)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '') : x.title;   // "مراكش: …" right after the Marrakech heading
-    const head = x.event ? `ومن المواعيد الثقافية القادمة: ${x.title.replace(/\s*(\.{2,}|…)\s*/g, '، ')}${x.date ? '، ' + x.date : ''}.` : (x.breaking ? 'عاجل: ' : '') + title.replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
+    const head = x.event ? `ومن المواعيد الثقافية القادمة: ${x.title.replace(/\s*(\.{2,}|…)\s*/g, '، ')}${x.date ? '، ' + x.date : ''}.` : (x.breaking ? 'عاجل: ' : '') + title.replace(/^\s*عاجل\s*[:،,.\-–—|]*\s*/, '').replace(/\s*(\.{2,}|…)\s*$/, '').replace(/\s*(\.{2,}|…)\s*/g, '، ').replace(/\?$/, '؟').replace(/([^؟!.])$/, '$1.'), l = NEWS_TOPIC_AR[x.topic] || '';   // a question stays a question   // "المغرب والجزائر.. اتصالات": a pause, not the end
     lines.push(l && l !== label ? `${l}: ${head}` : head);
     tags.push(newsTag(x)); info.push({ title: x.title, link: x.link || '', page: x.page || '' });
     label = l;
@@ -2380,10 +2424,15 @@ $('libQ').onkeydown = e => { if (e.key === 'Escape' && $('libQ').value) { e.stop
 
 function seg(id, k, cast = v => v) { const el = $(id); const paint = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(S[k]) === b.dataset.v)); el.querySelectorAll('button').forEach(b => b.onclick = () => { S[k] = cast(b.dataset.v); paint(); saveLib(); if (k === 'sleep') setSleep(); }); paint(); }
 function setSleep() { sleepAt = S.sleep ? Date.now() + S.sleep * 60000 : 0; if (S.sleep) toast(`Sleep timer set: ${S.sleep} minutes.`); }
-$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segFade', 'fade', Number); seg('segNews', 'news'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
+$('btnSet').onclick = () => { openSheet('shSet'); seg('segTalk', 'talk'); seg('segSleep', 'sleep', Number); seg('segTrim', 'trim', Number); seg('segFade', 'fade', Number); seg('segNews', 'news'); S.gSound = S.gSound || 'گ'; seg('segG', 'gSound'); paintNewsNote(); $('rate').value = S.rate; loadVoices(); };
 $('voiceSel').onchange = e => { S.voice = e.target.value; saveLib(); };
 $('rate').oninput = e => { S.rate = +e.target.value; saveLib(); };
 $('btnNews').onclick = () => { unlockAudio(); openSheet(null); runNews(true); };
+$('btnGTest').onclick = () => {   // the chosen letter, in the news voice
+  unlockAudio(); if (newsOn) return toast('Try it after the news.');
+  const line = spokenArabic('جليز، تاركة، ابن جرير، أكادير، زاكورة، الغابون، السنغال.');
+  toast(line); mobileWeb() ? sayArabic(line) : sayNewsComputer(line);
+};
 const ago = t => { const h = Math.round((Date.now() - t) / 36e5); return h < 1 ? 'just now' : h < 48 ? h + ' h ago' : Math.round(h / 24) + ' days ago'; };
 $('btnNewsCheck').onclick = async () => {
   $('reportText').textContent = 'Asking every source… this can take up to a minute.'; openSheet('shReport');
