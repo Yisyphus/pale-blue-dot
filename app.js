@@ -1015,6 +1015,12 @@ async function syncAds() {   // at start: your commercial edits from every devic
       const added = []; [...(e.added || []), ...(c.added || [])].forEach(v => { if (v && v.id && !removed.includes(v.id) && !added.some(x => x.id === v.id)) added.push(v); });
       if (JSON.stringify([removed.slice().sort(), added.map(v => v.id).sort()]) !== JSON.stringify([(e.removed || []).slice().sort(), (e.added || []).map(v => v.id).sort()]))
         await fetch('/api/ads/edits', { method: 'POST', body: JSON.stringify({ removed, added }) });
+      // a fresh install has no commercials list of its own yet: take the playlist part from the cloud copy
+      const all = await (await fetch('/api/ads/all')).json();
+      if (!(all.items || []).some(v => v.src === 'playlist')) {
+        const pl = parseJ(cloudAds.pool || '[]', []).filter(v => v && v.src === 'playlist');
+        if (pl.length) { const r = await (await fetch('/api/ads/seed', { method: 'POST', body: JSON.stringify({ items: pl }) })).json(); if (r.seeded) rlog('commercials list copied from the cloud', { ads: r.seeded }); }
+      }
     } catch {}
   }
   await loadAds(); pushAdsToCloud();

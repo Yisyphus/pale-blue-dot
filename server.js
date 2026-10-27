@@ -371,6 +371,13 @@ const server = http.createServer(async (req, res) => {
       const cmd = process.platform === 'win32' ? ['explorer.exe', [url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
       try { require('child_process').spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore' }).unref(); return send(res, 200, { ok: true }); } catch (e) { return send(res, 500, { error: String(e.message || e) }); }
     }
+    if (u.pathname === '/api/ads/seed' && req.method === 'POST') {   // a fresh install: its commercials list comes from the cloud copy
+      const have = readJSON(ADS_PLAYLIST, { items: [] }).items || [];
+      if (have.length) return send(res, 200, { seeded: 0 });
+      const b = await readBody(req), items = (Array.isArray(b.items) ? b.items : []).filter(v => v && /^[\w-]{11}$/.test(v.id)).map(v => ({ id: v.id, title: String(v.title || ''), seconds: +v.seconds || 0 }));
+      if (items.length) fs.writeFileSync(ADS_PLAYLIST, JSON.stringify({ source: 'copied from the cloud', extracted: new Date().toISOString().slice(0, 10), items }, null, 1));
+      return send(res, 200, { seeded: items.length });
+    }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || '', Math.max(300, +u.searchParams.get('min') || 900)));
     if (u.pathname === '/api/long') return send(res, 200, await longVideos(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });
