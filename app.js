@@ -89,11 +89,12 @@ function mergeLib(a, b) {
   Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
   out.adCleanups = [...new Set([...(older.adCleanups || []), ...(newer.adCleanups || [])])];
   out.adsHidden = [...new Set([...(older.adsHidden || []), ...(newer.adsHidden || [])])];
+  out.focusAdd = byKey([...(older.focusAdd || []), ...(newer.focusAdd || [])], x => x.added || 0);   // tracks you suggested to a Focus station
   out.b = Math.max(older.b || 0, newer.b || 0);
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key)]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 let cloudSyncing = null;
 function syncWithCloud() { return cloudSyncing || (cloudSyncing = syncWithCloudNow().finally(() => { cloudSyncing = null; })); }
@@ -763,8 +764,11 @@ function pick() {
 // ---------- Focus mode: instrumental only (or ambient sounds), no talk, no commercials, until you turn it off ----------
 // Its tracks (content23.js) live apart from the library; the news still comes every 4 hours.
 // Instrumental music is split into stations (R.focusStations): the one you pick plays alone until you change it.
-const focusStations = (R.focusStations || []).map(st => ({ ...st, songs: st.tracks.map(l => { const [a, t] = l.split('|'); return { a, t, style: st.id, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() }; }) }));
+const focusSong = (a, t, st) => ({ a, t, style: st, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() });
+const focusStations = (R.focusStations || []).map(st => ({ ...st, songs: st.tracks.map(l => { const [a, t] = l.split('|'); return focusSong(a, t, st.id); }) }));
 const focusStation = id => focusStations.find(st => st.id === id);
+// A station's tracks: the hand-picked ones, plus the ones you suggested to it (lib.focusAdd, synced; never in the library)
+const stationSongs = st => st.songs.concat((lib.focusAdd || []).filter(x => x.st === st.id && !st.songs.some(s => s.key === x.k)).map(x => Object.assign(focusSong(x.a, x.t, st.id), { pin: x.v ? [x.v] : null })));
 let focusMode = ''; try { focusMode = localStorage.getItem('pbd-focus') || ''; } catch {}
 if (focusMode && focusMode !== 'sounds' && !focusStation(focusMode)) focusMode = focusStations.length ? focusStations[0].id : '';   // 'music' from before the stations
 function focusPick() {
@@ -775,13 +779,14 @@ function focusPick() {
     return { a: 'Ambient sounds', t: x.label, q: x.q, genre: 'focus', tags: [], focus: true, sounds: true, key: 'focus-sound|' + x.label.toLowerCase() };
   }
   let used = []; try { used = JSON.parse(localStorage.getItem('pbd-focus-used') || '[]'); } catch {}
-  const songs = focusStation(focusMode).songs;
+  const songs = stationSongs(focusStation(focusMode));
   let pool = songs.filter(s => !used.includes(s.key) && !restingBroken(s) && (!current || s.a !== current.a)); if (!pool.length) { used = used.filter(k => !songs.some(s => s.key === k)); pool = songs; }
   const s = Object.assign({}, rnd(pool)); used.push(s.key); try { localStorage.setItem('pbd-focus-used', JSON.stringify(used.slice(-120))); } catch {}
   return s;
 }
 async function resolveFocus(s) {
   let fc = {}; try { fc = JSON.parse(localStorage.getItem('pbd-focus-cache') || '{}'); } catch {}
+  if (s.pin) return (s.cands = s.pin);   // a track you suggested: the exact video you picked
   if (!s.sounds && fc[s.key] && fc[s.key].length) return (s.cands = fc[s.key]);
   try {
     const r = await fetch(s.sounds ? '/api/long?q=' + encodeURIComponent(s.q) : '/api/search?q=' + encodeURIComponent(s.a + ' ' + s.t) + '&a=' + encodeURIComponent(s.a) + '&t=' + encodeURIComponent(s.t));
@@ -2255,6 +2260,7 @@ async function doSearch() {
   } catch { $('addRes').innerHTML = '<p style="color:var(--mute)">Nothing found, or the search failed. Try different words.</p>'; }
 }
 async function addSong(v, q) {
+  if (suggestStation()) return addFocus(v);
   // a suggested song is added to your library and plays next. Nothing else is pulled in with it.
   const ts = [...document.querySelectorAll('#addThemes input:checked')].map(i => i.value);
   const ded = ($('addDed').value || '').trim().slice(0, 200); $('addDed').value = '';
@@ -2269,12 +2275,31 @@ async function addSong(v, q) {
   openSheet(null); $('addq').value = ''; document.querySelectorAll('#addThemes input').forEach(i => i.checked = false);
   toast(isNew ? '"' + s.t + '" was added to your library and plays next.' : '"' + s.t + '" plays next.');
 }
+// In Focus mode (a station), Suggest adds the track to that station instead of the library, and plays it next
+const suggestStation = () => focusMode && focusMode !== 'sounds' && HELPER ? focusStation(focusMode) : null;
+function addFocus(v) {
+  const st = suggestStation(), { a, t } = splitTitle(v);
+  const s = Object.assign(focusSong(a, t, st.id), { pin: [v] });
+  const known = stationSongs(st).find(x => x.key === s.key || (x.pin && x.pin[0].id === v.id));
+  if (!known) { lib.focusAdd = lib.focusAdd || []; lib.focusAdd.push({ key: st.id + '>' + s.key, st: st.id, k: s.key, a, t, v: { id: v.id, title: v.title, channel: v.channel, seconds: v.seconds }, added: Date.now() }); saveLib(); }
+  queueNext(known && !known.pin ? Object.assign(known, { pin: [v] }) : s);
+  openSheet(null); $('addq').value = '';
+  toast(known ? '"' + t + '" plays next.' : '"' + t + '" joins ' + st.label + ' and plays next.');
+}
+function paintSuggest() {   // the Suggest sheet, for the radio or for the Focus station that is playing
+  const st = suggestStation();
+  $('addTabs').style.display = st ? 'none' : ''; $('addDed').parentNode.style.display = st ? 'none' : ''; $('addThemes').style.display = st ? 'none' : '';
+  if (st && addTab === 'list') $('addTabs').querySelector('[data-v="one"]').click();
+  $('shAdd').querySelector('.hd h2').textContent = st ? 'Suggest for ' + st.label : 'Suggest';
+  $('addq').placeholder = st ? 'Artist - track title (instrumental)' : 'Artist - song title';
+  $('addRes').innerHTML = '<p style="color:var(--mute);font-size:13px;line-height:1.5">' + (st ? 'Type an instrumental track and pick the right result. It joins the ' + st.label + ' station (not your library) and plays next.' : 'Type what you want to hear and pick the right result. I will add just that song to the library and play it next. Optionally, tick the themes it belongs to.') + '</p>';
+}
 function queueNext(song) {
   if (nextPending && !nextOverride) { nextOverride = song; return; } // the host is mid-break: swap it in before the next song starts
   planned = null; preload = null; upNext.push(song);
 }
 $('addGo').onclick = doSearch; $('addq').onkeydown = e => { if (e.key === 'Enter') doSearch(); };
-$('btnAdd').onclick = () => { openSheet('shAdd'); setTimeout(() => (addTab === 'list' ? $('listIn') : $('addq')).focus(), 50); };
+$('btnAdd').onclick = () => { paintSuggest(); openSheet('shAdd'); setTimeout(() => (addTab === 'list' ? $('listIn') : $('addq')).focus(), 50); };
 
 // ---------- Suggest > A list: a YouTube playlist link, or one "Artist - Title" per line (no size limit) ----------
 // Every song is matched and shown with a tick box before anything is added. Added songs join the library
