@@ -357,7 +357,7 @@ let lastActivity = Date.now();
 const server = http.createServer(async (req, res) => {
   lastActivity = Date.now();
   const u = new URL(req.url, 'http://localhost');
-  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname });
+  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2 });   // open 2: links open in the browser (not explorer.exe)
   try {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
     if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }

@@ -44,7 +44,7 @@ const key = s => (s.a + '|' + s.t).toLowerCase();
 // - on the PC, the helper (server.js) keeps data/library.json, a local copy that also works offline;
 // - opened from the web with no helper (the phone), a copy is kept in the browser;
 // - signed in, the cloud (cloud.js) keeps the shared copy, and the newest copy wins.
-let HELPER = false, cloudAds = null;
+let HELPER = false, cloudAds = null, helperOpens = false;   // helperOpens: this PC's helper opens links in the browser (older ones opened Documents)
 const NEEDS_PC = 'Searching YouTube needs the radio running on your PC (start.bat). Here you can still play, skip, choose favorites, and remove songs or ads.';
 function normalizeLib() {
   if (lib.cacheV !== 2) { lib.cache = {}; lib.cacheV = 2; } // earlier versions cached some wrong videos; search again with the stricter matching
@@ -54,7 +54,8 @@ function normalizeLib() {
 }
 let libLoaded = false;
 async function loadLib() {
-  HELPER = await fetch('/api/ping').then(r => r.ok ? r.json() : null).then(j => !!(j && j.app === 'pale-blue-dot')).catch(() => false);
+  const ping = await fetch('/api/ping').then(r => r.ok ? r.json() : null).catch(() => null);
+  HELPER = !!(ping && ping.app === 'pale-blue-dot'); helperOpens = !!(ping && ping.open >= 2);
   if (HELPER) { try { const r = await fetch('/api/library'); lib = Object.assign(lib, await r.json()); } catch {} }
   else { try { const c = JSON.parse(localStorage.getItem('pbd-lib') || 'null'); if (c) lib = Object.assign(lib, c); } catch {} }
   if (window.Cloud && Cloud.enabled) {
@@ -2114,7 +2115,7 @@ let newsLink = '';
 $('cap').addEventListener('click', async e => {   // during the news: the article being read, in your browser
   if (!newsOn || !newsLink || e.target.closest('button')) return;
   const url = newsLink;
-  if (HELPER) { try { const r = await fetch('/api/open?url=' + encodeURIComponent(url)); if (r.ok) return toast('Opened in your browser.'); } catch {} }
+  if (helperOpens) { try { const r = await fetch('/api/open?url=' + encodeURIComponent(url)); if (r.ok) return toast('Opened in your browser.'); } catch {} }
   window.open(url, '_blank', 'noopener');
 });
 function newsStep(d) {
