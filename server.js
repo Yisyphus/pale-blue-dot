@@ -368,7 +368,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (u.pathname === '/api/open') {   // tapping the headline being read: the article, in your usual browser
       const url = u.searchParams.get('url') || ''; if (!/^https?:\/\/[^\s"]+$/.test(url)) return send(res, 400, { error: 'not a web address' });
-      const cmd = process.platform === 'win32' ? ['explorer.exe', [url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+      let href = url; try { href = new URL(url).href; } catch {}   // Arabic letters in the address, percent-encoded
+      // Windows: explorer.exe opens the Documents folder instead of some links (long ones, or with ? and &); the URL
+      // handler opens any web address in the default browser, with no command line in between to mangle it
+      const cmd = process.platform === 'win32' ? ['rundll32.exe', ['url.dll,FileProtocolHandler', href]] : process.platform === 'darwin' ? ['open', [href]] : ['xdg-open', [href]];
       try { require('child_process').spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore' }).unref(); return send(res, 200, { ok: true }); } catch (e) { return send(res, 500, { error: String(e.message || e) }); }
     }
     if (u.pathname === '/api/ads/seed' && req.method === 'POST') {   // a fresh install: its commercials list comes from the cloud copy
