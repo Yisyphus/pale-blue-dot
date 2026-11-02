@@ -1623,7 +1623,8 @@ const ART_RX = /موسيق|أغني|أغان|غناء|مطرب|فنان|لفنو
 // trending on social media: viral videos, trends and online debates
 const SOCIAL_RX = /مواقع التواصل|منصات التواصل|وسائل التواصل|شبكات التواصل|الفضاء الأزرق|السوشيال ميديا|تيك ?توك|فيسبوك|فايسبوك|إنستغرام|انستغرام|يوتيوب|تويتر|منصة إكس|ترند|تريند|هاشتاغ|فيديو متداول|فيديو يوثق|فيديو يظهر|فيديو صادم|فيديو مثير|مقطع فيديو|مقطع متداول|شريط فيديو|يجتاح|انتشار واسع|ينتشر بسرعة|ينتشر كالنار|يثير جدلا|يثير الجدل|جدل واسع|موجة سخرية|موجة تفاعل|تفاعل واسع|رواد مواقع|رواد التواصل|رواد الإنترنت|رواد المنصات|مدونون|نشطاء|(?<![؀-ۿ])(?:ال|لل|و|ب)?مؤثر(?:ة|ين|ون)?(?![؀-ۿ])|بلوغر|يوتيوبر|تيكتوكر|صانع محتوى|صانعة محتوى|صناع المحتوى|\/trending/i;
 const POLITICS_RX = /جلالة الملك|الملك محمد|ولي العهد|الأمير|الانتخابات|انتخابات|التشريعية|البرلمان|مجلس النواب|مجلس المستشارين|الحكومة|رئيس الحكومة|وزير|وزارة|حزب|الأحزاب|سياسي|سياسة|يعين|تعيين|دبلوماسي|سفير/;
-const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/^(فيديو|شاهد|بالفيديو)\s*[,،:]\s*/, '').replace(/\s*[,،]\s*المدة\s*[\d,.:]+\s*$/, '').replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '').trim();
+const cleanHead = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/^(فيديو|شاهد|بالفيديو)\s*[,،:]\s*/, '').replace(/\s*[,،]\s*المدة\s*[\d,.:]+\s*$/, '').replace(/\s*[-|–—]\s*(BBC News عربي|بي بي سي.*|فرانس ?24.*|France ?24.*|الجزيرة.*|هسبريس.*|Hespress.*|كش ?24.*|Le360.*|لو360.*|مراكش ال[آا]ن.*|و\.م\.ع.*)$/i, '').replace(/^\s*(مراكش ال[آا]ن|كش ?24|هسبريس)\s*([:|\-–—،,/»«]+|\.\.+)\s*/, '').replace(/^(عاجل|بالفيديو|فيديو|صور|بالصور)\s*[:|-]\s*/, '')
+  .replace(/(\s*[-|–—]+\s*(MAP|SNRT ?news|و\.م\.ع\.?)?)+\s*$/i, '').trim();   // "… | MAP -": the dash was read aloud as "شرطة"
 const CRIME_RX = /قتل|جريم|توقيف|اعتقال|حادث|حادثة|وفاة|مصرع|لقي حتفه|انتحار|سرقة|اعتداء|مخدرات|المخدرة|الدرك|السجن|محاولة قتل|طعن|اغتصاب|احتيال|نصب|اختطاف|غرق|حريق|الأمن يوقف|يوقف|يفكك|عصابة|جثة|جثمان|تنهي حياة/;
 const WEATHER_RX = /طقس|الأحوال الجوية|أحوال الجو|حالة الجو|نشرة إنذارية|النشرة الجوية/;
 const dURI = u => { try { return decodeURI(u); } catch { return u; } };
@@ -1774,7 +1775,10 @@ async function readSourceHere(src) {
     const all = RELAYS.map((f, i) => f(u) ? i : -1).filter(i => i >= 0), pref = memo[u];
     try {
       let got = null;
-      if (!mobileWeb()) got = await Promise.any(all.map(i => tryRelay(i, 10000)));   // PC and computers: every relay at once
+      if (!mobileWeb()) {   // PC: through the PC itself first; the public relays only if that fails (all at once choked a weak wifi)
+        if (all.includes(0)) { try { got = await tryRelay(0, 20000); } catch {} }
+        if (!got) got = await Promise.any(all.filter(i => i !== 0).map(i => tryRelay(i, 15000)));
+      }
       else {   // a phone: the relay that worked last time first, alone, then the others
         if (all.includes(pref)) { try { got = await tryRelay(pref, 9000); } catch {} }
         if (!got) got = await Promise.any(all.filter(i => i !== pref).map(i => tryRelay(i, 15000)));
@@ -2066,7 +2070,8 @@ async function runNews(manual) {
   $('kind').textContent = 'news'; $('title').textContent = 'The News'; $('artist').textContent = 'الأخبار · ' + clock(); $('chips').innerHTML = '';
   $('vinyl').classList.add('talk'); setLive(true);
   rlog('news', { manual, back: newsBack && newsBack.type, arabicVoice: arWho() });
-  const fetched = withTimeout(getNews(manual), mobileWeb() ? 75000 : 45000).catch(() => null);
+  const early = !manual && newsEarly && Date.now() - newsEarly.at < 15 * 60e3 ? newsEarly.p : null; newsEarly = null;
+  const fetched = withTimeout(early || getNews(manual), mobileWeb() ? 75000 : 45000).catch(() => null);
   await sleep(1300);
   if (id !== runId) return;
   $('capKind').textContent = R.host;
@@ -2141,7 +2146,17 @@ function finishNews() {
   if (back.type === 'pod') { busy = true; stopSpeech(); return playPodcast(back.pod, null, { scheduled: true }, runId); }
   return advance({ song: back.song, prev: null, silent: true, noCount: true, quick: true });
 }
-// on the hour, every 4 hours; skipped while you have paused the radio
+// on the hour, every 4 hours; skipped while you have paused the radio. The headlines are gathered 3 minutes before,
+// while the music plays, so a slow connection does not keep you waiting (and has time to bring every section).
+let newsEarly = null;   // { slot, at, p }
+setInterval(() => {
+  if (!started || S.news === 'off' || newsOn) return;
+  const e = new Date(Date.now() + 3 * 60e3);
+  if (e.getMinutes() === 0 && !(e.getHours() % 4)) {
+    const slot = e.toDateString() + ' ' + e.getHours();
+    if (!newsEarly || newsEarly.slot !== slot) { newsEarly = { slot, at: Date.now(), p: getNews(false).catch(() => null) }; rlog('news gathered early', { slot }); }
+  }
+}, 5000);
 setInterval(() => {
   if (!started || S.news === 'off' || newsOn || globalPaused) return;
   const d = new Date(); if (d.getMinutes() !== 0 || d.getHours() % 4) return;
@@ -2920,7 +2935,7 @@ setInterval(() => {
       const d = P().getDuration(), c = P().getCurrentTime(), rem = d - c;
       $('tcur').textContent = fmt(c); $('tdur').textContent = fmt(d); $('barfill').style.width = d ? (100 * c / d) + '%' : '0';
       const isPod = current.podcast;
-      if (!isPod && d > 60 && rem <= 30) planPreload();
+      if (!isPod && d > 60 && rem <= 75) planPreload();   // a minute and more ahead: time to find and load it on a slow connection
       const trimAt = lib.trim[current.key];
       // end the song a little early (and learn-trim) so trailing silence never reaches you
       if (!isPod && d > 30 && (rem <= Math.max(S.trim || 0, S.fade || 0) || (trimAt && c >= trimAt))) {   // the last seconds fade out under what comes next
