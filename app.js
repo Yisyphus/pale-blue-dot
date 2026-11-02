@@ -1776,8 +1776,8 @@ async function readSourceHere(src) {
     try {
       let got = null;
       if (!mobileWeb()) {   // PC: through the PC itself first; the public relays only if that fails (all at once choked a weak wifi)
-        if (all.includes(0)) { try { got = await tryRelay(0, 20000); } catch {} }
-        if (!got) got = await Promise.any(all.filter(i => i !== 0).map(i => tryRelay(i, 15000)));
+        if (all.includes(0)) { try { got = await tryRelay(0, 12000); } catch {} }
+        if (!got) got = await Promise.any(all.filter(i => i !== 0).map(i => tryRelay(i, 12000)));
       }
       else {   // a phone: the relay that worked last time first, alone, then the others
         if (all.includes(pref)) { try { got = await tryRelay(pref, 9000); } catch {} }
@@ -1871,9 +1871,12 @@ async function weatherNow() {
 }
 let helperNewsMissing = false;
 async function getNews(manual) {
-  const wx = weatherNow().catch(() => null), extra = newsExtras().catch(() => []);
+  const cap = mobileWeb() ? 70000 : 38000;   // the weather and the extras, like the sites: late means left out, not the whole bulletin
+  const wx = withTimeout(weatherNow(), cap).catch(() => null), extra = withTimeout(newsExtras(), cap).catch(() => []);
   helperNewsMissing = false;
-  const results = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, readSourceHere);
+  // each site has its own time limit, so one slow site only loses its own headlines, never the whole bulletin
+  const late = { ok: false, error: 'too slow to answer', items: [] };
+  const results = await inBatches(NEWS_SOURCES, mobileWeb() ? 6 : NEWS_SOURCES.length, src => mobileWeb() ? readSourceHere(src) : withTimeout(readSourceHere(src), 30000).catch(() => late));
   const items = pickNews(results, manual);
   const alerts = vigilance(results), hol = nextHoliday(results);
   return { items, weather: await wx, extras: alerts.concat(await extra, hol ? [hol] : []), via: HELPER && !helperNewsMissing ? 'your PC and the web' : 'the web', sources: NEWS_SOURCES.map((s, i) => ({ id: s.id, name: s.name, ok: results[i].ok, n: results[i].items.length, error: results[i].error || '' })) };
