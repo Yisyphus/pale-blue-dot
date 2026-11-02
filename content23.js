@@ -153,7 +153,7 @@
     'A few words from you, and then the music. {d}. Here is {a}.',
   ];
 
-  // The podcast slot (song 64): one regular episode, then في الحضارة, then a regular one, then الدحيح, and again.
+  // The podcast slot (song 64): a regular episode before each show in turn (في الحضارة, الدحيح, هو ليه؟, مع عبد اللطيف).
   // Only from these channels; if nothing is found, a regular episode plays instead.
   R.podShows = {
     hadara: {
@@ -186,6 +186,38 @@
         'That was El Daheeh. Breathe. Back to the music.',
         'El Daheeh, as fast as ever. Now, something slower.',
         'That was El Daheeh. Let a song settle what we just learned.',
+      ],
+    },
+    huwa: {
+      name: 'هو ليه؟',   // AlarabyTube, like في الحضارة: only episodes with the show's name in the title
+      queries: ['هو ليه', 'برنامج هو ليه', 'هو ليه العربي تيوب', 'هو ليه حلقة'],
+      channel: /العربي تيوب|alaraby ?tube/i, title: /هو\s*ليه/,
+      intros: [
+        'A question now, in Arabic: an episode of Howa Leih, from AlarabyTube. Why is it like this? Today: {t}. About {min} minutes.',
+        'Time for Howa Leih, the show that asks why. In Arabic, from AlarabyTube: {t}. Around {min} minutes.',
+        'Every habit has a reason somewhere. Howa Leih goes looking for it. Today: {t}.',
+        'The songs can wait for one good question. Here is Howa Leih: {t}. About {min} minutes.',
+      ],
+      outros: [
+        'That was Howa Leih. One question answered, a thousand left. Back to the music.',
+        'Howa Leih, from AlarabyTube. Now we know why. Here is a song.',
+        'That was an episode of Howa Leih. Let the music take it from here.',
+      ],
+    },
+    abdellatif: {
+      name: 'مع عبد اللطيف',   // from the channel عبد اللطيف +
+      queries: ['مع عبد اللطيف', 'برنامج مع عبد اللطيف', 'مع عبد اللطيف حلقة', 'عبد اللطيف +'],
+      channel: /عبد\s*اللطيف\s*(\+|plus|بلس)|abdel?\s*l?atif\s*(\+|plus)/i, title: /./,
+      intros: [
+        'Something in Arabic now: Ma-a Abdellatif, from the channel Abdellatif Plus. Today: {t}. About {min} minutes.',
+        'Time for Ma-a Abdellatif. Pull up a chair: {t}. Around {min} minutes.',
+        'A conversation in Arabic now, Ma-a Abdellatif: {t}. The songs will wait.',
+        'Here is Ma-a Abdellatif, with {t}. About {min} minutes.',
+      ],
+      outros: [
+        'That was Ma-a Abdellatif. Back to the music.',
+        'Ma-a Abdellatif, from Abdellatif Plus. Now, a song.',
+        'That was an episode of Ma-a Abdellatif. Let the music take it from here.',
       ],
     },
   };

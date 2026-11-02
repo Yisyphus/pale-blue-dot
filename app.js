@@ -1307,8 +1307,8 @@ async function runSegments(segs, id) {
 // What is playing or being said right now, so the news can bring it back from the start: a break (from the part that
 // was interrupted, a talk from its first sentence), a podcast being introduced, or the song or episode itself.
 let curBreak = null, curPod = null;
-// The podcast slot takes turns: a regular episode, في الحضارة, a regular episode, الدحيح (content23.js).
-const POD_TURNS = ['regular', 'hadara', 'regular', 'dahih'];
+// The podcast slot takes turns: a regular episode before each show (content23.js).
+const POD_TURNS = ['regular', 'hadara', 'regular', 'dahih', 'regular', 'huwa', 'regular', 'abdellatif'];
 async function findShow(id) {
   const show = (R.podShows || {})[id]; if (!show) return null;
   lib.pod = lib.pod || [];
@@ -2868,7 +2868,7 @@ $('marBox').addEventListener('change', e => {
 let marEvery = 2;
 document.querySelectorAll('#marEvery button').forEach(b => b.onclick = () => { marEvery = +b.dataset.v; document.querySelectorAll('#marEvery button').forEach(x => x.classList.toggle('on', x === b)); });
 $('btnMarathon').onclick = () => {
-  const sel = S.marathon || { kinds: ['letter', 'talk'], pods: ['regular', 'dahih', 'hadara'] };
+  const sel = S.marathon || { kinds: ['letter', 'talk'], pods: ['regular', 'dahih', 'hadara', 'huwa', 'abdellatif'] };
   const src = $('marSrc'); src.innerHTML = '';
   src.appendChild(chip('lib', `Whole library · ${songs.length}`)); src.appendChild(chip('fav', `Favorites · ${(lib.fav || []).length}`));
   (lib.lists || []).forEach(L => src.appendChild(chip('list:' + L.key, `${L.name} · ${listSongs(L).length}`)));
