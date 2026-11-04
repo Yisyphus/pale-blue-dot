@@ -1314,8 +1314,10 @@ async function findShow(id) {
   lib.pod = lib.pod || [];
   for (const q of [...show.queries].sort(() => Math.random() - 0.5)) {
     try {
-      const r = await (await fetch('/api/podcast?min=480&q=' + encodeURIComponent(q))).json(); if (!Array.isArray(r)) continue;
-      const ok = r.filter(x => show.channel.test(x.channel || '') && show.title.test(x.title || '') && !lib.pod.includes(x.id)).slice(0, 5);
+      let res = show.concert ? await fetch('/api/concert?q=' + encodeURIComponent(q)) : null;
+      if (!res || !res.ok) res = await fetch('/api/podcast?min=480&q=' + encodeURIComponent(q));   // an older PC helper: only concerts over 20 minutes
+      const r = await res.json(); if (!Array.isArray(r)) continue;
+      const ok = r.filter(x => show.channel.test(x.channel || '') && show.title.test(x.title || '') && !(show.notTitle && show.notTitle.test(x.title || '')) && !lib.pod.includes(x.id)).slice(0, 5);
       if (!ok.length) continue;
       const v = rnd(ok);
       return { topic: { label: show.name }, show: id, v, alts: ok.filter(x => x.id !== v.id) };
@@ -1323,8 +1325,14 @@ async function findShow(id) {
   }
   return null;
 }
+// A live concert: a KEXP full performance or a Tiny Desk Concert, whichever is found first, in random order
+async function findConcert() {
+  for (const id of shuffle(['kexp', 'tinydesk'])) { const c = await findShow(id); if (c) return c; }
+  return null;
+}
 async function findPodcast() {
   lib.pod = lib.pod || [];
+  if (new Date().getDay() === 6) { const c = await findConcert(); if (c) return c; rlog('saturday: no concert found, a podcast instead'); }   // Saturdays: a concert in the podcast slot
   const turn = POD_TURNS[(lib.podTurn || 0) % POD_TURNS.length]; lib.podTurn = (lib.podTurn || 0) + 1; saveLib();
   if (turn !== 'regular') { const sp = await findShow(turn); if (sp) return sp; rlog('podcast show not found, a regular episode instead', { show: turn }); }
   return findRegular();
@@ -1357,8 +1365,9 @@ async function playPodcast(pod, prev, opts, id) {
   if (opts.first) segs.push({ kind: R.station, lines: [{ t: sub(fresh('welcome:' + period(), R.welcomes[period()]), ep) }] });
   else if (prev) segs.push({ kind: R.station, lines: [{ t: backFor(prev) }] });
   const extra = { min: Math.max(1, Math.round(v.seconds / 60)), topic: pod.topic.label };
-  const lead = fresh('podlead', ['Podcast time.', 'And now, a podcast.', 'Time for a podcast.', 'A podcast now.', 'Let us make room for a podcast.']);
-  segs.push({ kind: midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: lead + ' ' + sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
+  const live = !!(pod.show && R.podShows[pod.show] && R.podShows[pod.show].concert);
+  const lead = live ? fresh('concertlead', ['Live music now.', 'And now, a concert.', 'Time for some live music.', 'A concert now.']) : fresh('podlead', ['Podcast time.', 'And now, a podcast.', 'Time for a podcast.', 'A podcast now.', 'Let us make room for a podcast.']);
+  segs.push({ kind: live ? 'Live concert' : midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: lead + ' ' + sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
   console.info('[radio] podcast', ep.t, '|', ep.a, '|', extra.min + ' min');
   const ok = await runSegments(segs, id);
   if (!ok) return;
@@ -1368,7 +1377,7 @@ async function playPodcast(pod, prev, opts, id) {
   if (!okEp) { busy = false; bedOff(); return advance({ noCount: true }); }
   $('vinyl').classList.remove('talk');
   bedOff(2.5);
-  caption('Podcast' + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), 'Now playing a podcast: ' + ep.t + (ep.a ? ', from ' + ep.a : '') + (marathon ? '.' : '. The music returns when it ends.'));
+  caption((live ? 'Live concert' : 'Podcast') + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), (live ? 'Now playing a live concert: ' : 'Now playing a podcast: ') + ep.t + (ep.a ? ', from ' + ep.a : '') + (marathon ? '.' : '. The music returns when it ends.'));
   busy = false;
 }
 
@@ -2835,14 +2844,14 @@ async function podNow(kind) {
   if (!HELPER) return toast('Podcasts are found on YouTube through your PC, so they play on the PC radio.');
   if (newsOn) return toast('Right after the news.');
   openSheet(null); toast('Looking for an episode…');
-  const pod = kind === 'regular' ? await findRegular() : await findShow(kind);
-  if (!pod) return toast('No episode found right now. Try again in a moment.');
+  const pod = kind === 'regular' ? await findRegular() : kind === 'concert' ? await findConcert() : await findShow(kind);
+  if (!pod) return toast(/^(concert|kexp|tinydesk)$/.test(kind) ? 'No concert found right now. Try again in a moment.' : 'No episode found right now. Try again in a moment.');
   if (globalPaused) clearPause();
   stopSpeech(); const id = runId; busy = true; clearTimeout(startWatch); planned = null; preload = null;
   rlog('podcast now', { kind });
   await playPodcast(pod, current, {}, id);
 }
-document.querySelectorAll('#podNow button').forEach(b => b.onclick = () => podNow(b.dataset.v));
+document.querySelectorAll('#podNow button, #concertNow button').forEach(b => b.onclick = () => podNow(b.dataset.v));
 // The marathon sheet: four groups (songs, voices, podcasts, commercials). A group's box ticks or clears all of it
 // (Songs starts from the whole library); ticking anything inside ticks the group.
 const chip = (v, label) => { const l = document.createElement('label'); l.innerHTML = '<input type="checkbox"><span></span>'; l.firstChild.value = v; l.lastChild.textContent = label; return l; };

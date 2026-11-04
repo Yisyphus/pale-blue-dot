@@ -204,6 +204,42 @@
         'That was an episode of Howa Leih. Let the music take it from here.',
       ],
     },
+    // Saturdays, the podcast slot is a live concert instead (concert: true). Searches vary by year and style, so the
+    // same few concerts do not come back; one already played is never chosen again.
+    kexp: {
+      name: 'KEXP', concert: true,
+      queries: ['KEXP full performance', 'full performance live on KEXP', ...['2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'].map(y => 'KEXP full performance ' + y),
+        ...['psychedelic', 'indie', 'folk', 'jazz', 'soul', 'post-rock', 'dream pop', 'electronic', 'shoegaze', 'african', 'arabic'].map(g => 'KEXP full performance ' + g)],
+      channel: /^\s*KEXP\s*$/i, title: /full performance/i,
+      intros: [
+        'A full concert now, from KEXP in Seattle. {t}. About {min} minutes, live in the studio.',
+        'Live music, the whole set. From KEXP, a full performance: {t}. Around {min} minutes.',
+        'Let us go to Seattle, to the KEXP studio, for a whole set, live. {t}.',
+        'A full performance now, recorded live at KEXP: {t}. About {min} minutes. Turn it up a little.',
+      ],
+      outros: [
+        'That was a full performance, live on KEXP. Back to the records.',
+        'Live from KEXP, and now back to our own little studio.',
+        'That was KEXP, from Seattle. Here is a song.',
+      ],
+    },
+    tinydesk: {
+      name: 'Tiny Desk', concert: true,
+      queries: ['NPR Music Tiny Desk Concert', 'Tiny Desk Concert', 'Tiny Desk Home Concert', ...['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'].map(y => 'Tiny Desk Concert ' + y),
+        ...['jazz', 'soul', 'folk', 'indie', 'psychedelic', 'arabic', 'african', 'classical', 'singer songwriter', 'hip hop'].map(g => 'Tiny Desk Concert ' + g)],
+      channel: /NPR\s*Music/i, title: /tiny desk/i, notTitle: /contest|meet|behind|trailer|#shorts/i,
+      intros: [
+        'A Tiny Desk Concert now, from behind a desk at NPR in Washington. {t}. About {min} minutes.',
+        'Live music, very close up: a Tiny Desk Concert from NPR Music. {t}. Around {min} minutes.',
+        'A small desk, a crowded office, and a band playing for real. Here is a Tiny Desk Concert: {t}.',
+        'From NPR Music, a Tiny Desk Concert: {t}. About {min} minutes, very close up.',
+      ],
+      outros: [
+        'That was a Tiny Desk Concert, from NPR Music. Back to the records.',
+        'Tiny desk, big sound. Now, a song.',
+        'That was the Tiny Desk. Let the radio take it from here.',
+      ],
+    },
     abdellatif: {
       name: 'مع عبد اللطيف',   // from the channel عبد اللطيف +
       queries: ['مع عبد اللطيف', 'برنامج مع عبد اللطيف', 'مع عبد اللطيف حلقة', 'عبد اللطيف +'],
