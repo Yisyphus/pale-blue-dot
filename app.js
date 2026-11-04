@@ -1070,9 +1070,17 @@ function playAdVideo(v) {
     preload = null;
     try { p.unMute(); } catch {}
     setVol(p, Math.round(S.vol * 0.9)); p.loadVideoById(v.id);
-    // not started within 8 s: the caller tries the next ad; a safety cap ends an ad that never ends. Paused time does not count.
-    let waited = 0, ran = 0; const capMs = (Math.min(v.seconds || 90, 150) + 12) * 1000;
-    tick = setInterval(() => { if (globalPaused) return; waited += 500; ran += 500; if (!started && waited >= 8000) finish(false); else if (ran >= capMs) finish(started); }, 500);
+    // Not started within 12 s: the caller tries the next ad. Once playing, it runs to its real end (up to 3 minutes and a
+    // bit): the time is measured on the video itself, so loading and buffering on a slow connection never cut it short.
+    // An ad stuck for 45 s without moving ends. Paused time does not count.
+    let waited = 0, stall = 0, last = -1;
+    tick = setInterval(() => {
+      if (globalPaused) return;
+      if (!started) { if ((waited += 500) >= 12000) finish(false); return; }
+      let c = 0, d = 0; try { c = p.getCurrentTime() || 0; d = p.getDuration() || 0; } catch {}
+      if (c > last + 0.05) { last = c; stall = 0; } else if ((stall += 500) >= 45000) return finish(true);
+      if (c >= Math.min(d || v.seconds || 200, 200) - 0.2 && c > 1) finish(true);
+    }, 500);
   });
 }
 async function runAd(id) {

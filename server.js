@@ -284,12 +284,12 @@ async function refreshExtras() {
     for (const q of AD_QUERIES) {
       try {
         const list = await searchShort(q);
-        list.filter(v => v.id && v.seconds >= 8 && v.seconds <= 60 && (MOROCCO.test(v.title) || MOROCCO.test(v.channel)) && !NOT_AD.test(v.title))
+        list.filter(v => v.id && v.seconds >= 8 && v.seconds <= 180 && (MOROCCO.test(v.title) || MOROCCO.test(v.channel)) && !NOT_AD.test(v.title))
           .slice(0, 8).forEach(v => { if (!found.has(v.id)) found.set(v.id, { id: v.id, title: v.title, seconds: v.seconds }); });
       } catch (e) { /* skip this query */ }
       await new Promise(r => setTimeout(r, 1200));   // be gentle with YouTube
     }
-    if (found.size) fs.writeFileSync(ADS_EXTRA, JSON.stringify({ updated: Date.now(), items: [...found.values()] }, null, 1));
+    if (found.size) fs.writeFileSync(ADS_EXTRA, JSON.stringify({ updated: Date.now(), max: 180, items: [...found.values()] }, null, 1));
     console.log('Moroccan ads refreshed: ' + found.size);
   } finally { refreshing = false; }
 }
@@ -298,8 +298,8 @@ function adsBase() {
   const pl = readJSON(ADS_PLAYLIST, { items: [] }).items.map(v => ({ ...v, src: 'playlist' }));
   const ex = readJSON(ADS_EXTRA, { items: [] });
   const seen = new Set(pl.map(v => v.id));
-  const extra = ex.items.filter(v => v.seconds <= 60 && !seen.has(v.id)).map(v => ({ ...v, src: 'search' }));
-  if (!ex.updated || Date.now() - ex.updated > 10 * 864e5) refreshExtras().catch(() => {});
+  const extra = ex.items.filter(v => v.seconds <= 180 && !seen.has(v.id)).map(v => ({ ...v, src: 'search' }));
+  if (!ex.updated || ex.max !== 180 || Date.now() - ex.updated > 10 * 864e5) refreshExtras().catch(() => {});
   return [...pl, ...extra];
 }
 // Your own changes to the commercials: ads you removed and ads you added (data/ads-edits.json)
