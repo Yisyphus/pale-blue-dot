@@ -5,7 +5,7 @@
 - **This GitHub repo, `Yisyphus/pale-blue-dot`, is the only source of truth.** Every change is made here, on `main`.
 - **The website** is published from this repo by GitHub Pages: https://yisyphus.github.io/pale-blue-dot/
   (The old address `ymoumou-axigeo.github.io` no longer exists.)
-- **The Windows app (the exe)** is installed in `%LOCALAPPDATA%\Programs\PaleBlueDotRadio`. It updates itself from the website: its `cloud.json` holds `"appUrl": "https://yisyphus.github.io/pale-blue-dot/"`. New page files take effect the next time it opens; a new `server.js` (the helper) takes effect after the second restart.
+- **The Windows app (the exe)** is installed in `%LOCALAPPDATA%\Programs\PaleBlueDotRadio`. It updates itself from the website: its `cloud.json` holds `"appUrl": "https://yisyphus.github.io/pale-blue-dot/"`. Every time it opens, before play is pressed, it checks for a new version and reloads by itself (`autoUpdate` in `app.js`); a new `server.js` (the helper) is installed and the helper restarts itself into it (`/api/restart`). Helpers from before 2026-11-04 need one last restart by hand.
 - **Your data** (library, favorites, lists, settings, commercial edits, daily backups) is in Firebase, tied to the owner's Google account. It is not in this repo.
 
 ## The old `radio-amber` folder is archived

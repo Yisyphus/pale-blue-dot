@@ -15,7 +15,7 @@ fs.mkdirSync(DATA, { recursive: true });
 // cloud.json { "appUrl": "https://<you>.github.io/<repo>/" }: at start and every 6 hours the helper reads files.json
 // there and downloads only what changed into app-cache/ (each file checked against its hash), then serves from it.
 // public/ stays the fallback: first run, offline, or anything missing. A newer server.js is installed too and takes
-// effect the next time the radio starts. Your data/ folder is never touched.
+// effect when the page asks for a restart (/api/restart, at the next opening) or the radio starts. Your data/ folder is never touched.
 const crypto = require('crypto');
 const CLOUD = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'cloud.json'), 'utf8')); } catch { return {}; } })();
 const CACHE = path.join(__dirname, 'app-cache');
@@ -374,6 +374,11 @@ const server = http.createServer(async (req, res) => {
       await syncApp(); let version = ''; try { version = JSON.parse(fs.readFileSync(path.join(SERVE, 'files.json'), 'utf8')).version || ''; } catch {}
       return send(res, 200, { version, helperLater: sha(fs.readFileSync(__filename)) !== RUNNING });
     }
+    if (u.pathname === '/api/restart' && req.method === 'POST') {   // a newer helper was installed: hand over to it now (the page asks, only before you press play)
+      if (sha(fs.readFileSync(__filename)) === RUNNING) return send(res, 200, { restarted: false });
+      try { require('child_process').spawn(process.execPath, process.argv.slice(1), { cwd: process.cwd(), env: { ...process.env, PBD_RESTARTED: '1' }, detached: true, stdio: 'ignore', windowsHide: true }).unref(); } catch (e) { return send(res, 500, { error: String(e.message || e) }); }
+      send(res, 200, { restarted: true }); setTimeout(() => process.exit(0), 300); return;
+    }
     if (u.pathname === '/api/open') {   // tapping the headline being read: the article, in your usual browser
       const url = u.searchParams.get('url') || ''; if (!/^https?:\/\/[^\s"]+$/.test(url)) return send(res, 400, { error: 'not a web address' });
       let href = url; try { href = new URL(url).href; } catch {}   // Arabic letters in the address, percent-encoded
@@ -438,7 +443,12 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '127.0.0.1', () => { console.log('Pale Blue Dot Radio is on air: http://localhost:' + PORT); syncApp(); });
 setInterval(syncApp, 6 * 3600e3);
-server.on('error', e => { console.error('Could not start: ' + e.message); process.exit(1); });
+let portTries = 0;
+server.on('error', e => {
+  // just restarted by the old helper: it needs a moment to let go of the port
+  if (e.code === 'EADDRINUSE' && process.env.PBD_RESTARTED === '1' && portTries++ < 40) return setTimeout(() => server.listen(PORT, '127.0.0.1'), 250);
+  console.error('Could not start: ' + e.message); process.exit(1);
+});
 process.on('uncaughtException', e => console.error('Unexpected error: ' + (e && e.message)));
 process.on('unhandledRejection', e => console.error('Unexpected rejection: ' + (e && e.message)));
 

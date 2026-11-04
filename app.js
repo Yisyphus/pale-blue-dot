@@ -2307,6 +2307,25 @@ async function tuneIn() {
 let updResume = null;
 try { const r = JSON.parse(sessionStorage.getItem('pbd-resume') || 'null'); sessionStorage.removeItem('pbd-resume'); if (r && Date.now() - r.at < 10 * 60e3) { updResume = r; $('tuneSub').textContent = 'updated · press play to carry on'; } } catch {}
 const pageVersion = () => (document.querySelector('meta[name="pbd-version"]') || {}).content || '';
+// Every time the radio opens: the newest version, before you press play. The page reloads by itself when there is
+// a new one, and a new PC helper takes over at once (helpers from before this need one last restart by hand).
+async function autoUpdate() {
+  try { if (Date.now() - (+sessionStorage.getItem('pbd-auto') || 0) < 120000) return; sessionStorage.setItem('pbd-auto', Date.now()); } catch { return; }   // once per opening, never a loop
+  let version = '', helperLater = false;
+  if (HELPER) { const r = await fetch('/api/update', { method: 'POST' }).catch(() => null); if (r && r.ok) { const j = await r.json(); version = j.version || ''; helperLater = !!j.helperLater; } }
+  if (!version) { try { version = ((await (await fetch('files.json?t=' + Date.now(), { cache: 'no-store' })).json()) || {}).version || ''; } catch {} }
+  if (started) return;   // you already pressed play: it waits for the next opening
+  if (helperLater) {
+    const r = await fetch('/api/restart', { method: 'POST' }).catch(() => null);
+    if (r && r.ok && (await r.json().catch(() => ({}))).restarted) {
+      $('tuneSub').textContent = 'updating the radio…';
+      for (let i = 0; i < 40; i++) { await sleep(250); if (await fetch('/api/ping', { cache: 'no-store' }).then(x => x.ok).catch(() => false)) break; }
+      if (started) return;
+      return location.replace(location.pathname + '?u=' + Date.now());
+    }
+  }
+  if (version && version !== pageVersion()) { $('tuneSub').textContent = 'updating the radio…'; rlog('auto update', { from: pageVersion(), to: version }); location.replace(location.pathname + '?u=' + Date.now()); }
+}
 $('btnUpdate').onclick = async () => {
   const b = $('btnUpdate'); if (b.disabled) return; b.disabled = true; b.textContent = 'Checking…';
   try {
@@ -3070,7 +3089,7 @@ $('btnCloud').onclick = async () => {
 // ---------- boot ----------
 let booted; const bootDone = new Promise(r => { booted = r; });
 (async () => {
-  await loadLib(); buildSongs(); booted(); loadVoices(); syncAds().then(runAdCleanups);
+  await loadLib(); buildSongs(); booted(); loadVoices(); syncAds().then(runAdCleanups); autoUpdate().catch(() => {});
   $('vol').value = S.vol;
   setNow(null); updateCloudUI();
 })();
