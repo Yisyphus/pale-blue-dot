@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-11-04T15:13:10Z">
+<meta name="pbd-version" content="2026-11-11T08:44:11Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -56,6 +56,20 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @keyframes spin{to{transform:rotate(360deg)}}
 .vinyl.talk{box-shadow:0 0 0 1px #000,0 18px 50px rgba(0,0,0,.6),0 0 90px rgba(120,160,255,.6)}
 .np{text-align:center;min-height:62px;width:100%}
+.lyrics{display:none;width:100%;height:188px;flex-direction:column;justify-content:space-between}
+body.lyr .stage .vinyl{display:none}
+body.lyr .lyrics{display:flex}
+.lyr-lines{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px;text-align:center;overflow:hidden;padding:0 6px}
+.lyr-lines p{margin:0;color:var(--mute);font-size:14px;line-height:1.35;opacity:.55;transition:color .3s,opacity .3s,font-size .3s;cursor:pointer;text-wrap:balance}
+.lyr-lines p.now{color:var(--cream);opacity:1;font-size:18px;font-weight:600}
+.lyr-lines p.near{opacity:.8}
+.lyr-lines.plain{justify-content:flex-start;overflow-y:auto}
+.lyr-lines.plain p{opacity:.85;cursor:default}
+.lyr-lines .lyr-msg{font-family:var(--mono);font-size:11px;letter-spacing:.06em;opacity:.8;cursor:default}
+.lyr-foot{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:10px;color:var(--mute);padding:0 4px}
+.lyr-foot span:first-child{flex:1;min-width:0;line-height:1.4}
+.lyr-nudge{display:flex;gap:2px;flex:none}
+body.mini .lyrics{display:none}
 .np .kind{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
 .np h1{font-weight:600;font-size:22px;line-height:1.15;margin:4px 0 2px;text-wrap:balance}
 .np p{color:var(--mute);font-size:14px}
@@ -201,6 +215,7 @@ body.mini .app{gap:6px}
 
   <div class="stage">
     <div class="vinyl" id="vinyl"><div class="label" id="label"></div></div>
+    <div class="lyrics" id="lyrics" aria-live="off"><div class="lyr-lines" id="lyrLines"></div><div class="lyr-foot"><span id="lyrNote"></span><span class="lyr-nudge"><button class="mini-btn" id="lyrEarly" title="The words come too late: show them half a second earlier">earlier</button><button class="mini-btn" id="lyrLate" title="The words come too early: show them half a second later">later</button></span></div></div>
     <div class="np">
       <div class="kind" id="kind">standing by</div>
       <div class="titlerow"><h1 id="title">Pale Blue Dot</h1><button class="heart" id="btnHeart" aria-label="Favorite this song" aria-pressed="false" title="Add to favorites" disabled><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></button></div>
@@ -229,6 +244,7 @@ body.mini .app{gap:6px}
     <button class="pill" id="btnLib">Library</button>
     <button class="ico" id="btnRun" title="Genre run: play the next 20 to 40 songs from one genre" aria-label="Genre run"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4M21 12h0"/></svg></button>
     <button class="ico" id="btnNewsNow" title="The news, now" aria-label="Play the news now"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H6a2 2 0 01-2-2z"/><path d="M17 9h3v8a2 2 0 01-2 2"/><path d="M7 9h7M7 12h7M7 15h4"/></svg></button>
+    <button class="ico" id="btnLyrics" title="Lyrics" aria-label="Lyrics" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 6h11M4 10h11M4 14h7"/><circle cx="17" cy="17" r="2.5"/><path d="M19.5 17V7l2-1"/></svg></button>
     <button class="ico" id="btnFocus" title="Focus mode" aria-label="Focus mode"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0116 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg></button>
     <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 000 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button>
   </div>
@@ -429,6 +445,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=6efcf8699a0d800e"></script>
+<script src="app.js?v=a77485d205d36c87"></script>
 </body>
 </html>

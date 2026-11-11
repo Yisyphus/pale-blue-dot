@@ -88,6 +88,7 @@ function mergeLib(a, b) {
   ['cache', 'trim', 'bad'].forEach(k => { out[k] = Object.assign({}, older[k], newer[k]); });
   out.labels = Object.assign({}, older.labels);   // labels: per song, the most recently edited wins
   Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
+  out.lyrOff = Object.assign({}, older.lyrOff, newer.lyrOff);   // lyrics timing you corrected, per song
   out.adCleanups = [...new Set([...(older.adCleanups || []), ...(newer.adCleanups || [])])];
   out.adsHidden = [...new Set([...(older.adsHidden || []), ...(newer.adsHidden || [])])];
   out.focusAdd = byKey([...(older.focusAdd || []), ...(newer.focusAdd || [])], x => x.added || 0).filter(x => alive('focusAdd', x.key, x.added));   // tracks you suggested to a Focus station
@@ -1388,6 +1389,102 @@ async function playPodcast(pod, prev, opts, id) {
   caption((live ? 'Live concert' : 'Podcast') + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), (live ? 'Now playing a live concert: ' : 'Now playing a podcast: ') + ep.t + (ep.a ? ', from ' + ep.a : '') + (marathon ? '.' : '. The music returns when it ends.'));
   busy = false;
 }
+
+// ---------- Lyrics: from LRCLIB (lrclib.net, free and open), synced line by line to where the song really is ----------
+// The line shown follows the player's own position, so skipping, rewinding or seeking inside the song keeps it right.
+// A YouTube upload can start earlier or later than the album version the timing was made for: tap the line being
+// sung to set it right (or ±0.5 s), and that correction is kept for the song on every device.
+let lyrOn = false; try { lyrOn = localStorage.getItem('pbd-lyrics') === '1'; } catch {}
+let lyr = null, lyrLine = -2;   // { key, lines: [{ t, x }] | null, plain, state }
+const lyrCache = new Map();
+const lyrClean = t => String(t || '').replace(/\s*[\(\[][^\)\]]*(remaster|version|edit|mix|live|mono|stereo|demo|official|audio|video|lyric|feat|ft\.)[^\)\]]*[\)\]]/gi, '').replace(/\s+-\s+(\d{4} )?remaster.*$/i, '').replace(/\s+(feat|ft)\.?\s.*$/i, '').trim();
+const lyrArtist = a => String(a || '').split(/\s*(?:,|&| and | x | feat\.?| ft\.?)\s*/i)[0].trim();
+function parseLrc(txt) {
+  const out = [];
+  String(txt || '').split(/\r?\n/).forEach(row => {
+    const tags = [...row.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)], x = row.replace(/\[[^\]]*\]/g, '').trim();
+    tags.forEach(m => out.push({ t: +m[1] * 60 + +m[2], x }));
+  });
+  return out.sort((p, q) => p.t - q.t);
+}
+async function lyrFetch(s, dur) {
+  const id = s.key; if (lyrCache.has(id)) return lyrCache.get(id);
+  try { return await lyrFind(s, dur); } catch (e) { return { state: 'error', retry: Date.now() + 20000 }; }
+}
+async function lyrFind(s, dur) {
+  const id = s.key;
+  // not found is an answer (kept); no answer (offline, busy) is not: it is tried again a little later
+  const q = (o) => fetch('https://lrclib.net/api/' + o).then(r => r.ok ? r.json() : r.status === 404 ? null : Promise.reject(new Error('HTTP ' + r.status)));
+  const enc = encodeURIComponent, a = s.a, t = lyrClean(s.t);
+  let best = await q(`get?artist_name=${enc(a)}&track_name=${enc(t)}` + (dur ? `&duration=${Math.round(dur)}` : ''));
+  if (!best || !(best.syncedLyrics || best.instrumental)) {   // not an exact match: search, and take the synced one closest in length
+    const list = (await q(`search?artist_name=${enc(lyrArtist(a))}&track_name=${enc(t)}`)) || (await q(`search?q=${enc(lyrArtist(a) + ' ' + t)}`)) || [];
+    const ok = list.filter(x => x && (x.syncedLyrics || x.plainLyrics || x.instrumental));
+    const gap = x => dur && x.duration ? Math.abs(x.duration - dur) : 30;
+    best = ok.filter(x => x.syncedLyrics).sort((p, q2) => gap(p) - gap(q2))[0] || ok[0] || best;
+  }
+  const r = !best ? { state: 'none' } : best.instrumental ? { state: 'instrumental' }
+    : best.syncedLyrics ? { state: 'synced', lines: parseLrc(best.syncedLyrics), dur: best.duration || 0 }
+    : best.plainLyrics ? { state: 'plain', plain: best.plainLyrics } : { state: 'none' };
+  lyrCache.set(id, r); if (lyrCache.size > 60) lyrCache.delete(lyrCache.keys().next().value);
+  return r;
+}
+const lyrMsg = t => { const b = $('lyrLines'); b.className = 'lyr-lines'; b.innerHTML = ''; const p = document.createElement('p'); p.className = 'lyr-msg'; p.textContent = t; b.appendChild(p); };
+async function lyrLoad() {
+  if (!lyrOn) return;
+  const s = current;
+  lyrLine = -2; $('lyrNote').textContent = '';
+  if (!s || s.podcast || s.focus || s.sounds) { lyr = null; return lyrMsg(newsOn ? 'the news' : !s ? '' : s.focus ? 'instrumental' : 'no lyrics for this'); }
+  if (lyr && lyr.key === s.key) return lyrPaint(true);
+  lyr = { key: s.key, state: 'loading' }; lyrMsg('looking for the lyrics…');
+  let dur = 0; try { dur = P().getDuration() || 0; } catch {}
+  const r = await lyrFetch(s, dur);
+  if (!current || current.key !== s.key) return;
+  lyr = { key: s.key, ...r };
+  $('lyrNote').textContent = r.state === 'synced' ? 'lrclib.net · tap the line being sung to sync' : r.state === 'plain' ? 'lrclib.net · not synced' : '';
+  if (r.state === 'error') return lyrMsg('the lyrics site did not answer. Trying again in a moment…');
+  if (r.state === 'none') return lyrMsg('no lyrics found for this song');
+  if (r.state === 'instrumental') return lyrMsg('instrumental');
+  if (r.state === 'plain') { const b = $('lyrLines'); b.className = 'lyr-lines plain'; b.innerHTML = ''; r.plain.split(/\r?\n/).forEach(l => { const p = document.createElement('p'); p.textContent = l || ' '; b.appendChild(p); }); return; }
+  lyrPaint(true);
+}
+const lyrOffset = () => (lib.lyrOff && lyr && lib.lyrOff[lyr.key]) || 0;
+function lyrNow() { try { return (P().getCurrentTime() || 0) + lyrOffset(); } catch { return 0; } }
+function lyrPaint(force) {
+  if (!lyrOn || !lyr || lyr.state !== 'synced' || !current || current.key !== lyr.key) return;
+  const L = lyr.lines, t = lyrNow();
+  let i = -1, lo = 0, hi = L.length - 1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (L[m].t <= t + 0.15) { i = m; lo = m + 1; } else hi = m - 1; }
+  if (i === lyrLine && !force) return;
+  lyrLine = i;
+  const b = $('lyrLines'); b.className = 'lyr-lines'; b.innerHTML = '';
+  for (let k = i - 2; k <= i + 2; k++) {
+    const p = document.createElement('p');
+    if (k < 0 || k >= L.length) { p.textContent = k === -1 && i === -1 ? '♪' : ' '; b.appendChild(p); continue; }
+    p.textContent = L[k].x || '♪'; if (k === i) p.className = 'now'; else if (Math.abs(k - i) === 1) p.className = 'near';
+    p.onclick = () => lyrSync(k);
+    b.appendChild(p);
+  }
+}
+function lyrSetOffset(v) {
+  if (!lyr) return; lib.lyrOff = lib.lyrOff || {};
+  lib.lyrOff[lyr.key] = Math.round(v * 10) / 10; if (!lib.lyrOff[lyr.key]) delete lib.lyrOff[lyr.key];
+  saveLib(); lyrPaint(true);
+}
+function lyrSync(k) {   // you tapped the line being sung now: that line starts now
+  let pos = 0; try { pos = P().getCurrentTime() || 0; } catch {}
+  lyrSetOffset(lyr.lines[k].t - pos); toast('Lyrics synced to this song.');
+}
+$('lyrEarly').onclick = () => lyrSetOffset(lyrOffset() + 0.5);
+$('lyrLate').onclick = () => lyrSetOffset(lyrOffset() - 0.5);
+function setLyrics(on) {
+  lyrOn = on; try { localStorage.setItem('pbd-lyrics', on ? '1' : '0'); } catch {}
+  document.body.classList.toggle('lyr', on); $('btnLyrics').classList.toggle('on', on); $('btnLyrics').setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (on) lyrLoad();
+}
+$('btnLyrics').onclick = () => setLyrics(!lyrOn);
+setInterval(() => { if (lyrOn && !document.hidden) { if (current && (!lyr || lyr.key !== current.key || (lyr.state === 'error' && Date.now() > lyr.retry))) { if (lyr && lyr.state === 'error') lyr = null; lyrLoad(); } else if (!current && lyr) { lyr = null; lyrMsg(newsOn ? 'the news' : ''); } else lyrPaint(); } }, 200);
+setTimeout(() => setLyrics(lyrOn), 0);
 
 // ---------- Marathon: chosen parts back to back (commercials, letters, talks, podcasts…), no songs, until you stop ----------
 let marathon = null;   // { kinds, pods, src, i }
