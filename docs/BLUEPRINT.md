@@ -1,6 +1,6 @@
 # Pale Blue Dot Radio: the complete blueprint
 
-A full description of the radio as it is (November 2026), written so that a new chat can build a new version for
+A full description of the radio as it is (12 November 2026), written so that a new chat can build a new version for
 someone else from it without missing anything. Read it with the code: the code is the final word on details.
 
 ---
@@ -46,6 +46,9 @@ The browser cannot search YouTube or read most news sites (CORS), so on the PC a
 - `/api/fetch?url=` reads news sites (only an allowlist of hosts, `NEWS_HOSTS`).
 - `/api/tts` online text-to-speech fallback; `/api/library` (GET/POST) the local copy of the library in `data/`.
 - Commercials: `/api/ads`, `/api/ads/all`, `/api/ads/search`, `/api/ads/edit`, `/api/ads/edits`, `/api/ads/seed`, `/api/ads/refresh`.
+- `/api/ytinfo?id=` one video's own page: title, channel, length, and for a "Topic" upload the track and album named
+  in its description ("Provided to YouTube by …", "Track · Artist", "Album", "℗ …"), plus the description itself.
+- `/api/reach?url=` whether one of the three MP3 converter sites opens right now (only those three).
 - `/api/open?url=` opens a link in the default browser (Windows: `rundll32 url.dll,FileProtocolHandler`, never
   `explorer.exe`, which opened the Documents folder).
 - `/api/update` downloads the newest page files; `/api/restart` hands over to a newly installed `server.js`;
@@ -99,6 +102,13 @@ For a new Windows release: write the version (e.g. `v2026.11.11`) in `tools/rele
 - **"No sound or wrong song? try another version"**: pick another upload; the choice is remembered.
 - **✕ remove this song** (two taps): out of the library (normal mode) or out of the station (Focus mode).
 - **♥ Favorites**, **Previous** (history), **Next**, pause stops everything (song, voice, jingle, ad, bed).
+- **⟲ Repeat** (right of Next): whatever is playing (song, album track, Focus track, episode) starts again when it
+  ends, with no talk, no fade, no next song prepared; stays on until pressed again; Next still moves on.
+- **↓ Download** (left of the title): opens the first MP3 converter that answers (`/api/reach`): **ezconv.org** with
+  the video's link in its address (`?url=`, it starts by itself), else **yttmp3.com.co** or **tubemixlab.com** with
+  the link copied to paste. The quality is chosen on the site. No direct download is built in (the sites have no
+  official interface, and YouTube audio is about 160 kbps whatever the file says).
+- **The caption box** (the host's words, the news) has no height limit, so a whole sentence always shows.
 - **Ambient bed**: a soft pad under the host so the air is never silent.
 
 ### Suggest (the + button)
@@ -192,12 +202,37 @@ breaks may get a small extra: a genre note, a letter + reading, a station ident,
 - Focus tracks never touch the library, history or favorites.
 
 ### Album show (Library > Albums, or Settings > Album show)
-A whole album in its own order, from the artist's YouTube "Topic" channel (`resolveAlbum`: the Topic upload with the
-same title first). Astro introduces the band and the album, plays 3 tracks, pauses to talk about them, and so on to
-the end, then a closing line (`content24.js`: `R.albums` with `tracks`, `intro`, one `notes` entry per 3 tracks,
-`ytArtist` when YouTube spells the name differently; tracklists checked against MusicBrainz, facts from Wikipedia).
-Never programmed; tracks stay out of the library and history; no early fade or trim between tracks; the next track
-is loaded ahead. Next skips a track, Previous goes back one, ■ stop the album. PC only.
+A whole album in its own order. Astro introduces the band and the album, plays 3 tracks, pauses to talk about them,
+and so on to the end, then a closing line. Never programmed; tracks stay out of the library and history; no early
+fade or trim between tracks; the next track is loaded ahead. Next skips a track, Previous goes back one, ■ stops the
+album. PC only (the tracks are found and checked through the helper).
+
+- **`content24.js`**, `R.albums` (20 albums, 211 tracks): `tracks` (order checked against MusicBrainz), `aka` (the same
+  tracks as the official streaming releases title them, e.g. "Nata Ni Thlae", "Breathe (In the Air)", "War Pigs /
+  Luke's Wall"), `lengths` (seconds on the original album, from MusicBrainz and Deezer; a track may have two),
+  `intro`, one `notes` entry per 3 tracks (the last one is said at the end), `ytArtist` / `ytAlbum` when YouTube
+  writes the name differently. Facts from the albums' Wikipedia articles (four written from knowledge when Wikipedia
+  refused the requests: Neutral Milk Hotel, Altın Gün, Yīn Yīn, L'morphine). `R.albumOutros`, `R.albumIntroPlain`.
+- **Which video plays** (`resolveAlbum`), in this order:
+  1. **Videos saved from a playlist** (`lib.albumVideos`, synced). A playlist is read **once**; its videos are matched
+     to the tracks (by title and `aka`, the rest by position when the counts are equal) and saved in the album. From
+     then on those exact videos play; the playlist is never read again and YouTube is not searched for those tracks.
+     `R.albumPlaylists` (the owner's two) and `lib.albumLists` (pasted in Library > Albums) are the playlists; one that
+     matches none of the albums becomes an album of its own (plays straight through, plain intro, no pauses).
+  2. **Otherwise, a YouTube search where every candidate must pass five checks** (anything not proven is skipped,
+     never replaced by another version): it is a Topic upload ("Provided to YouTube by"); its title is the track's own
+     (`foldTrack`/`sameTrack`: only remaster, year, mono/stereo, "feat." may differ; demo, live, remix, edit, acoustic,
+     instrumental, "Pt. Two" make it another recording; "&" = "and", Turkish ı = i); its album line is this album
+     (`albumTitleOk`: whole words, brackets kept; live, remix, demo, session, box sets, compilations refused; "Original
+     Album Mix" accepted); nothing else in its description says live, demo, remix, session, outtake (`otherVersion`;
+     credits and the label line ignored); its length is within 8 s or 3% of the album's (`albumLenOk`).
+- **Before an album starts**, every track is looked up and checked ("Checking the album on YouTube: 4 of 10"); missing
+  tracks are named in a message. With an older PC helper (no `/api/ytinfo`), the show does not start at all.
+- Found videos are kept on the device (`pbd-album-cache6`; the number goes up whenever the rules change, so old picks
+  are forgotten). The Playback report lists every refused upload with the album, title and length its page gave.
+- **Library > Albums**: ▶ Play, **✎** (an album with notes: paste the playlist whose videos it should save, or empty
+  to go back to the checked search; an album of its own: rename it), **✕** remove (two-step, **Restore** at the
+  bottom). `lib.albumHidden`, `lib.albumEdits`, `lib.albumVideos`, `lib.albumLists`: all synced.
 
 ### Marathon (Settings > Marathon)
 Four groups, each a box that ticks or clears all of it (ticking inside ticks the group):
@@ -214,7 +249,9 @@ Previous goes back to the part before (any kind, last 40). Next skips to the nex
 - **`lib`** (the library object): `user` (your songs), `fav`, `lists`, `removed` + `removedTs`, `labels`, `cache`
   (found videos), `trim`, `bad`, `used` (shuffle bags), `hist`, `pod` (played episodes), `podTurn`, `b` (cycle
   position), `settings` (S), `focusAdd` / `focusCustom` (Focus tracks and genres), `lyrOff`, `adNotes`,
-  `adCleanups`, `adsHidden`, `del` (deletion records), `savedAt`.
+  `adCleanups`, `adsHidden`, `albumVideos` (the exact videos of each album, saved from a playlist), `albumLists`
+  (your album playlists), `albumHidden`, `albumEdits`, `del` (deletion records), `savedAt`. Kept on the device only:
+  repeat on/off, lyrics on/off, Focus mode, the album lookups.
 - Stored: on the PC in `data/library.json` (helper); in the browser in `localStorage`; in the cloud in Firestore
   `users/<uid>/radio/main` + `cache` (+ `ads`, daily backups), Google sign-in, rules allow only the owner.
 - **The rule that matters most:** every device's copy is **merged**, never replaced (`mergeLib`). Additions from
@@ -238,6 +275,7 @@ Previous goes back to the part before (any kind, last 40). Next skips to the nex
 | City and country | news sources and plan, Marrakech weather coordinates (`MA`), Arabic news voice, prayer times, dirham, Moroccan holidays, vigilance warnings | Their city, their language, their sources. |
 | Commercials | the Moroccan ads playlist and search (`server.js`: `AD_QUERIES`, `MOROCCO`) | Their country's ads, or none. |
 | Shows | `content23.js` podcast shows, concert sources | Shows they like. |
+| Albums | `content24.js` (20 albums with notes, `R.albumPlaylists`) | Their albums, with tracklists, `aka`, lengths and notes checked the same way. |
 | Voices | defaults (Brian, Emily, Mouna) | Voices in their languages. |
 | Cloud | `firebase-config.js` (owner's Firebase project) | **A new Firebase project** (Auth: Google; Firestore with owner-only rules). Never reuse the owner's. |
 | Website | GitHub Pages URL, `cloud.json` `appUrl` in the installer, `tools/release` names | A new repository and Pages URL; the installer's `cloud.json` pointing to it. |
@@ -256,7 +294,16 @@ Previous goes back to the part before (any kind, last 40). Next skips to the nex
 - Two-tap confirmation for destructive buttons; everything removable can be restored.
 - Data: merge, never overwrite; record deletions with timestamps.
 - YouTube, news sites and Windows cannot be tested from a cloud session: say so, test with stand-ins in a browser
-  (Playwright with mocked `/api/*`), and let the first real run on the PC confirm.
+  (Playwright with mocked `/api/*` and a stub YouTube iframe API), and let the first real run on the PC confirm.
+  Never claim something was checked when it could not be.
+- **Exact versions** (learned the hard way on the album show): a matching title on the artist's Topic channel is not
+  proof. Topic channels hold the same song from remixes, box sets, demos and live albums, often with identical titles.
+  Prove it with the video's own page (album line, track line, description) and the length; skip what cannot be
+  proven; never fall back to an unchecked match, not even with an older helper.
+- Take track titles from the **official streaming releases** (Deezer, Apple Music: they match YouTube's Topic
+  uploads), not only from MusicBrainz, and compare every one before shipping. Watch for special letters (ı), "&",
+  "Pt. 1 / Pt. One", and tracks that have two official lengths.
+- When the user gives exact sources (a playlist), save what they point to (the video ids) and stick to it.
 
 ---
 
