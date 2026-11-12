@@ -1420,12 +1420,13 @@ const foldT = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, 
 // remix, edit, acoustic or instrumental make it another recording (only "remastered", a year, "mono"… may differ).
 // 2) Its YouTube page is opened: a Topic upload names its album, which must be this album (not a box set, a live
 // album, a compilation). 3) Anything not proven right is skipped, never played. Kept once found.
-const foldTrack = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const foldTrack = x => String(x || '').replace(/ı/g, 'i').replace(/İ/g, 'I').replace(/&/g, ' and ').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   .replace(/[\(\[]\s*(including|feat\.?|ft\.?|featuring|with)\s[^\)\]]*[\)\]]/g, ' ').replace(/\s(feat\.?|ft\.?|featuring)\s.*$/, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ')
   .replace(/\b(\d{4}|remaster|remastered|remasters|version|mono|stereo|digital|anniversary|edition|original|album|mix)\b/g, ' ').replace(/\s+/g, ' ').trim();
-const sameTrack = (got, want) => foldTrack(got) === foldTrack(want);
+const sameTrack = (got, want) => [].concat(want).some(w => foldTrack(got) === foldTrack(w));
+const trackNames = (al, n) => [al.tracks[n], ...((al.aka && al.aka[n]) || [])];   // its title, and how official releases also title it
 const albumTitleOk = (got, al) => {
-  const foldA = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();   // brackets kept: "(2016 Remix)" counts
+  const foldA = x => String(x || '').replace(/ı/g, 'i').replace(/&/g, ' and ').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();   // brackets kept: "(2016 Remix)" counts
   const g = foldA(got), w = foldA(al.ytAlbum || al.title), at = (' ' + g + ' ').indexOf(' ' + w + ' ');
   if (!g || at < 0) return false;   // the album's name, as whole words ("John Lennon/Plastic Ono Band", "Paranoid (Remastered)")
   const rest = (g.slice(0, at) + ' ' + g.slice(at + w.length)).replace(/\b(original )?album mix\b|\boriginal mix\b/g, '').trim();   // "Original Album Mix" is the album itself
@@ -1446,7 +1447,7 @@ function otherVersion(desc, al) {
 function albumLenOk(al, n, sec) {
   const want = al.lengths && al.lengths[n]; if (!want) return true;
   if (!sec) return false;   // a length that cannot be read is not a proof
-  return Math.abs(sec - want) <= Math.max(8, want * 0.03);
+  return [].concat(want).some(w => Math.abs(sec - w) <= Math.max(8, w * 0.03));   // a track can have two official lengths
 }
 let helperChecks = null;   // does this PC's helper read a video's album? (older helpers cannot)
 async function canCheckAlbums() {
@@ -1455,7 +1456,7 @@ async function canCheckAlbums() {
 }
 async function resolveAlbum(s) {
   const pv = albumVideo(albumById(s.album) || {}, s.n); if (pv) return (s.cands = [pv]);   // your playlist chose this very version
-  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache5') || '{}'); } catch {}
+  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache6') || '{}'); } catch {}
   if (cache[s.key] && cache[s.key].length) return (s.cands = cache[s.key]);
   if (!(await canCheckAlbums())) return [];
   const al = albumById(s.album), artist = al.ytArtist || al.artist;
@@ -1463,12 +1464,12 @@ async function resolveAlbum(s) {
   const pool = [], seen = new Set();
   for (const q of [artist + ' ' + al.title + ' ' + s.t, artist + ' ' + s.t + ' topic', artist + ' - ' + s.t + ' ' + al.title]) {
     try { const r = await (await fetch('/api/search?q=' + encodeURIComponent(q) + '&a=' + encodeURIComponent(artist) + '&t=' + encodeURIComponent(s.t))).json(); if (Array.isArray(r)) r.forEach(v => { if (v && v.id && !seen.has(v.id)) { seen.add(v.id); pool.push(v); } }); } catch {}
-    for (const v of pool.filter(v => topic(v) && sameTrack(v.title, s.t) && !v._checked).slice(0, 6)) {
+    for (const v of pool.filter(v => topic(v) && sameTrack(v.title, trackNames(al, s.n)) && !v._checked).slice(0, 6)) {
       v._checked = true;
       let info = null; try { const r = await fetch('/api/ytinfo?id=' + v.id); if (r.ok) info = await r.json(); } catch {}
       const len = albumLenOk(al, s.n, (info && info.seconds) || v.seconds);
-      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, s.t) && !otherVersion(info.desc, al) && len) {
-        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache5', JSON.stringify(cache)); } catch {}
+      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, trackNames(al, s.n)) && !otherVersion(info.desc, al) && len) {
+        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache6', JSON.stringify(cache)); } catch {}
         rlog('album track', { track: s.key, id: v.id, album: info.album, title: info.track || v.title });
         return (s.cands = c);
       }
@@ -1493,16 +1494,16 @@ const plTitle = v => { const t = splitTitle(v).t || v.title; return foldTrack(St
 function plMatch(items) {   // the album whose tracks these videos are: most tracks found, at least 60% (and 3) of them
   let best = null;
   (R.albums || []).forEach(al => {
-    const want = al.tracks.map(t => foldTrack(String(t).replace(/[\(\[][^\)\]]*[\)\]]/g, ' ')));
-    const map = {}; items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w && w === f && !(k in map)); if (i >= 0) map[i] = v; });
+    const want = al.tracks.map((t, k) => trackNames(al, k).map(x => foldTrack(String(x).replace(/[\(\[][^\)\]]*[\)\]]/g, ' '))));
+    const map = {}; items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w.includes(f) && !(k in map)); if (i >= 0) map[i] = v; });
     const n = Object.keys(map).length;
     if (n >= Math.max(3, Math.ceil(al.tracks.length * 0.6)) && (!best || n > best.n)) best = { id: al.id, n, map };
   });
   return best;
 }
 function plMatchTo(al, items) {   // a playlist you attached to this album: tracks by title, and the rest by position
-  const want = al.tracks.map(t => foldTrack(String(t).replace(/[\(\[][^\)\]]*[\)\]]/g, ' '))), map = {}, used = new Set();
-  items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w && w === f && !(k in map)); if (i >= 0) { map[i] = v; used.add(v.id); } });
+  const want = al.tracks.map((t, k) => trackNames(al, k).map(x => foldTrack(String(x).replace(/[\(\[][^\)\]]*[\)\]]/g, ' ')))), map = {}, used = new Set();
+  items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w.includes(f) && !(k in map)); if (i >= 0) { map[i] = v; used.add(v.id); } });
   if (items.length === al.tracks.length) al.tracks.forEach((t, k) => { if (!(k in map) && !used.has(items[k].id)) map[k] = items[k]; });
   return { id: al.id, n: Object.keys(map).length, map };
 }

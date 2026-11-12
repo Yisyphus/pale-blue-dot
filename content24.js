@@ -23,6 +23,7 @@
     {
       id: 'dsotm', artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: 1973,
       tracks: ['Speak to Me', 'Breathe', 'On the Run', 'Time', 'The Great Gig in the Sky', 'Money', 'Us and Them', 'Any Colour You Like', 'Brain Damage', 'Eclipse'],
+      aka: { 1: ['Breathe (In the Air)'] },   // the same tracks as the official streaming releases title them
       lengths: [64, 169, 216, 422, 284, 380, 472, 205, 230, 126],   // seconds, on the original album
       intro: 'Tonight, a whole album, in order, the way it was meant to be heard. Pink Floyd, The Dark Side of the Moon, from 1973. Roger Waters wanted an album about the things that make people mad: time, money, war, death, and the pressure of living the life of a rock band. It was also about their old friend Syd Barrett, who founded the band and lost his way. They played it on stage for more than a year before it came out, and recorded it at Abbey Road, with a young engineer called Alan Parsons. It became one of the best selling albums in history, more than forty five million copies, and it stayed on the American chart for almost a thousand weeks. Each side is one continuous piece of music, and it begins, and ends, with a heartbeat. Here it is.',
       notes: [
@@ -47,7 +48,7 @@
     {
       id: 'court', artist: 'King Crimson', title: 'In the Court of the Crimson King', year: 1969,
       tracks: ['21st Century Schizoid Man (including Mirrors)', 'I Talk to the Wind', 'Epitaph (including March for No Reason and Tomorrow and Tomorrow)', 'Moonchild (including The Dream and The Illusion)', 'The Court of the Crimson King (including The Return of the Fire Witch and The Dance of the Puppets)'],
-      lengths: [444, 365, 528, 733, 563],   // seconds, on the original album
+      lengths: [444, 365, 528, 733, [563, 602]],   // seconds; the last track runs 10:02 on the expanded edition
       intro: 'A whole album now, the one many people call the first true progressive rock record. King Crimson, In the Court of the Crimson King, An Observation by King Crimson, released in October 1969. It was their debut. Robert Fripp on guitar, Greg Lake singing and on bass, Ian McDonald on Mellotron, flute and saxophones, Michael Giles on drums, and Peter Sinfield, who wrote the words. Three months earlier they had opened for the Rolling Stones in Hyde Park, in front of hundreds of thousands of people. They produced the album themselves, and McDonald spent hours layering Mellotron and woodwinds to get that huge, orchestral sound. The words are about war, power, and the futility of it all. And the face on the cover was painted by Barry Godber, a computer programmer, using his own face in a mirror. It was the only painting he ever made. He died a few months later, at twenty four. Five pieces. Here is the first.',
       notes: [
         '21st Century Schizoid Man, I Talk to the Wind, and Epitaph. The first has been called the first alternative anthem; Robert Fripp never rocked harder than that. Then the soft side: I Talk to the Wind is the only song here from the band that came before King Crimson, Giles, Giles and Fripp, and Peter Sinfield said its words were still his favourite lyric, decades later. And Epitaph, "confusion will be my epitaph". For that slow, moving sound, Ian McDonald recorded two Mellotron parts and kept shifting their volumes against each other while mixing. Two pieces left.',
@@ -118,6 +119,7 @@
     {
       id: 'paranoid', artist: 'Black Sabbath', title: 'Paranoid', year: 1970,
       tracks: ['War Pigs', 'Paranoid', 'Planet Caravan', 'Iron Man', 'Electric Funeral', 'Hand of Doom', 'Rat Salad', 'Fairies Wear Boots'],
+      aka: { 0: ["War Pigs / Luke's Wall", "War Pigs (Interpolating Luke's Wall)"], 7: ['Jack the Stripper / Fairies Wear Boots'] },   // the same tracks as the official streaming releases title them
       lengths: [476, 170, 270, 356, 290, 428, 150, 374],   // seconds, on the original album
       intro: 'A whole album now, the record many call the greatest heavy metal album ever made. Black Sabbath, Paranoid, from 1970. Four young men from Birmingham: Tony Iommi on guitar, Geezer Butler on bass, who wrote most of the words, Bill Ward on drums, and Ozzy Osbourne singing. Their first album had come out only four months earlier. Most of these songs were born in a club in Zurich, where they had to play seven sets of forty five minutes a day for six weeks, so they stretched each song into a long jam. They recorded the album in London in two or three days. It was going to be called War Pigs. While everyone else sang about flowers in your hair, they sang about war, drugs, and the end of the world. Here it is.',
       notes: [
@@ -129,6 +131,7 @@
     {
       id: 'gbu', artist: 'Ennio Morricone', title: 'The Good, the Bad and the Ugly', year: 1966,
       tracks: ['The Good, the Bad and the Ugly', 'The Sundown', 'The Strong', 'The Desert', 'The Carriage of the Spirits', 'Marcia', 'The Story of a Soldier', 'Marcia Without Hope', 'The Death of a Soldier', 'The Ecstasy of Gold', 'The Trio'],
+      aka: { 0: ['The Good, the Bad and the Ugly (Main Title)', 'The Good, the Bad and the Ugly (Titles)', 'Il buono, il brutto, il cattivo', 'Il buono, il brutto, il cattivo (Titoli)'], 1: ['Il tramonto'], 8: ['Death of a Soldier'], 10: ['The Trio (Main Title)', 'Il triello'] },   // the same tracks as the official streaming releases title them
       lengths: [158, 72, 140, 311, 126, 169, 230, 100, 185, 203, 300],   // seconds: the 2004 remaster (the 1966 LP is within a few seconds)
       intro: 'A whole album now, and no songs, only music. Ennio Morricone, The Good, the Bad and the Ugly, the score for Sergio Leone\'s western, from 1966. Morricone filled it with gunshots, whistling, yodelling and electric guitar. The main theme is a two note cry, like a coyote howling, and it belongs to the three men of the story: a flute for Blondie, the good, an ocarina for Angel Eyes, the bad, and human voices for Tuco, the ugly. The film is set during the American Civil War, and the music carries both the dust and the grief. This is the original album, eleven pieces. Imagine the desert.',
       notes: [
@@ -213,6 +216,7 @@
     {
       id: 'aeroplane', artist: 'Neutral Milk Hotel', title: 'In the Aeroplane Over the Sea', year: 1998,
       tracks: ['The King of Carrot Flowers, Pt. One', 'The King of Carrot Flowers, Pts. Two & Three', 'In the Aeroplane Over the Sea', 'Two-Headed Boy', 'The Fool', 'Holland, 1945', 'Communist Daughter', 'Oh Comely', 'Ghost', '[untitled]', 'Two-Headed Boy, Pt. Two'],
+      aka: { 0: ['King of Carrot Flowers, Pt. 1', 'The King of Carrot Flowers, Pt. 1'], 1: ['King of Carrot Flowers, Pts. 2 & 3', 'The King of Carrot Flowers, Pts. 2 & 3'], 10: ['Two-Headed Boy, Pt. 2'] },   // the same tracks as the official streaming releases title them
       lengths: [120, 186, 202, 266, 113, 192, 117, 498, 248, 136, 314],   // seconds, on the original album
       intro: 'A whole album now, and a strange, beloved one. Neutral Milk Hotel, In the Aeroplane Over the Sea, from 1998. Neutral Milk Hotel was Jeff Mangum, a songwriter from Louisiana, part of a circle of friends and bands called the Elephant 6 collective, with Julian Koster on singing saw and accordion, Scott Spillane on horns, and Jeremy Barnes on drums. They recorded it in Denver with Robert Schneider of the Apples in Stereo. Before writing it, Mangum read The Diary of Anne Frank, and it shook him so deeply that she haunts the whole record: love, death, bodies, ghosts, and a girl who should have lived. When it came out, few people noticed. Mangum toured a little, then disappeared from public life for years, while the album slowly became one of the most loved records of its time, passed from friend to friend. It begins with a boy and his family.',
       notes: [
@@ -248,6 +252,7 @@
     {
       id: 'rabbit', artist: 'Yīn Yīn', title: 'The Rabbit That Hunts Tigers', year: 2019, ytArtist: 'YĪN YĪN',
       tracks: ['Nătā Ni Thale', 'Pingpxng', 'One Inch Punch', 'Lotus', 'Thōm Kï Kï', 'On Yīep', 'Alpaca Mountain', 'Kroy Wen', 'Suì Yè', 'The Rabbit That Hunts Tigers', 'A Ballad for Chong Wang', 'The Sacred Valley of Cusco', 'Dis ko Dis ko'],
+      aka: { 0: ['Nata Ni Thlae'] },   // the same tracks as the official streaming releases title them
       lengths: [54, 159, 308, 110, 221, 53, 335, 177, 233, 348, 84, 282, 260],   // seconds, on the original album
       intro: 'A whole album now, almost without words. Yin Yin, The Rabbit That Hunts Tigers, from 2019, their first album. Yin Yin come from Maastricht, in the south of the Netherlands, and they fell in love with the music of Southeast Asia from the sixties and seventies: Thai funk, the psychedelic rock of Cambodia before the Khmer Rouge, the surf guitars of the region, all mixed with disco and Dutch grooves. It is mostly instrumental, built on bass lines, bright guitars with that twangy Asian tuning, and hand percussion. The titles are full of jokes and travels. A rabbit that hunts tigers: the small one, braver than it should be. Let it play.',
       notes: [
