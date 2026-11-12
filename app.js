@@ -1426,13 +1426,20 @@ function otherVersion(desc, al) {
     return /\b(recorded live|live (at|in|from|on)|live recording|in concert|demo|demos|remix|remixed|rehearsal|outtake|alternate take|alternative take|early take|session|bbc)\b/.test(x) && !/^℗|^©|^(producer|composer|lyricist|writer|engineer|mixing|mastering|associated)/.test(x.trim());
   });
 }
+// 5) The length: within 8 seconds (3% for long tracks) of the track on the original album (content24.js
+// lengths, from MusicBrainz and Deezer). Live takes, demos, edits and remixes rarely last the same time.
+function albumLenOk(al, n, sec) {
+  const want = al.lengths && al.lengths[n]; if (!want) return true;
+  if (!sec) return false;   // a length that cannot be read is not a proof
+  return Math.abs(sec - want) <= Math.max(8, want * 0.03);
+}
 let helperChecks = null;   // does this PC's helper read a video's album? (older helpers cannot)
 async function canCheckAlbums() {
   if (helperChecks === null) { try { helperChecks = (await fetch('/api/ytinfo?id=xxxxxxxxxxx')).status !== 404; } catch { helperChecks = false; } }
   return helperChecks;
 }
 async function resolveAlbum(s) {
-  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache4') || '{}'); } catch {}
+  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache5') || '{}'); } catch {}
   if (cache[s.key] && cache[s.key].length) return (s.cands = cache[s.key]);
   if (!(await canCheckAlbums())) return [];
   const al = (R.albums || []).find(x => x.id === s.album), artist = al.ytArtist || al.artist;
@@ -1443,12 +1450,13 @@ async function resolveAlbum(s) {
     for (const v of pool.filter(v => topic(v) && sameTrack(v.title, s.t) && !v._checked).slice(0, 6)) {
       v._checked = true;
       let info = null; try { const r = await fetch('/api/ytinfo?id=' + v.id); if (r.ok) info = await r.json(); } catch {}
-      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, s.t) && !otherVersion(info.desc, al)) {
-        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache4', JSON.stringify(cache)); } catch {}
+      const len = albumLenOk(al, s.n, (info && info.seconds) || v.seconds);
+      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, s.t) && !otherVersion(info.desc, al) && len) {
+        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache5', JSON.stringify(cache)); } catch {}
         rlog('album track', { track: s.key, id: v.id, album: info.album, title: info.track || v.title });
         return (s.cands = c);
       }
-      rlog('album: not this album, skipped', { track: s.key, id: v.id, album: info && info.album, title: info && (info.track || info.title) });
+      rlog('album: not this album, skipped', { track: s.key, id: v.id, album: info && info.album, title: info && (info.track || info.title), seconds: (info && info.seconds) || v.seconds, expected: al.lengths && al.lengths[s.n], lengthOk: len });
     }
   }
   rlog('album: the album version was not found', { track: s.key });

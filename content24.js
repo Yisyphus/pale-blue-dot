@@ -17,6 +17,7 @@
     {
       id: 'dsotm', artist: 'Pink Floyd', title: 'The Dark Side of the Moon', year: 1973,
       tracks: ['Speak to Me', 'Breathe', 'On the Run', 'Time', 'The Great Gig in the Sky', 'Money', 'Us and Them', 'Any Colour You Like', 'Brain Damage', 'Eclipse'],
+      lengths: [64, 169, 216, 422, 284, 380, 472, 205, 230, 126],   // seconds, on the original album
       intro: 'Tonight, a whole album, in order, the way it was meant to be heard. Pink Floyd, The Dark Side of the Moon, from 1973. Roger Waters wanted an album about the things that make people mad: time, money, war, death, and the pressure of living the life of a rock band. It was also about their old friend Syd Barrett, who founded the band and lost his way. They played it on stage for more than a year before it came out, and recorded it at Abbey Road, with a young engineer called Alan Parsons. It became one of the best selling albums in history, more than forty five million copies, and it stayed on the American chart for almost a thousand weeks. Each side is one continuous piece of music, and it begins, and ends, with a heartbeat. Here it is.',
       notes: [
         'Speak to Me, Breathe, and On the Run. The heartbeat at the start is a bass drum, treated to sound like a human heart. Speak to Me is a kind of overture, built by Nick Mason from pieces of the whole album. Breathe tells you to live your own life, "don\'t be afraid to care". And On the Run is the sound of modern travel and its anxiety, inspired in part by Richard Wright\'s fear of flying. The footsteps running through it belong to an assistant engineer, Peter James, running around the studio\'s echo chamber. Now comes Time, and all those clocks.',
@@ -28,6 +29,7 @@
     {
       id: 'obc', artist: 'Pink Floyd', title: 'Obscured by Clouds', year: 1972,
       tracks: ['Obscured by Clouds', "When You're In", 'Burning Bridges', "The Gold It's in The...", "Wot's... Uh the Deal", 'Mudmen', "Childhood's End", 'Free Four', 'Stay', 'Absolutely Curtains'],
+      lengths: [185, 151, 210, 187, 309, 257, 273, 256, 247, 352],   // seconds, on the original album
       intro: 'A whole album now: Pink Floyd, Obscured by Clouds, from 1972. It is the quiet one, the album people forget, made in a hurry between other things. The French director Barbet Schroeder asked them for the music to his film La Vallée, about travellers on a spiritual quest in New Guinea. Pink Floyd had already started The Dark Side of the Moon, but they took two short breaks at a château near Paris, watched a rough cut of the film with a stopwatch, and wrote these songs in two short, hurried sessions. Then they fell out with the film company, and released the music under its own name, Obscured by Clouds. The songs are short, warm, a little country, and you can hear the next album breathing inside them.',
       notes: [
         'Obscured by Clouds, When You\'re In, and Burning Bridges. The title track uses the VCS 3 synthesiser, which Richard Wright bought from the BBC Radiophonic Workshop, and Nick Mason plays electronic drums on it. When You\'re In is a riff David Gilmour found and the band jammed on; its title was something one of their roadies used to say. Burning Bridges is music by Wright with words by Roger Waters. They played the first two back to back on stage for a long time.',
@@ -39,6 +41,7 @@
     {
       id: 'court', artist: 'King Crimson', title: 'In the Court of the Crimson King', year: 1969,
       tracks: ['21st Century Schizoid Man (including Mirrors)', 'I Talk to the Wind', 'Epitaph (including March for No Reason and Tomorrow and Tomorrow)', 'Moonchild (including The Dream and The Illusion)', 'The Court of the Crimson King (including The Return of the Fire Witch and The Dance of the Puppets)'],
+      lengths: [444, 365, 528, 733, 563],   // seconds, on the original album
       intro: 'A whole album now, the one many people call the first true progressive rock record. King Crimson, In the Court of the Crimson King, An Observation by King Crimson, released in October 1969. It was their debut. Robert Fripp on guitar, Greg Lake singing and on bass, Ian McDonald on Mellotron, flute and saxophones, Michael Giles on drums, and Peter Sinfield, who wrote the words. Three months earlier they had opened for the Rolling Stones in Hyde Park, in front of hundreds of thousands of people. They produced the album themselves, and McDonald spent hours layering Mellotron and woodwinds to get that huge, orchestral sound. The words are about war, power, and the futility of it all. And the face on the cover was painted by Barry Godber, a computer programmer, using his own face in a mirror. It was the only painting he ever made. He died a few months later, at twenty four. Five pieces. Here is the first.',
       notes: [
         '21st Century Schizoid Man, I Talk to the Wind, and Epitaph. The first has been called the first alternative anthem; Robert Fripp never rocked harder than that. Then the soft side: I Talk to the Wind is the only song here from the band that came before King Crimson, Giles, Giles and Fripp, and Peter Sinfield said its words were still his favourite lyric, decades later. And Epitaph, "confusion will be my epitaph". For that slow, moving sound, Ian McDonald recorded two Mellotron parts and kept shifting their volumes against each other while mixing. Two pieces left.',
@@ -48,6 +51,7 @@
     {
       id: 'discovery', artist: 'Daft Punk', title: 'Discovery', year: 2001,
       tracks: ['One More Time', 'Aerodynamic', 'Digital Love', 'Harder, Better, Faster, Stronger', 'Crescendolls', 'Nightvision', 'Superheroes', 'High Life', 'Something About Us', 'Voyager', 'Veridis Quo', 'Short Circuit', 'Face to Face', 'Too Long'],
+      lengths: [320, 212, 301, 226, 211, 104, 237, 201, 232, 227, 345, 206, 240, 600],   // seconds, on the original album
       intro: 'A whole album now, and a happy one. Daft Punk, Discovery, from 2001. Thomas Bangalter and Guy-Manuel de Homem-Christo made it over two years in Bangalter\'s home in Paris. Their first album, Homework, was raw Chicago house. This one is about childhood: the music, the films and the cartoons of the years they grew up, from 1975 to 1985, heard the way a child hears music, without judging it. They told the press that on the ninth of September, 1999, at nine minutes past nine, their sampler exploded, and when they woke up after surgery, they had become robots. That is when the helmets came. They also made the whole album into an anime film, Interstella 5555, with their childhood hero, Leiji Matsumoto. Fourteen tracks. Here we go.',
       notes: [
         'One More Time, Aerodynamic, and Digital Love. One More Time was one of the first things they made for the album, in 1998, and it sat on a shelf for two years. The voice is the house singer Romanthony, squeezed through Auto-Tune in a way, they said, it was not designed to work. Aerodynamic is funk, then a fast, arpeggiated guitar solo, then something spacier. And Digital Love has lyrics by DJ Sneak and a solo played on a Wurlitzer electric piano. They wanted guitars that sound like synthesisers, and synthesisers that sound like guitars.',
@@ -60,6 +64,7 @@
     {
       id: 'racine', artist: 'Stromae', title: 'Racine carrée', year: 2013,
       tracks: ['Ta fête', 'Papaoutai', 'Bâtard', 'Ave Cesaria', 'Tous les mêmes', 'Formidable', 'Moules frites', 'Carmen', "Humain à l'eau", "Quand c'est ?", 'Sommeil', 'Merci', 'Avf'],
+      lengths: [177, 232, 209, 250, 213, 214, 159, 189, 239, 181, 219, 234, 225],   // seconds, on the original album
       intro: 'A whole album now, in French. Stromae, Racine carrée, square root, from 2013. Stromae is Paul Van Haver, from Brussels. His stage name is maestro, with the syllables turned around. His mother is Belgian, his father was Rwandan, and his father was killed in the genocide of 1994, when Paul was nine. On this album he mixed the dance music of the nineties with Congolese rumba, Caribbean rhythms and Cuban sounds, the music of his roots. He recorded it in an attic. The songs dance, but they talk about loneliness on social networks, cancer, AIDS, discrimination, absent fathers. People compared him to Jacques Brel. In France it sold a million copies in four months. Here it is.',
       notes: [
         'Ta fête, Papaoutai, and Bâtard. Papaoutai, papa, where are you, is the song about the absent father, a dance song about the saddest thing, and in the video Stromae plays a father who does not move, a mannequin his son keeps trying to reach. Bâtard is about being mixed, belonging to neither side, and refusing to choose.',
@@ -72,6 +77,7 @@
     {
       id: 'fmb', artist: 'King Gizzard & the Lizard Wizard', title: 'Flying Microtonal Banana', year: 2017,
       tracks: ['Rattlesnake', 'Melting', 'Open Water', 'Sleep Drifter', 'Billabong Valley', 'Anoxia', 'Doom City', 'Nuclear Fusion', 'Flying Microtonal Banana'],
+      lengths: [468, 327, 434, 285, 215, 184, 194, 255, 154],   // seconds, on the original album
       intro: 'A whole album now, and a strange tuning. King Gizzard and the Lizard Wizard, from Melbourne, Flying Microtonal Banana, from 2017. Its subtitle is Explorations into Microtonal Tuning, Volume One. Western music divides the octave into twelve notes. This album divides it into twenty four, quarter tones, the notes in between, the ones you hear in Turkish and Middle Eastern music. The band had their guitars and basses refitted with extra frets, and added a zurna, a Turkish wind instrument. The name comes from Stu Mackenzie\'s custom guitar: it is yellow. It was the first of five albums they released that year, five. Listen to how the notes bend.',
       notes: [
         'Rattlesnake, Melting, and Open Water. Rattlesnake repeats its own name until it becomes a trance, and it was the first single. Melting slows down into something hot and liquid. And Open Water rides one hypnotic groove, the zurna wailing on top. This is krautrock and Anatolian psychedelia, played by six Australians.',
@@ -82,6 +88,7 @@
     {
       id: 'kg', artist: 'King Gizzard & the Lizard Wizard', title: 'K.G.', year: 2020,
       tracks: ['K.G.L.W.', 'Automation', 'Minimum Brain Size', 'Straws in the Wind', 'Some of Us', 'Ontology', 'Intrasport', 'Oddlife', 'Honey', 'The Hungry Wolf of Fate'],
+      lengths: [97, 210, 259, 342, 233, 238, 253, 298, 274, 308],   // seconds, on the original album
       intro: 'A whole album now. King Gizzard and the Lizard Wizard, K.G., from November 2020, subtitled Explorations into Microtonal Tuning, Volume Two. It is the sequel to Flying Microtonal Banana, three years later, with the same quarter tones, the notes between the notes. It was made during the year the world stopped, and the members recorded their parts apart, in their own homes, and sent them to each other. The band released one of its songs with all its separate tracks, the vocals, the violin, the flute, and invited fans to make their own versions. Ten tracks.',
       notes: [
         'K.G.L.W., Automation, and Minimum Brain Size. The first is a short overture with the band\'s initials. Automation is the one they gave away, every separate track of it, for anyone to remix and make videos with. And Minimum Brain Size is fast and anxious. The six of them, Stu Mackenzie, Ambrose Kenny-Smith, Cook Craig, Joey Walker, Lucas Harwood and Michael Cavanagh, wrote and played in turns.',
@@ -93,6 +100,7 @@
     {
       id: 'polygon', artist: 'King Gizzard & the Lizard Wizard', title: 'Polygondwanaland', year: 2017,
       tracks: ['Crumbling Castle', 'Polygondwanaland', 'The Castle in the Air', 'Deserted Dunes Welcome Weary Feet', 'Inner Cell', 'Loyalty', 'Horology', 'Tetrachromacy', 'Searching...', 'The Fourth Colour'],
+      lengths: [644, 213, 168, 214, 236, 219, 172, 211, 184, 372],   // seconds, on the original album
       intro: 'A whole album now, and a free one. King Gizzard and the Lizard Wizard, Polygondwanaland, from November 2017, their fourth album that year. The title joins polygon and Gondwanaland, the ancient supercontinent that once held Australia. When they announced it, they wrote: this album is free, free as in free. They did not sell it at all. They put the master tapes online, even a master for vinyl, and told everyone to make their own copies. Eighty eight labels around the world pressed it, in a hundred and eighty eight versions. It is progressive rock, and not one song on it is entirely in four four time. It opens with ten minutes of a crumbling castle.',
       notes: [
         'Crumbling Castle, Polygondwanaland, and The Castle in the Air. Crumbling Castle had been played live a year before, in a much shorter form, and fans thought it was lost. The title track thrums, and The Castle in the Air sounds tribal, with a spoken story inside it. The album tells of a world threatened by ecological disaster, a failed uprising, and survivors who rebuild themselves with machines.',
@@ -104,6 +112,7 @@
     {
       id: 'paranoid', artist: 'Black Sabbath', title: 'Paranoid', year: 1970,
       tracks: ['War Pigs', 'Paranoid', 'Planet Caravan', 'Iron Man', 'Electric Funeral', 'Hand of Doom', 'Rat Salad', 'Fairies Wear Boots'],
+      lengths: [476, 170, 270, 356, 290, 428, 150, 374],   // seconds, on the original album
       intro: 'A whole album now, the record many call the greatest heavy metal album ever made. Black Sabbath, Paranoid, from 1970. Four young men from Birmingham: Tony Iommi on guitar, Geezer Butler on bass, who wrote most of the words, Bill Ward on drums, and Ozzy Osbourne singing. Their first album had come out only four months earlier. Most of these songs were born in a club in Zurich, where they had to play seven sets of forty five minutes a day for six weeks, so they stretched each song into a long jam. They recorded the album in London in two or three days. It was going to be called War Pigs. While everyone else sang about flowers in your hair, they sang about war, drugs, and the end of the world. Here it is.',
       notes: [
         'War Pigs, Paranoid, and Planet Caravan. War Pigs was first called Walpurgis; Geezer Butler said the real satanists are the warmongers who send the working class to die for them. The record company found the word too satanic, so it became War Pigs. Paranoid was written as an afterthought, because the album was too short: Iommi played the riff, and the song was done in about twenty minutes. It became their biggest hit. And Planet Caravan is the quiet surprise, Ozzy singing through a rotating Leslie speaker, about floating through the universe with the one you love.',
@@ -114,6 +123,7 @@
     {
       id: 'gbu', artist: 'Ennio Morricone', title: 'The Good, the Bad and the Ugly', year: 1966,
       tracks: ['The Good, the Bad and the Ugly', 'The Sundown', 'The Strong', 'The Desert', 'The Carriage of the Spirits', 'Marcia', 'The Story of a Soldier', 'Marcia Without Hope', 'The Death of a Soldier', 'The Ecstasy of Gold', 'The Trio'],
+      lengths: [158, 72, 140, 311, 126, 169, 230, 100, 185, 203, 300],   // seconds: the 2004 remaster (the 1966 LP is within a few seconds)
       intro: 'A whole album now, and no songs, only music. Ennio Morricone, The Good, the Bad and the Ugly, the score for Sergio Leone\'s western, from 1966. Morricone filled it with gunshots, whistling, yodelling and electric guitar. The main theme is a two note cry, like a coyote howling, and it belongs to the three men of the story: a flute for Blondie, the good, an ocarina for Angel Eyes, the bad, and human voices for Tuco, the ugly. The film is set during the American Civil War, and the music carries both the dust and the grief. This is the original album, eleven pieces. Imagine the desert.',
       notes: [
         'The Good, the Bad and the Ugly, The Sundown, and The Strong. That main theme became a hit in 1968, and the album stayed on the American charts for more than a year. Listen for each character\'s instrument when the theme comes back: flute, ocarina, voices.',
@@ -125,6 +135,7 @@
     {
       id: 'mirrors', artist: 'Gotye', title: 'Making Mirrors', year: 2011,
       tracks: ['Making Mirrors', 'Easy Way Out', 'Somebody That I Used to Know', 'Eyes Wide Open', 'Smoke and Mirrors', 'I Feel Better', 'In Your Light', 'State of the Art', "Don't Worry, We'll Be Watching You", 'Giving Me a Chance', 'Save Me', 'Bronte'],
+      lengths: [61, 118, 241, 191, 313, 198, 279, 322, 199, 187, 233, 194],   // seconds, on the original album
       intro: 'A whole album now. Gotye, Making Mirrors, from 2011. Gotye is Wally De Backer, born in Belgium and raised in Australia; the name comes from Gautier, the French form of Walter. He made this album mostly alone, in a studio on his parents\' farm, south of Melbourne, sampling old records and strange instruments. He said the mirror on the cover is about self-reflection. And while he made it, he struggled with doubt and depression, and wondered if he would ever finish. One of its songs became one of the biggest hits of the decade. The album won a Grammy. And afterwards, he stopped making music as Gotye. Here it is.',
       notes: [
         'Making Mirrors, Easy Way Out, and Somebody That I Used to Know. You know the third one. Gotye sings it with Kimbra, a singer from New Zealand, and the little guitar figure comes from a recording by the Brazilian guitarist Luiz Bonfá. He said it was not about one break-up, but drawn from several. It went to number one around the world, America included, and it became the most successful Australian song ever on the Australian charts.',
@@ -136,6 +147,7 @@
     {
       id: 'lda', artist: 'MGMT', title: 'Little Dark Age', year: 2018,
       tracks: ['She Works Out Too Much', 'Little Dark Age', 'When You Die', 'Me and Michael', 'TSLAMP', 'James', 'Days That Got Away', 'One Thing Left to Try', "When You're Small", 'Hand It Over'],
+      lengths: [278, 299, 263, 289, 270, 232, 284, 260, 210, 253],   // seconds, on the original album
       intro: 'A whole album now. MGMT, Little Dark Age, from 2018. MGMT are Andrew VanWyngarden and Ben Goldwasser, who met as students at Wesleyan University and became famous very young, with Kids and Time to Pretend. Then they spent years making difficult records. For this one they went back to writing the way they did in college, and for the first time they let other people in: Ariel Pink, Connan Mockasin, the French musician Sébastien Tellier. They were recording when Donald Trump was elected, and they said they were more inspired to write pop music after evil took over the world. They called it Little Dark Age because a little dark age is hopeful: it ends. Here it is.',
       notes: [
         'She Works Out Too Much, Little Dark Age, and When You Die. The first is about love in the age of fitness apps and dating apps. The title track was their first single in four years, gothic and danceable at once. And When You Die was written with Ariel Pink, who wrote lyrics on a piece of paper in about four minutes, using things they had just said in the hallway.',
@@ -147,6 +159,7 @@
     {
       id: 'okc', artist: 'Radiohead', title: 'OK Computer', year: 1997,
       tracks: ['Airbag', 'Paranoid Android', 'Subterranean Homesick Alien', 'Exit Music (for a Film)', 'Let Down', 'Karma Police', 'Fitter Happier', 'Electioneering', 'Climbing Up the Walls', 'No Surprises', 'Lucky', 'The Tourist'],
+      lengths: [287, 387, 267, 267, 299, 264, 117, 230, 285, 229, 258, 326],   // seconds, on the original album
       intro: 'A whole album now. Radiohead, OK Computer, from 1997. Five friends from Oxfordshire who did not want to make the same album twice. With the producer Nigel Godrich, they recorded most of it in their rehearsal shed and in an old mansion near Bath, St Catherine\'s Court, using its rooms and staircases for natural echo. Their record company thought it was uncommercial. It went to number one in Britain, won a Grammy, and is often called one of the greatest albums ever made. It is about a world of cars, planes, consumerism, alienation and technology moving too fast, and people say it predicted the century that followed. It begins with a car crash, survived.',
       notes: [
         'Airbag, Paranoid Android, and Subterranean Homesick Alien. Airbag was inspired by a magazine article called An Airbag Saved My Life, and by the Tibetan Book of the Dead; the drums are a few seconds of Phil Selway, cut up on a computer, after the music of DJ Shadow. Paranoid Android is in four sections, inspired by the Beatles and Queen; Thom Yorke wrote it after a bad night in a bar in Los Angeles, and named it after Marvin, the depressed robot in The Hitchhiker\'s Guide to the Galaxy. And Subterranean Homesick Alien is a lonely man dreaming of being taken by aliens, knowing no one would believe him when he came back.',
@@ -158,6 +171,7 @@
     {
       id: 'currents', artist: 'Tame Impala', title: 'Currents', year: 2015,
       tracks: ['Let It Happen', 'Nangs', 'The Moment', "Yes I'm Changing", 'Eventually', 'Gossip', 'The Less I Know the Better', 'Past Life', 'Disciples', "'Cause I'm a Man", 'Reality in Motion', 'Love/Paranoia', 'New Person, Same Old Mistakes'],
+      lengths: [469, 106, 255, 270, 319, 55, 217, 227, 106, 243, 251, 184, 362],   // seconds, on the original album
       intro: 'A whole album now. Tame Impala, Currents, from 2015. Tame Impala is, in the studio, one man: Kevin Parker, from Perth, in Western Australia. He wrote, played, sang, produced and mixed everything on this album, alone, in his house by the beach in Fremantle, with a battered drum kit, a guitar held together with tape, and old synthesisers. He swam in the sea between takes. After two psychedelic rock albums, he turned to synthesisers, disco and the R&B he had been too proud to like as a teenager. He said the album is about becoming someone you thought you would never become. Many heard a break-up in it. The title comes from an abandoned power station near his home, which he used to walk around. It begins with letting go.',
       notes: [
         'Let It Happen, Nangs, and The Moment. Let It Happen is about the moment you realise it takes more energy to shut the chaos out than to let it in. In the middle, the song seems to skip, like a scratched CD, on purpose: Kevin Parker loves glitches. Nangs is a short, woozy interlude. And The Moment is about the point of change, the moment you know it is coming.',
@@ -170,6 +184,7 @@
     {
       id: 'pob', artist: 'John Lennon', title: 'Plastic Ono Band', year: 1970, ytAlbum: 'Plastic Ono Band',
       tracks: ['Mother', 'Hold On', 'I Found Out', 'Working Class Hero', 'Isolation', 'Remember', 'Love', 'Well Well Well', 'Look at Me', 'God', "My Mummy's Dead"],
+      lengths: [333, 110, 215, 228, 172, 272, 201, 356, 174, 252, 48],   // seconds, on the original album
       intro: 'A whole album now, and one of the rawest ever made. John Lennon, Plastic Ono Band, from December 1970, his first real album after the Beatles broke up. That spring, he and Yoko Ono went into primal therapy with Arthur Janov, first in London, then for months in Los Angeles: a therapy that makes you relive the pain of your childhood instead of talking about it. Lennon had a lot to relive. His father left when he was small, his mother gave him to his aunt to raise, and she was killed by a car when he was seventeen. Janov said that at the centre of all that fame was just a lonely little kid. Lennon recorded these songs at Abbey Road with only Ringo Starr on drums and Klaus Voormann on bass, and Phil Spector co-producing. Ringo remembered him bursting into tears, or screaming, in the middle of a take. It begins with a funeral bell.',
       notes: [
         'Mother, Hold On, and I Found Out. Mother ends with Lennon screaming, mama don\'t go, daddy come home, the primal scream itself. Hold On is the opposite, a gentle song telling himself, and Yoko, that it\'s going to be all right; listen for the little joke in the middle, when he says cookie, like the Cookie Monster. And I Found Out is the anger: at gurus, at religion, at everyone who sold him a way out of the pain.',
@@ -181,6 +196,7 @@
     {
       id: 'ilana', artist: 'Mdou Moctar', title: 'Ilana (The Creator)', year: 2019,
       tracks: ['Kamane Tarhanin', 'Asshet Akal', 'Inizgam', 'Anna', 'Takamba', 'Tarhatazed', 'Wiwasharnine', 'Ilana', 'Tumastin'],
+      lengths: [311, 288, 84, 273, 168, 447, 218, 285, 261],   // seconds, on the original album
       intro: 'A whole album now, from the Sahara. Mdou Moctar, Ilana, The Creator, from 2019. Mdou Moctar is a Tuareg guitarist from Niger, based in the city of Agadez. He taught himself on a guitar he built himself, out of wood and bicycle brake cables, and his early songs travelled across West Africa on the memory cards of mobile phones, passed from hand to hand. He plays left-handed, and he starred in the first feature film ever made in the Tuareg language, a desert remake of Prince\'s Purple Rain. Ilana was his first album with a full band and his first made in a real studio: they recorded it in Detroit in one week, living in the studio and playing until the early hours, then took the tapes back to Niger to add guitars, percussion, and, they said, the atmosphere of a wedding in Agadez. An American radio host called it the most insane psychedelic guitar album of the century. Turn it up.',
       notes: [
         'Kamane Tarhanin, Asshet Akal, and Inizgam. Kamane Tarhanin was the first single, hypnotic, with chanting from the Saharan tradition. Moctar sings in Tamasheq, the language of the Tuareg, and he calls himself only a messenger, telling what is happening in his world. With him: Ahmoudou Madassane on rhythm guitar, Mikey Coltun on bass, and Aboubacar Ibrahim on drums.',
@@ -191,6 +207,7 @@
     {
       id: 'aeroplane', artist: 'Neutral Milk Hotel', title: 'In the Aeroplane Over the Sea', year: 1998,
       tracks: ['The King of Carrot Flowers, Pt. One', 'The King of Carrot Flowers, Pts. Two & Three', 'In the Aeroplane Over the Sea', 'Two-Headed Boy', 'The Fool', 'Holland, 1945', 'Communist Daughter', 'Oh Comely', 'Ghost', '[untitled]', 'Two-Headed Boy, Pt. Two'],
+      lengths: [120, 186, 202, 266, 113, 192, 117, 498, 248, 136, 314],   // seconds, on the original album
       intro: 'A whole album now, and a strange, beloved one. Neutral Milk Hotel, In the Aeroplane Over the Sea, from 1998. Neutral Milk Hotel was Jeff Mangum, a songwriter from Louisiana, part of a circle of friends and bands called the Elephant 6 collective, with Julian Koster on singing saw and accordion, Scott Spillane on horns, and Jeremy Barnes on drums. They recorded it in Denver with Robert Schneider of the Apples in Stereo. Before writing it, Mangum read The Diary of Anne Frank, and it shook him so deeply that she haunts the whole record: love, death, bodies, ghosts, and a girl who should have lived. When it came out, few people noticed. Mangum toured a little, then disappeared from public life for years, while the album slowly became one of the most loved records of its time, passed from friend to friend. It begins with a boy and his family.',
       notes: [
         'The King of Carrot Flowers, parts one, two and three, and the title song. The first part is a childhood: a mother and father who fight, a boy and a girl in a tree. Then, suddenly, a loud cry of I love you, Jesus Christ, less a prayer than the sound of someone overwhelmed by love. And In the Aeroplane Over the Sea, with Julian Koster on the singing saw, that ghostly wavering sound: how strange it is to be anything at all.',
@@ -202,6 +219,7 @@
     {
       id: 'yol', artist: 'Altın Gün', title: 'Yol', year: 2021,
       tracks: ['Bahçada Yeşil Çınar', 'Ordunun Dereleri', 'Bulunur Mu', 'Hey Nari', 'Yüce Dağ Başında', 'Kesik Çayır', 'Arda Boyları', 'Kara Toprak', 'Sevda Olmasaydı', 'Maçka Yolları', 'Yekte', 'Esmerim Güzelim'],
+      lengths: [32, 274, 185, 192, 258, 297, 144, 252, 196, 221, 226, 152],   // seconds, on the original album
       intro: 'A whole album now, from Amsterdam and Anatolia. Altin Gun, which means golden age, and their album Yol, which means road, from 2021. The band was started by a Dutch bass player, Jasper Verhulst, who fell in love with the Turkish psychedelic rock of the seventies and went looking for musicians to play it with him. With the singers Merve Dasdemir and Erdinc Ecevit, who also plays the saz, they take old Turkish and Anatolian folk songs, centuries old some of them, and play them like a psychedelic band. Their previous album, Gece, was nominated for a Grammy. Yol was made during the pandemic, when they could not play together, and it sounds different: synthesisers, drum machines, the warm haze of the eighties. Here is the road.',
       notes: [
         'Bahcada Yesil Cinar, Ordunun Dereleri, and Bulunur Mu. Like most songs on the album, these are folk songs, sung for generations in Turkish villages, at weddings and in the fields, now floating on synthesisers. The voices take turns: Merve, then Erdinc, sometimes both.',
@@ -213,6 +231,7 @@
     {
       id: 'gala', artist: "L'morphine", title: 'Gala', year: 2022, ytArtist: "L'morphine",
       tracks: ['Python', 'Zest', 'Adams', 'Huis Clos', 'Tenet - Taha Lkobra', 'Bouh !', 'Papillon', 'Sparadra'],
+      lengths: [183, 181, 174, 214, 161, 143, 151, 133],   // seconds, on the original album
       intro: 'A whole album now, from Morocco. L\'morphine, Gala, released in May 2022. L\'morphine is a Moroccan rapper, one of the sharpest voices of the scene, rapping in Darija with wordplay that borrows from everywhere: cinema, literature, French, English, the street. Gala is a short album, eight tracks, with two guests: Raid on Adams, and Mobydick on Bouh. Listen to the titles as you go, they are clues.',
       notes: [
         'Python, Zest, and Adams. Python like the snake that squeezes slowly. Zest like the peel of a lemon, the sharp part. And Adams, with Raid, the first guest of the album.',
@@ -223,6 +242,7 @@
     {
       id: 'rabbit', artist: 'Yīn Yīn', title: 'The Rabbit That Hunts Tigers', year: 2019, ytArtist: 'YĪN YĪN',
       tracks: ['Nătā Ni Thale', 'Pingpxng', 'One Inch Punch', 'Lotus', 'Thōm Kï Kï', 'On Yīep', 'Alpaca Mountain', 'Kroy Wen', 'Suì Yè', 'The Rabbit That Hunts Tigers', 'A Ballad for Chong Wang', 'The Sacred Valley of Cusco', 'Dis ko Dis ko'],
+      lengths: [54, 159, 308, 110, 221, 53, 335, 177, 233, 348, 84, 282, 260],   // seconds, on the original album
       intro: 'A whole album now, almost without words. Yin Yin, The Rabbit That Hunts Tigers, from 2019, their first album. Yin Yin come from Maastricht, in the south of the Netherlands, and they fell in love with the music of Southeast Asia from the sixties and seventies: Thai funk, the psychedelic rock of Cambodia before the Khmer Rouge, the surf guitars of the region, all mixed with disco and Dutch grooves. It is mostly instrumental, built on bass lines, bright guitars with that twangy Asian tuning, and hand percussion. The titles are full of jokes and travels. A rabbit that hunts tigers: the small one, braver than it should be. Let it play.',
       notes: [
         'Nata Ni Thale, Pingpxng, and One Inch Punch. Pingpxng is ping pong, with an x. One Inch Punch is the famous Bruce Lee move, a punch thrown from almost no distance, all its power coming from nowhere. That is how these grooves work.',
