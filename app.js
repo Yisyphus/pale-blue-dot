@@ -89,6 +89,7 @@ function mergeLib(a, b) {
   out.labels = Object.assign({}, older.labels);   // labels: per song, the most recently edited wins
   Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
   out.lyrOff = Object.assign({}, older.lyrOff, newer.lyrOff);
+  out.albumVideos = Object.assign({}, older.albumVideos); Object.entries(newer.albumVideos || {}).forEach(([k, v]) => { if (!out.albumVideos[k] || (v.ts || 0) >= (out.albumVideos[k].ts || 0)) out.albumVideos[k] = v; });   // the videos saved for each album
   out.albumHidden = byKey([...(older.albumHidden || []), ...(newer.albumHidden || [])], x => x.added || 0).filter(x => alive('albumHidden', x.key, x.added));   // albums you removed
   out.albumEdits = Object.assign({}, older.albumEdits); Object.entries(newer.albumEdits || {}).forEach(([k, v]) => { if (!out.albumEdits[k] || (v.ts || 0) >= (out.albumEdits[k].ts || 0)) out.albumEdits[k] = v; });   // albums you renamed
   out.albumLists = byKey([...(older.albumLists || []), ...(newer.albumLists || [])], x => x.added || 0).filter(x => alive('albumLists', x.key, x.added));   // your album playlists   // lyrics timing you corrected, per song
@@ -100,7 +101,7 @@ function mergeLib(a, b) {
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key), (l.focusCustom || []).map(c => c.key + c.ts), (l.albumLists || []).map(x => x.key + (x.album || '')), (l.albumHidden || []).map(x => x.key), Object.entries(l.albumEdits || {}).map(([k, v]) => k + v.ts)]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key), (l.focusCustom || []).map(c => c.key + c.ts), (l.albumLists || []).map(x => x.key + (x.album || '')), (l.albumHidden || []).map(x => x.key), Object.entries(l.albumVideos || {}).map(([k, v]) => k + v.ts), Object.entries(l.albumEdits || {}).map(([k, v]) => k + v.ts)]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 let cloudSyncing = null;
 function syncWithCloud() { return cloudSyncing || (cloudSyncing = syncWithCloudNow().finally(() => { cloudSyncing = null; })); }
@@ -1486,57 +1487,56 @@ async function albumCheck(al, onEach) {
   return missing;
 }
 // ---- albums from YouTube playlists: the exact videos, in the playlist's order ----
-let plAlbums = {};   // playlist id -> { title, items, album: matched album id | null } (kept on this device)
-try { plAlbums = JSON.parse(localStorage.getItem('pbd-album-pl') || '{}'); } catch {}
+// A playlist is read once. Its videos are then saved in the album itself (lib.albumVideos, synced to every device)
+// and played from there for good: the playlist link is not read again, and YouTube is not searched for those tracks.
+// Pasting another playlist (✎) replaces them; leaving it empty goes back to searching with the checks.
 const albumHidden = k => (lib.albumHidden || []).some(x => x.key === k);
 const plIds = () => [...new Set([...(R.albumPlaylists || []), ...(lib.albumLists || []).map(x => x.key)])].filter(id => !albumHidden('plid:' + id));
 const plTitle = v => { const t = splitTitle(v).t || v.title; return foldTrack(String(t).replace(/[\(\[][^\)\]]*[\)\]]/g, ' ')); };
-function plMatch(items) {   // the album whose tracks these videos are: most tracks found, at least 60% (and 3) of them
-  let best = null;
-  (R.albums || []).forEach(al => {
-    const want = al.tracks.map((t, k) => trackNames(al, k).map(x => foldTrack(String(x).replace(/[\(\[][^\)\]]*[\)\]]/g, ' '))));
-    const map = {}; items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w.includes(f) && !(k in map)); if (i >= 0) map[i] = v; });
-    const n = Object.keys(map).length;
-    if (n >= Math.max(3, Math.ceil(al.tracks.length * 0.6)) && (!best || n > best.n)) best = { id: al.id, n, map };
-  });
-  return best;
-}
-function plMatchTo(al, items) {   // a playlist you attached to this album: tracks by title, and the rest by position
-  const want = al.tracks.map((t, k) => trackNames(al, k).map(x => foldTrack(String(x).replace(/[\(\[][^\)\]]*[\)\]]/g, ' ')))), map = {}, used = new Set();
+const vid = v => ({ id: v.id, title: v.title, channel: v.channel, seconds: v.seconds });
+function plMap(al, items, force) {   // which video is which track: by title (and the album's other official titles), then by position
+  const want = al.tracks.map((t, k) => trackNames(al, k).map(x => foldTrack(String(x).replace(/[\(\[][^\)\]]*[\)\]]/g, ' '))));
+  const map = {}, used = new Set();
   items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w.includes(f) && !(k in map)); if (i >= 0) { map[i] = v; used.add(v.id); } });
-  if (items.length === al.tracks.length) al.tracks.forEach((t, k) => { if (!(k in map) && !used.has(items[k].id)) map[k] = items[k]; });
-  return { id: al.id, n: Object.keys(map).length, map };
+  const n = Object.keys(map).length;
+  if (!force && n < Math.max(3, Math.ceil(al.tracks.length * 0.6))) return null;   // not this album
+  if (items.length === al.tracks.length) al.tracks.forEach((t, k) => { if (!(k in map) && !used.has(items[k].id)) map[k] = items[k]; });   // same count: the rest in order
+  return map;
 }
-async function readAlbumPlaylists(force) {
+const savedVideos = id => { const e = (lib.albumVideos || {})[id]; return e && !e.cleared ? e : null; };
+async function readAlbumPlaylists() {
   if (!HELPER) return;
   let changed = false;
   for (const id of plIds()) {
-    if (plAlbums[id] && !force) continue;
+    const have = Object.values(lib.albumVideos || {}).some(e => e && e.pl === id);   // read before: its videos are saved
+    if (have) continue;
     try {
       const r = await fetch('/api/playlist?list=' + encodeURIComponent(id)); const j = await r.json(); if (!r.ok || !j.items || !j.items.length) throw new Error(j.error || 'empty');
-      const items = j.items.map(v => ({ id: v.id, title: v.title, channel: v.channel, seconds: v.seconds }));
+      const items = j.items.map(vid), now = Date.now();
       const forced = (lib.albumLists || []).find(x => x.key === id && x.album), fa = forced && (R.albums || []).find(a => a.id === forced.album);
-      const m = fa ? plMatchTo(fa, items) : plMatch(items);
-      plAlbums[id] = { title: j.title || id, items, album: m ? m.id : null, map: m ? Object.fromEntries(Object.entries(m.map).map(([k, v]) => [k, v.id])) : null, at: Date.now() };
-      rlog('album playlist', { id, title: j.title, videos: items.length, album: m ? m.id + ' (' + m.n + ' tracks)' : 'an album of its own' });
+      let al = fa, map = fa ? plMap(fa, items, true) : null;
+      if (!fa) for (const a of R.albums || []) { const m = plMap(a, items); if (m && (!map || Object.keys(m).length > Object.keys(map).length)) { al = a; map = m; } }
+      lib.albumVideos = lib.albumVideos || {};
+      if (al && map) lib.albumVideos[al.id] = { pl: id, ts: now, map: Object.fromEntries(Object.entries(map).map(([k, v]) => [k, vid(v)])) };
+      else lib.albumVideos['pl:' + id] = { pl: id, ts: now, title: j.title || id, items };
+      rlog('album playlist saved', { id, title: j.title, videos: items.length, album: al && map ? al.id + ' (' + Object.keys(map).length + ' of ' + al.tracks.length + ' tracks)' : 'an album of its own' });
       changed = true;
     } catch (e) { rlog('album playlist could not be read', { id, error: String(e.message || e) }); }
   }
-  if (changed) { try { localStorage.setItem('pbd-album-pl', JSON.stringify(plAlbums)); } catch {} if (libTab === 'albums' && $('shLib').classList.contains('open')) renderAlbums(); }
+  if (changed) { saveLib(); if (libTab === 'albums' && $('shLib').classList.contains('open')) renderAlbums(); }
 }
 function allAlbums() {   // the albums with notes, plus the playlists that are albums of their own
-  const own = plIds().map(id => [id, plAlbums[id]]).filter(([, p]) => p && !p.album).map(([id, p]) => {
-    const ch = {}; p.items.forEach(v => { const c = String(v.channel || '').replace(/ - Topic$/i, ''); if (c) ch[c] = (ch[c] || 0) + 1; });
+  const own = Object.entries(lib.albumVideos || {}).filter(([k, e]) => k.startsWith('pl:') && e && !e.cleared && e.items).map(([k, e]) => {
+    const ch = {}; e.items.forEach(v => { const c = String(v.channel || '').replace(/ - Topic$/i, ''); if (c) ch[c] = (ch[c] || 0) + 1; });
     const artist = Object.keys(ch).sort((x, y) => ch[y] - ch[x])[0] || '';
-    return { id: 'pl:' + id, artist, title: p.title.replace(/^Album\s*[-–:]\s*/i, ''), year: '', tracks: p.items.map(v => splitTitle(v).t || v.title), videos: p.items, plain: true, intro: '', notes: [] };
+    return { id: k, artist, title: String(e.title || '').replace(/^Album\s*[-–:]\s*/i, ''), year: '', tracks: e.items.map(v => splitTitle(v).t || v.title), videos: e.items, plain: true, intro: '', notes: [] };
   });
   return (R.albums || []).concat(own).filter(a => !albumHidden(a.id)).map(a => { const e = (lib.albumEdits || {})[a.id]; return e ? { ...a, title: e.title || a.title, artist: e.artist || a.artist } : a; });
 }
 const albumById = id => allAlbums().find(x => x.id === id);
-function albumVideo(al, n) {   // the exact video your playlist gives for this track, if any
+function albumVideo(al, n) {   // the exact video saved for this track, if any
   if (al.videos) return al.videos[n] || null;
-  const p = plIds().map(id => plAlbums[id]).find(x => x && x.album === al.id && x.map && x.map[n]);
-  return p ? p.items.find(v => v.id === p.map[n]) || null : null;
+  const e = savedVideos(al.id); return (e && e.map && e.map[n]) || null;
 }
 function albumTalk(id, text, title) {   // Astro speaks between tracks, then the album goes on
   const al = albumShow.al; albumShow.said.add(id);
@@ -1608,17 +1608,19 @@ function renderAlbums() {
     if (!m) return toast('That does not look like a YouTube playlist link.');
     if (!HELPER) return toast(NEEDS_PC);
     lib.albumLists = lib.albumLists || []; if (!lib.albumLists.some(x => x.key === m[1])) lib.albumLists.push({ key: m[1], added: Date.now() }); saveLib();
-    toast('Reading the playlist…'); delete plAlbums[m[1]]; await readAlbumPlaylists(); const p = plAlbums[m[1]];
-    toast(!p ? 'The playlist could not be read. Is it public or unlisted?' : p.album ? `Recognised: ${albumById(p.album).title}. It now plays these exact videos.` : `Added as an album of its own: ${p.title}.`);
+    toast('Reading the playlist…'); await readAlbumPlaylists();
+    const hit = Object.entries(lib.albumVideos || {}).find(([, x]) => x && x.pl === m[1] && !x.cleared);
+    toast(!hit ? 'The playlist could not be read. Is it public or unlisted?' : hit[0].startsWith('pl:') ? `Added as an album of its own: ${hit[1].title}. Its videos are saved.` : `Recognised: ${albumById(hit[0]).title}. Its videos are saved, and they are what plays.`);
     renderAlbums();
   };
   l.appendChild(add);
   if (!shown.length) { l.insertAdjacentHTML('beforeend', noMatch()); return; }
   shown.forEach(al => {
     const d = document.createElement('div'); d.className = 'item' + (albumShow && albumShow.al.id === al.id ? ' now' : '');
-    const fromPl = al.videos || plIds().some(id => plAlbums[id] && plAlbums[id].album === al.id);
+    const e = savedVideos(al.id), fromPl = al.videos || (e && e.map);
+    const nPl = al.videos ? al.tracks.length : e && e.map ? Object.keys(e.map).length : 0;
     d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Edit">&#9998;</button><button class="mini-btn" title="Remove from the albums">&#10005;</button><button class="btn" style="padding:6px 11px">&#9654; Play</button>`;
-    d.querySelector('b').textContent = al.title; d.querySelector('span').textContent = [al.artist, al.year, al.tracks.length + ' tracks', fromPl ? 'from your playlist' : ''].filter(Boolean).join(' · ');
+    d.querySelector('b').textContent = al.title; d.querySelector('span').textContent = [al.artist, al.year, al.tracks.length + ' tracks', fromPl ? (nPl === al.tracks.length ? 'your videos' : `your videos for ${nPl} of ${al.tracks.length}`) : ''].filter(Boolean).join(' · ');
     const [ed, rm, play] = d.querySelectorAll('button');
     play.onclick = () => startAlbum(al.id); ed.onclick = () => editAlbum(al); rm.onclick = () => removeAlbum(al);
     l.appendChild(d);
@@ -1640,23 +1642,24 @@ async function editAlbum(al) {
     lib.albumEdits = lib.albumEdits || {}; lib.albumEdits[al.id] = { title: title.trim() || al.title, artist: artist.trim() || al.artist, ts: Date.now() };
     saveLib(); renderAlbums(); return toast('Saved.');
   }
-  const now = plIds().find(id => plAlbums[id] && plAlbums[id].album === al.id);
-  const v = prompt(`The playlist that ${al.title} plays from, with its exact versions.\nPaste a YouTube playlist link, or leave it empty to search YouTube instead (every track checked).`, now ? 'https://www.youtube.com/playlist?list=' + now : '');
+  const cur = savedVideos(al.id);
+  const v = prompt(`The videos ${al.title} plays are saved from a playlist${cur ? '' : ' (none yet)'}.\nPaste a YouTube playlist link to save its videos instead, or leave it empty to search YouTube (every track checked).`, cur && cur.pl ? 'https://www.youtube.com/playlist?list=' + cur.pl : '');
   if (v === null) return;
-  plIds().filter(id => plAlbums[id] && plAlbums[id].album === al.id).forEach(id => {   // let go of the playlist it used
-    if ((lib.albumLists || []).some(x => x.key === id)) { lib.albumLists = lib.albumLists.filter(x => x.key !== id); markDeleted('albumLists', id); }
-    if ((R.albumPlaylists || []).includes(id)) { lib.albumHidden = lib.albumHidden || []; lib.albumHidden.push({ key: 'plid:' + id, added: Date.now() }); }
-    delete plAlbums[id];
-  });
   const m = v.trim().match(/[?&]list=([\w-]+)/) || v.trim().match(/^([\w-]{12,})$/);
+  if (cur && m && cur.pl === m[1]) return toast('That playlist is already the one saved.');
+  lib.albumVideos = lib.albumVideos || {}; lib.albumVideos[al.id] = { cleared: true, ts: Date.now() };   // the old videos go
   if (m) {
     if (!HELPER) { saveLib(); return toast(NEEDS_PC); }
+    Object.keys(lib.albumVideos).forEach(k => { const x = lib.albumVideos[k]; if (x && x.pl === m[1] && k !== al.id) lib.albumVideos[k] = { cleared: true, ts: Date.now() }; });   // read it again, for this album
     lib.albumHidden = (lib.albumHidden || []).filter(x => { if (x.key === 'plid:' + m[1]) { markDeleted('albumHidden', x.key); return false; } return true; });
     lib.albumLists = (lib.albumLists || []).filter(x => x.key !== m[1]); lib.albumLists.push({ key: m[1], album: al.id, added: Date.now() });
-    delete plAlbums[m[1]]; saveLib(); toast('Reading the playlist…'); await readAlbumPlaylists();
-    const p = plAlbums[m[1]]; toast(p ? `${al.title} now plays from your playlist (${p.map ? Object.keys(p.map).length : 0} of ${al.tracks.length} tracks).` : 'The playlist could not be read. Is it public or unlisted?');
-  } else { saveLib(); toast(`${al.title} goes back to searching YouTube, every track checked.`); }
-  try { localStorage.setItem('pbd-album-pl', JSON.stringify(plAlbums)); } catch {}
+    saveLib(); toast('Reading the playlist…'); await readAlbumPlaylists();
+    const e = savedVideos(al.id); toast(e ? `Saved: ${al.title} now plays your videos (${Object.keys(e.map || {}).length} of ${al.tracks.length} tracks).` : 'The playlist could not be read. Is it public or unlisted?');
+  } else {
+    if (cur && cur.pl && (R.albumPlaylists || []).includes(cur.pl)) { lib.albumHidden = lib.albumHidden || []; lib.albumHidden.push({ key: 'plid:' + cur.pl, added: Date.now() }); }   // not read again
+    if (cur && cur.pl) { lib.albumLists = (lib.albumLists || []).filter(x => { if (x.key === cur.pl) { markDeleted('albumLists', x.key); return false; } return true; }); }
+    saveLib(); toast(`${al.title} goes back to searching YouTube, every track checked.`);
+  }
   renderAlbums();
 }
 function removeAlbum(al) {   // ✕ out of the list (Restore brings it back); a playlist of your own is forgotten too
