@@ -406,6 +406,10 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { seeded: items.length });
     }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || '', Math.max(300, +u.searchParams.get('min') || 900)));
+    if (u.pathname === '/api/reach') {   // the download button: does this converter site open right now?
+      const t = u.searchParams.get('url') || ''; if (!/^https:\/\/(ezconv\.org|yttmp3\.com\.co|tubemixlab\.com)\//.test(t)) return send(res, 400, { error: 'not allowed' });
+      try { const r = await fetch(t, { headers: { 'User-Agent': HEADERS['User-Agent'] }, redirect: 'follow', signal: AbortSignal.timeout(6000) }); return send(res, 200, { ok: r.ok, status: r.status }); } catch (e) { return send(res, 200, { ok: false, error: String(e.message || e) }); }
+    }
     if (u.pathname === '/api/ytinfo') { try { return send(res, 200, await ytInfo(u.searchParams.get('id') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
     if (u.pathname === '/api/concert') return send(res, 200, await concert(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/long') return send(res, 200, await longVideos(u.searchParams.get('q') || ''));

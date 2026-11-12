@@ -2977,7 +2977,37 @@ const fold = x => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toL
 const libMatch = (...fields) => { const ws = fold($('libQ').value).split(' ').filter(Boolean); if (!ws.length) return true; const h = ' ' + fields.map(fold).join(' ') + ' '; return ws.every(w => h.includes(w)); };
 const noMatch = () => `<p style="color:var(--mute);font-size:13px">Nothing here matches "${$('libQ').value.replace(/[<&"]/g, '')}".</p>`;
 const favIdx = k => (lib.fav || []).findIndex(f => f.key === k);
+// ---------- Download: the song or video playing, as MP3, through an online converter ----------
+// ezconv.org takes the link in its address and starts by itself; yttmp3.com.co and tubemixlab.com do not, so the
+// link is copied for you to paste. The first site that answers is the one opened.
+const CONVERTERS = [
+  { name: 'ezconv.org', home: 'https://ezconv.org/', link: u => 'https://ezconv.org/?url=' + encodeURIComponent(u) },
+  { name: 'yttmp3.com.co', home: 'https://yttmp3.com.co/' },
+  { name: 'tubemixlab.com', home: 'https://tubemixlab.com/' },
+];
+async function downloadCurrent() {
+  const s = current; if (!s) return;
+  const v = s.cands && (s.cands[candIdx] || s.cands[0]); let id = v && v.id;
+  try { const d = P().getVideoData(); if (d && d.video_id) id = d.video_id; } catch {}
+  if (!id) return toast('No video to download right now.');
+  const url = 'https://www.youtube.com/watch?v=' + id;
+  if (!helperOpens) {   // the phone or the web: open at once (a browser blocks windows opened after a wait)
+    window.open(CONVERTERS[0].link(url), '_blank', 'noopener'); try { navigator.clipboard.writeText(url); } catch {}
+    return toast(`Opening ezconv.org with "${s.t}". Choose MP3 and the quality there.`);
+  }
+  let site = CONVERTERS[0];
+  if (HELPER) {   // the first one that opens fine right now
+    for (const c of CONVERTERS) { try { const r = await (await fetch('/api/reach?url=' + encodeURIComponent(c.home))).json(); if (r && r.ok) { site = c; break; } } catch {} }
+  }
+  try { await navigator.clipboard.writeText(url); } catch {}
+  const go = site.link ? site.link(url) : site.home;
+  try { const r = await fetch('/api/open?url=' + encodeURIComponent(go)); if (!r.ok) throw 0; } catch { window.open(go, '_blank', 'noopener'); }   // in your usual browser
+  rlog('download', { song: s.key, id, site: site.name });
+  toast(site.link ? `Opening ${site.name} with "${s.t}". Choose MP3 and the quality there.` : `Opening ${site.name}. The link of "${s.t}" is copied: paste it there.`);
+}
+$('btnDownload').onclick = downloadCurrent;
 function updateHeart() {
+  $('btnDownload').disabled = !current;
   const r = $('btnRemoveSong'); if (r) { r.style.display = current && !current.podcast && !current.sounds && !current.album ? '' : 'none'; r.classList.remove('sure'); r.innerHTML = '&#10005; remove this song'; }
   const b = $('btnHeart'); if (!b) return;
   const on = !!current && favIdx(current.key) >= 0;

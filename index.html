@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-11-12T10:57:34Z">
+<meta name="pbd-version" content="2026-11-12T11:48:51Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -77,7 +77,7 @@ body.mini .lyrics{display:none}
 .chip{font-family:var(--mono);font-size:10px;padding:2px 8px;border:1px solid var(--line);border-radius:99px;color:var(--mute)}
 
 /* caption */
-.cap{background:linear-gradient(var(--bg2),#080c26);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:74px;max-height:92px;overflow:hidden;position:relative}
+.cap{background:linear-gradient(var(--bg2),#080c26);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:124px;position:relative}
 .cap small{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--amber);text-transform:uppercase;display:block;margin-bottom:3px}
 .cap div{font-size:14px;line-height:1.42;font-style:italic;color:var(--cream)}
 .cap.idle div{color:var(--mute)}
@@ -163,6 +163,8 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .titlerow{display:flex;align-items:center;justify-content:center;gap:10px}
 .heart{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--mute);flex:none}
 .heart svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+#btnDownload svg{stroke-linecap:round}
+#btnDownload:disabled{opacity:.3}
 .heart:hover:not(:disabled){color:#ff8fc0;background:var(--panel)}
 .heart.on{color:#ff7ab8}.heart.on svg{fill:#ff7ab8}
 .heart:disabled{opacity:.3;cursor:default}
@@ -222,7 +224,7 @@ body.mini .app{gap:6px}
     <div class="lyrics" id="lyrics" aria-live="off"><div class="lyr-lines" id="lyrLines"></div><div class="lyr-foot"><span id="lyrNote"></span><span class="lyr-nudge"><button class="mini-btn" id="lyrEarly" title="The words come too late: show them half a second earlier">earlier</button><button class="mini-btn" id="lyrLate" title="The words come too early: show them half a second later">later</button></span></div></div>
     <div class="np">
       <div class="kind" id="kind">standing by</div>
-      <div class="titlerow"><h1 id="title">Pale Blue Dot</h1><button class="heart" id="btnHeart" aria-label="Favorite this song" aria-pressed="false" title="Add to favorites" disabled><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></button></div>
+      <div class="titlerow"><button class="heart" id="btnDownload" aria-label="Download as MP3" title="Download this as MP3" disabled><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg></button><h1 id="title">Pale Blue Dot</h1><button class="heart" id="btnHeart" aria-label="Favorite this song" aria-pressed="false" title="Add to favorites" disabled><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></button></div>
       <p id="artist">Press play to tune in</p>
       <div class="chips" id="chips"></div>
       <div class="np-acts"><button class="mini-btn" id="btnWrong" title="Play another upload of this song">no sound or wrong song? try another version</button><button class="mini-btn" id="btnRemoveSong" style="display:none" title="Never play this song again">&#10005; remove this song</button></div>
@@ -453,6 +455,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=2bb51db800f056c4"></script>
+<script src="app.js?v=b11f976a32984340"></script>
 </body>
 </html>
