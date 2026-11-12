@@ -4,6 +4,12 @@
 // The facts come from the albums' Wikipedia articles. ytArtist: the name as YouTube writes it, when it differs.
 (function () {
   const R = window.RADIO;
+  // YouTube playlists that hold whole albums in their exact versions (Library > Albums > add a playlist adds more).
+  // The radio reads each one on the PC, recognises which album it is from the titles, and plays those very videos.
+  // A playlist that is none of the albums below becomes an album of its own.
+  R.albumPlaylists = ['PLc60gkdW0bcGpw3bR6BHYBGUJncc8eQQZ', 'PLdKPHQCziSjqc2RRScdzvX9i3vwaYehgD'];
+  R.albumIntroPlain = 'A whole album now, from beginning to end, in its own order: {album}, by {artist}. Here it is.';
+
   R.albumOutros = [
     'That was {album}, by {artist}, from the first second to the last. Back to the radio.',
     '{album}, by {artist}, the whole thing, in order. Thank you for listening to it with me. Now, back to the music.',
