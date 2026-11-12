@@ -158,6 +158,17 @@ async function podcast(q, min = 900) {
     return { ...v, score: s };
   }).filter(v => v.score > -5).sort((a, b) => b.score - a.score).slice(0, 10);
 }
+// One video's own details: title, channel, length and description. A "Topic" upload's description names its album:
+// "Provided to YouTube by <label>", then "<track> · <artist>", then the album, then "℗ <year>…".
+async function ytInfo(id) {
+  if (!/^[\w-]{11}$/.test(id)) throw new Error('bad id');
+  const r = await fetch('https://www.youtube.com/watch?v=' + id, { headers: HEADERS });
+  const html = await r.text(), p = extractJSON(html, 'var ytInitialPlayerResponse =') || extractJSON(html, 'ytInitialPlayerResponse = ');
+  const d = (p && p.videoDetails) || {}, desc = d.shortDescription || '';
+  const lines = desc.split('\n').map(x => x.trim()).filter(Boolean);
+  const i = lines.findIndex(x => /\s·\s/.test(x));
+  return { id, title: d.title || '', channel: d.author || '', seconds: +d.lengthSeconds || 0, topic: /^Provided to YouTube by/i.test(lines[0] || ''), track: i >= 0 ? lines[i].split(' · ')[0] : '', album: i >= 0 && lines[i + 1] && !/^℗|^©|^Released on/i.test(lines[i + 1]) ? lines[i + 1] : '', released: (desc.match(/Released on:\s*([\d-]+)/) || [])[1] || '' };
+}
 // Live concerts (KEXP full performances, Tiny Desk): 8 to 75 minutes, as YouTube ranks them
 async function concert(q) {
   const r = await fetch('https://www.youtube.com/results?search_query=' + encodeURIComponent(q) + '&sp=EgIQAQ%253D%253D', { headers: HEADERS });
@@ -395,6 +406,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { seeded: items.length });
     }
     if (u.pathname === '/api/podcast') return send(res, 200, await podcast(u.searchParams.get('q') || '', Math.max(300, +u.searchParams.get('min') || 900)));
+    if (u.pathname === '/api/ytinfo') { try { return send(res, 200, await ytInfo(u.searchParams.get('id') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
     if (u.pathname === '/api/concert') return send(res, 200, await concert(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/long') return send(res, 200, await longVideos(u.searchParams.get('q') || ''));
     if (u.pathname === '/api/ads') return send(res, 200, { items: adsPool() });

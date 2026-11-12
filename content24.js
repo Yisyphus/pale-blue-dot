@@ -168,7 +168,7 @@
       ],
     },
     {
-      id: 'pob', artist: 'John Lennon', title: 'Plastic Ono Band', year: 1970, ytArtist: 'John Lennon',
+      id: 'pob', artist: 'John Lennon', title: 'Plastic Ono Band', year: 1970, ytAlbum: 'Plastic Ono Band',
       tracks: ['Mother', 'Hold On', 'I Found Out', 'Working Class Hero', 'Isolation', 'Remember', 'Love', 'Well Well Well', 'Look at Me', 'God', "My Mummy's Dead"],
       intro: 'A whole album now, and one of the rawest ever made. John Lennon, Plastic Ono Band, from December 1970, his first real album after the Beatles broke up. That spring, he and Yoko Ono went into primal therapy with Arthur Janov, first in London, then for months in Los Angeles: a therapy that makes you relive the pain of your childhood instead of talking about it. Lennon had a lot to relive. His father left when he was small, his mother gave him to his aunt to raise, and she was killed by a car when he was seventeen. Janov said that at the centre of all that fame was just a lonely little kid. Lennon recorded these songs at Abbey Road with only Ringo Starr on drums and Klaus Voormann on bass, and Phil Spector co-producing. Ringo remembered him bursting into tears, or screaming, in the middle of a take. It begins with a funeral bell.',
       notes: [
