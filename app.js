@@ -1401,38 +1401,54 @@ const albumSong = (al, i) => ({ a: al.artist, t: al.tracks[i], album: al.id, n: 
 const foldT = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   .replace(/\s*[\(\[][^\)\]]*(remaster|version|mono|stereo|mix|edit|including)[^\)\]]*[\)\]]/g, '').replace(/\s+-\s+.*(remaster|version|mono|mix).*$/, '')
   .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-// Only the version from this very album plays: every candidate from the artist's Topic channel is opened, and its
-// description must name this album (not a remix, a box set, a live album or a compilation). Kept once found.
+// Only the version from this very album plays. 1) The title must be the track's own title: words like demo, live,
+// remix, edit, acoustic or instrumental make it another recording (only "remastered", a year, "mono"… may differ).
+// 2) Its YouTube page is opened: a Topic upload names its album, which must be this album (not a box set, a live
+// album, a compilation). 3) Anything not proven right is skipped, never played. Kept once found.
+const foldTrack = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/[\(\[]\s*(including|feat\.?|ft\.?|featuring|with)\s[^\)\]]*[\)\]]/g, ' ').replace(/\s(feat\.?|ft\.?|featuring)\s.*$/, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ')
+  .replace(/\b(\d{4}|remaster|remastered|remasters|version|mono|stereo|digital|anniversary|edition|original|album|mix)\b/g, ' ').replace(/\s+/g, ' ').trim();
+const sameTrack = (got, want) => foldTrack(got) === foldTrack(want);
 const albumTitleOk = (got, al) => {
-  const foldA = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();   // brackets kept: "(2016 Remix)" counts
+  const foldA = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();   // brackets kept: "(2016 Remix)" counts
   const g = foldA(got), w = foldA(al.ytAlbum || al.title), at = (' ' + g + ' ').indexOf(' ' + w + ' ');
   if (!g || at < 0) return false;   // the album's name, as whole words ("John Lennon/Plastic Ono Band", "Paranoid (Remastered)")
   const rest = (g.slice(0, at) + ' ' + g.slice(at + w.length)).replace(/\b(original )?album mix\b|\boriginal mix\b/g, '').trim();   // "Original Album Mix" is the album itself
-  return !/\b(live|remix|remixes|mix|demo|demos|session|sessions|early years|anthology|collection|best of|greatest|hits|essential|years)\b/.test(rest);
+  return !/\b(live|remix|remixes|mix|demo|demos|session|sessions|early years|anthology|collection|best of|greatest|hits|essential|years|instrumentals?|acoustic)\b/.test(rest);
 };
+let helperChecks = null;   // does this PC's helper read a video's album? (older helpers cannot)
+async function canCheckAlbums() {
+  if (helperChecks === null) { try { helperChecks = (await fetch('/api/ytinfo?id=xxxxxxxxxxx')).status !== 404; } catch { helperChecks = false; } }
+  return helperChecks;
+}
 async function resolveAlbum(s) {
-  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache2') || '{}'); } catch {}
+  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache3') || '{}'); } catch {}
   if (cache[s.key] && cache[s.key].length) return (s.cands = cache[s.key]);
-  const al = (R.albums || []).find(x => x.id === s.album), artist = al.ytArtist || al.artist, want = foldT(s.t);
-  const topic = v => / - Topic$/i.test(v.channel || ''), same = t => { const f = foldT(t); return f === want || f.startsWith(want + ' ') || want.startsWith(f + ' '); };
+  if (!(await canCheckAlbums())) return [];
+  const al = (R.albums || []).find(x => x.id === s.album), artist = al.ytArtist || al.artist;
+  const topic = v => / - Topic$/i.test(v.channel || '');
   const pool = [], seen = new Set();
-  for (const q of [artist + ' ' + al.title + ' ' + s.t, artist + ' ' + s.t + ' topic', artist + ' - ' + s.t]) {
+  for (const q of [artist + ' ' + al.title + ' ' + s.t, artist + ' ' + s.t + ' topic', artist + ' - ' + s.t + ' ' + al.title]) {
     try { const r = await (await fetch('/api/search?q=' + encodeURIComponent(q) + '&a=' + encodeURIComponent(artist) + '&t=' + encodeURIComponent(s.t))).json(); if (Array.isArray(r)) r.forEach(v => { if (v && v.id && !seen.has(v.id)) { seen.add(v.id); pool.push(v); } }); } catch {}
-    const cands = pool.filter(v => topic(v) && same(v.title));
-    for (const v of cands.slice(0, 6)) {
-      if (v._checked) continue; v._checked = true;
-      let info = null; try { const r = await fetch('/api/ytinfo?id=' + v.id); if (r.status === 404) { info = 'old'; } else if (r.ok) info = await r.json(); } catch {}
-      if (info === 'old') { rlog('album: older PC helper, album not checked', { track: s.key, id: v.id }); return (s.cands = [v]); }   // it updates itself at the next opening
-      if (info && info.topic && albumTitleOk(info.album, al) && same(info.track || v.title)) {
-        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache2', JSON.stringify(cache)); } catch {}
-        rlog('album track', { track: s.key, id: v.id, album: info.album });
+    for (const v of pool.filter(v => topic(v) && sameTrack(v.title, s.t) && !v._checked).slice(0, 6)) {
+      v._checked = true;
+      let info = null; try { const r = await fetch('/api/ytinfo?id=' + v.id); if (r.ok) info = await r.json(); } catch {}
+      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, s.t)) {
+        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache3', JSON.stringify(cache)); } catch {}
+        rlog('album track', { track: s.key, id: v.id, album: info.album, title: info.track || v.title });
         return (s.cands = c);
       }
-      if (info) rlog('album: not this album, skipped', { track: s.key, id: v.id, album: info.album, title: info.title });
+      rlog('album: not this album, skipped', { track: s.key, id: v.id, album: info && info.album, title: info && (info.track || info.title) });
     }
   }
-  rlog('album: the album version was not found, track skipped', { track: s.key });
+  rlog('album: the album version was not found', { track: s.key });
   return [];   // never another version: the track is skipped rather than played wrong
+}
+// Before the show starts: every track is looked up and checked, so you know at once if something is missing
+async function albumCheck(al, onEach) {
+  const missing = [];
+  for (let i = 0; i < al.tracks.length; i++) { const c = await resolveAlbum(albumSong(al, i)); if (!c.length) missing.push(i + 1 + '. ' + al.tracks[i]); if (onEach) onEach(i + 1, missing.length); }
+  return missing;
 }
 function albumTalk(id, text, title) {   // Astro speaks between tracks, then the album goes on
   const al = albumShow.al; albumShow.said.add(id);
@@ -1469,10 +1485,16 @@ function albumBack() {   // Previous: the track before this one (its talk is not
   sh.i = Math.max(0, now - 1); if (sh.i === 0) sh.said.add('intro'); sh.said.add('n' + sh.i);
   planned = null; preload = null; stopSpeech(); albumStep();
 }
-function startAlbum(id) {
+async function startAlbum(id) {
   const al = (R.albums || []).find(x => x.id === id); if (!al) return;
   if (!started) return toast('Press play first, then choose an album.');
   if (!HELPER) return toast('The album show finds its tracks on YouTube through your PC, so it plays on the PC radio.');
+  if (!(await canCheckAlbums())) return toast('The album show needs the newest PC helper to check each track. Turn the radio off with its ✕ and open it again, then try again.');
+  openSheet(null); toast('Checking the ' + al.tracks.length + ' tracks of ' + al.title + '…');
+  const missing = await albumCheck(al, (n, m) => { $('capKind').textContent = 'Album show'; $('capText').textContent = 'Checking the album on YouTube: ' + n + ' of ' + al.tracks.length + (m ? ' (' + m + ' not found)' : ''); });
+  rlog('album check', { album: al.id, missing });
+  if (missing.length === al.tracks.length) return toast('None of the tracks of ' + al.title + ' could be found on YouTube as part of this album. Nothing was played.');
+  if (missing.length) toast('Not found as part of this album, so skipped: ' + missing.join(', ') + '. Everything else is the album version.');
   if (marathon) marathon = null;
   if (focusMode) { focusMode = ''; try { localStorage.setItem('pbd-focus', ''); } catch {} paintFocus(); }   // quietly: the show starts itself
   albumShow = { al, i: 0, said: new Set() }; planned = null; preload = null; batch = null;
