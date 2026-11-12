@@ -73,7 +73,7 @@ function mergeLib(a, b) {
   const newer = (a.savedAt || 0) >= (b.savedAt || 0) ? a : b, older = newer === a ? b : a;
   const out = Object.assign({}, older, newer);   // settings, history, letter rotation...: from the newer copy
   const del = {};
-  ['fav', 'user', 'removed', 'lists', 'focusAdd', 'focusCustom', 'albumLists'].forEach(k => {
+  ['fav', 'user', 'removed', 'lists', 'focusAdd', 'focusCustom', 'albumLists', 'albumHidden'].forEach(k => {
     del[k] = {};
     [older, newer].forEach(c => Object.entries((c.del || {})[k] || {}).forEach(([key, t]) => { if ((del[k][key] || 0) < t) del[k][key] = t; }));
   });
@@ -89,6 +89,8 @@ function mergeLib(a, b) {
   out.labels = Object.assign({}, older.labels);   // labels: per song, the most recently edited wins
   Object.entries(newer.labels || {}).forEach(([k, v]) => { if (!out.labels[k] || (v.ts || 0) >= (out.labels[k].ts || 0)) out.labels[k] = v; });
   out.lyrOff = Object.assign({}, older.lyrOff, newer.lyrOff);
+  out.albumHidden = byKey([...(older.albumHidden || []), ...(newer.albumHidden || [])], x => x.added || 0).filter(x => alive('albumHidden', x.key, x.added));   // albums you removed
+  out.albumEdits = Object.assign({}, older.albumEdits); Object.entries(newer.albumEdits || {}).forEach(([k, v]) => { if (!out.albumEdits[k] || (v.ts || 0) >= (out.albumEdits[k].ts || 0)) out.albumEdits[k] = v; });   // albums you renamed
   out.albumLists = byKey([...(older.albumLists || []), ...(newer.albumLists || [])], x => x.added || 0).filter(x => alive('albumLists', x.key, x.added));   // your album playlists   // lyrics timing you corrected, per song
   out.adCleanups = [...new Set([...(older.adCleanups || []), ...(newer.adCleanups || [])])];
   out.adsHidden = [...new Set([...(older.adsHidden || []), ...(newer.adsHidden || [])])];
@@ -98,7 +100,7 @@ function mergeLib(a, b) {
   out.hist = (newer.hist || []).length >= (older.hist || []).length ? newer.hist : older.hist;
   return out;
 }
-const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key), (l.focusCustom || []).map(c => c.key + c.ts), (l.albumLists || []).map(x => x.key)]);
+const libSig = l => JSON.stringify([(l.fav || []).map(f => f.key), (l.user || []).map(s => s.key), l.removed || [], Object.keys(l.cache || {}).length, l.del || {}, Object.entries(l.labels || {}).map(([k, v]) => k + v.ts), (l.lists || []).map(x => x.key + x.ts), l.adCleanups || [], (l.adsHidden || []).length, (l.focusAdd || []).map(x => x.key), (l.focusCustom || []).map(c => c.key + c.ts), (l.albumLists || []).map(x => x.key + (x.album || '')), (l.albumHidden || []).map(x => x.key), Object.entries(l.albumEdits || {}).map(([k, v]) => k + v.ts)]);
 // Sign-in, or opening the radio signed in: merge with the cloud, keep the result here, and send it up if it differs.
 let cloudSyncing = null;
 function syncWithCloud() { return cloudSyncing || (cloudSyncing = syncWithCloudNow().finally(() => { cloudSyncing = null; })); }
@@ -468,7 +470,7 @@ window.onYouTubeIframeAPIReady = () => {
           }
           if (busy) return; playing = false; setPlayIcon(false); setLive(false);
         }
-        else if (e.data === YT.PlayerState.ENDED) { console.info('[radio] ENDED event, busy=' + busy); if (started && !busy) advance(); }
+        else if (e.data === YT.PlayerState.ENDED) { console.info('[radio] ENDED event, busy=' + busy); if (started && !busy && !repeatSong()) advance(); }
       },
       onError: e => {
         if (adHook && adHook.idx === i) { adHook.error(e && e.data); return; }
@@ -1393,6 +1395,18 @@ async function playPodcast(pod, prev, opts, id) {
   busy = false;
 }
 
+// ---------- Repeat: the song (or track, episode, Focus track…) that is playing starts again when it ends ----------
+// It stays on until you press it again; Next still moves on (and the next song repeats too).
+let repeatOn = false; try { repeatOn = localStorage.getItem('pbd-repeat') === '1'; } catch {}
+function repeatSong() {
+  if (!repeatOn || !current) return false;
+  try { P().seekTo(0, true); P().playVideo(); } catch { return false; }
+  rlog('repeat', { song: current.key }); return true;
+}
+function paintRepeat() { const b = $('btnRepeat'); b.classList.toggle('on', repeatOn); b.setAttribute('aria-pressed', repeatOn ? 'true' : 'false'); b.title = repeatOn ? 'Repeat is on: this song plays again' : 'Repeat this song'; }
+$('btnRepeat').onclick = () => { repeatOn = !repeatOn; try { localStorage.setItem('pbd-repeat', repeatOn ? '1' : '0'); } catch {} paintRepeat(); toast(repeatOn ? 'Repeat on: this song plays again and again.' : 'Repeat off.'); };
+paintRepeat();
+
 // ---------- Album show: a whole album in its own order, from the artist's YouTube "Topic" channel ----------
 // Astro tells the story of the band and the album, plays 3 tracks, pauses to talk about them, and so on to the end
 // (content24.js). Never programmed: you start it (Library > Albums, or Settings > Album show). The tracks are kept
@@ -1473,7 +1487,8 @@ async function albumCheck(al, onEach) {
 // ---- albums from YouTube playlists: the exact videos, in the playlist's order ----
 let plAlbums = {};   // playlist id -> { title, items, album: matched album id | null } (kept on this device)
 try { plAlbums = JSON.parse(localStorage.getItem('pbd-album-pl') || '{}'); } catch {}
-const plIds = () => [...new Set([...(R.albumPlaylists || []), ...(lib.albumLists || []).map(x => x.key)])];
+const albumHidden = k => (lib.albumHidden || []).some(x => x.key === k);
+const plIds = () => [...new Set([...(R.albumPlaylists || []), ...(lib.albumLists || []).map(x => x.key)])].filter(id => !albumHidden('plid:' + id));
 const plTitle = v => { const t = splitTitle(v).t || v.title; return foldTrack(String(t).replace(/[\(\[][^\)\]]*[\)\]]/g, ' ')); };
 function plMatch(items) {   // the album whose tracks these videos are: most tracks found, at least 60% (and 3) of them
   let best = null;
@@ -1485,6 +1500,12 @@ function plMatch(items) {   // the album whose tracks these videos are: most tra
   });
   return best;
 }
+function plMatchTo(al, items) {   // a playlist you attached to this album: tracks by title, and the rest by position
+  const want = al.tracks.map(t => foldTrack(String(t).replace(/[\(\[][^\)\]]*[\)\]]/g, ' '))), map = {}, used = new Set();
+  items.forEach(v => { const f = plTitle(v), i = want.findIndex((w, k) => w && w === f && !(k in map)); if (i >= 0) { map[i] = v; used.add(v.id); } });
+  if (items.length === al.tracks.length) al.tracks.forEach((t, k) => { if (!(k in map) && !used.has(items[k].id)) map[k] = items[k]; });
+  return { id: al.id, n: Object.keys(map).length, map };
+}
 async function readAlbumPlaylists(force) {
   if (!HELPER) return;
   let changed = false;
@@ -1493,7 +1514,8 @@ async function readAlbumPlaylists(force) {
     try {
       const r = await fetch('/api/playlist?list=' + encodeURIComponent(id)); const j = await r.json(); if (!r.ok || !j.items || !j.items.length) throw new Error(j.error || 'empty');
       const items = j.items.map(v => ({ id: v.id, title: v.title, channel: v.channel, seconds: v.seconds }));
-      const m = plMatch(items);
+      const forced = (lib.albumLists || []).find(x => x.key === id && x.album), fa = forced && (R.albums || []).find(a => a.id === forced.album);
+      const m = fa ? plMatchTo(fa, items) : plMatch(items);
       plAlbums[id] = { title: j.title || id, items, album: m ? m.id : null, map: m ? Object.fromEntries(Object.entries(m.map).map(([k, v]) => [k, v.id])) : null, at: Date.now() };
       rlog('album playlist', { id, title: j.title, videos: items.length, album: m ? m.id + ' (' + m.n + ' tracks)' : 'an album of its own' });
       changed = true;
@@ -1507,7 +1529,7 @@ function allAlbums() {   // the albums with notes, plus the playlists that are a
     const artist = Object.keys(ch).sort((x, y) => ch[y] - ch[x])[0] || '';
     return { id: 'pl:' + id, artist, title: p.title.replace(/^Album\s*[-–:]\s*/i, ''), year: '', tracks: p.items.map(v => splitTitle(v).t || v.title), videos: p.items, plain: true, intro: '', notes: [] };
   });
-  return (R.albums || []).concat(own);
+  return (R.albums || []).concat(own).filter(a => !albumHidden(a.id)).map(a => { const e = (lib.albumEdits || {})[a.id]; return e ? { ...a, title: e.title || a.title, artist: e.artist || a.artist } : a; });
 }
 const albumById = id => allAlbums().find(x => x.id === id);
 function albumVideo(al, n) {   // the exact video your playlist gives for this track, if any
@@ -1594,12 +1616,53 @@ function renderAlbums() {
   shown.forEach(al => {
     const d = document.createElement('div'); d.className = 'item' + (albumShow && albumShow.al.id === al.id ? ' now' : '');
     const fromPl = al.videos || plIds().some(id => plAlbums[id] && plAlbums[id].album === al.id);
-    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="btn" style="padding:6px 11px">&#9654; Play</button>`;
+    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="mini-btn" title="Edit">&#9998;</button><button class="mini-btn" title="Remove from the albums">&#10005;</button><button class="btn" style="padding:6px 11px">&#9654; Play</button>`;
     d.querySelector('b').textContent = al.title; d.querySelector('span').textContent = [al.artist, al.year, al.tracks.length + ' tracks', fromPl ? 'from your playlist' : ''].filter(Boolean).join(' · ');
-    d.querySelector('button').onclick = () => startAlbum(al.id);
+    const [ed, rm, play] = d.querySelectorAll('button');
+    play.onclick = () => startAlbum(al.id); ed.onclick = () => editAlbum(al); rm.onclick = () => removeAlbum(al);
     l.appendChild(d);
   });
+  const hid = (lib.albumHidden || []).filter(x => !x.key.startsWith('plid:'));
+  if (hid.length) {
+    const r = document.createElement('div'); r.innerHTML = `<button class="btn ghost" style="width:100%;margin-top:4px">Restore ${hid.length} removed album${hid.length === 1 ? '' : 's'}</button>`;
+    r.querySelector('button').onclick = () => { hid.forEach(x => markDeleted('albumHidden', x.key)); lib.albumHidden = (lib.albumHidden || []).filter(x => x.key.startsWith('plid:')); saveLib(); renderAlbums(); toast('Albums restored.'); };
+    l.appendChild(r);
+  }
   readAlbumPlaylists();
+}
+// ✎ An album from a playlist of its own: its name and artist. One of the albums with notes: the playlist it plays
+// from (paste one with its exact versions, or leave it empty to go back to searching YouTube with the checks).
+async function editAlbum(al) {
+  if (al.videos) {
+    const title = prompt('Name of the album:', al.title); if (title === null) return;
+    const artist = prompt('Artist:', al.artist); if (artist === null) return;
+    lib.albumEdits = lib.albumEdits || {}; lib.albumEdits[al.id] = { title: title.trim() || al.title, artist: artist.trim() || al.artist, ts: Date.now() };
+    saveLib(); renderAlbums(); return toast('Saved.');
+  }
+  const now = plIds().find(id => plAlbums[id] && plAlbums[id].album === al.id);
+  const v = prompt(`The playlist that ${al.title} plays from, with its exact versions.\nPaste a YouTube playlist link, or leave it empty to search YouTube instead (every track checked).`, now ? 'https://www.youtube.com/playlist?list=' + now : '');
+  if (v === null) return;
+  plIds().filter(id => plAlbums[id] && plAlbums[id].album === al.id).forEach(id => {   // let go of the playlist it used
+    if ((lib.albumLists || []).some(x => x.key === id)) { lib.albumLists = lib.albumLists.filter(x => x.key !== id); markDeleted('albumLists', id); }
+    if ((R.albumPlaylists || []).includes(id)) { lib.albumHidden = lib.albumHidden || []; lib.albumHidden.push({ key: 'plid:' + id, added: Date.now() }); }
+    delete plAlbums[id];
+  });
+  const m = v.trim().match(/[?&]list=([\w-]+)/) || v.trim().match(/^([\w-]{12,})$/);
+  if (m) {
+    if (!HELPER) { saveLib(); return toast(NEEDS_PC); }
+    lib.albumHidden = (lib.albumHidden || []).filter(x => { if (x.key === 'plid:' + m[1]) { markDeleted('albumHidden', x.key); return false; } return true; });
+    lib.albumLists = (lib.albumLists || []).filter(x => x.key !== m[1]); lib.albumLists.push({ key: m[1], album: al.id, added: Date.now() });
+    delete plAlbums[m[1]]; saveLib(); toast('Reading the playlist…'); await readAlbumPlaylists();
+    const p = plAlbums[m[1]]; toast(p ? `${al.title} now plays from your playlist (${p.map ? Object.keys(p.map).length : 0} of ${al.tracks.length} tracks).` : 'The playlist could not be read. Is it public or unlisted?');
+  } else { saveLib(); toast(`${al.title} goes back to searching YouTube, every track checked.`); }
+  try { localStorage.setItem('pbd-album-pl', JSON.stringify(plAlbums)); } catch {}
+  renderAlbums();
+}
+function removeAlbum(al) {   // ✕ out of the list (Restore brings it back); a playlist of your own is forgotten too
+  if (!confirm(`Remove "${al.title}" from your albums?`)) return;
+  if (albumShow && albumShow.al.id === al.id) stopAlbum();
+  lib.albumHidden = lib.albumHidden || []; lib.albumHidden.push({ key: al.id, added: Date.now() });
+  saveLib(); renderAlbums(); toast(`${al.title} was removed. "Restore" at the bottom of the list brings it back.`);
 }
 $('btnAlbums').onclick = () => { libTab = 'albums'; openSheet('shLib'); renderLib(); };
 
@@ -3286,10 +3349,11 @@ setInterval(() => {
       const d = P().getDuration(), c = P().getCurrentTime(), rem = d - c;
       $('tcur').textContent = fmt(c); $('tdur').textContent = fmt(d); $('barfill').style.width = d ? (100 * c / d) + '%' : '0';
       const isPod = current.podcast;
-      if (!isPod && d > 60 && rem <= 75) planPreload();   // a minute and more ahead: time to find and load it on a slow connection
+      if (!isPod && !repeatOn && d > 60 && rem <= 75) planPreload();   // a minute and more ahead: time to find and load it on a slow connection
       const trimAt = lib.trim[current.key];
+      if (repeatOn && d > 5 && (rem <= 0.8 || (trimAt && c >= trimAt))) repeatSong();   // repeat: back to the start, no fade, no next song
       // end the song a little early (and learn-trim) so trailing silence never reaches you
-      if (!isPod && !current.album && d > 30 && (rem <= Math.max(S.trim || 0, S.fade || 0) || (trimAt && c >= trimAt))) {   // the last seconds fade out under what comes next
+      if (!repeatOn && !isPod && !current.album && d > 30 && (rem <= Math.max(S.trim || 0, S.fade || 0) || (trimAt && c >= trimAt))) {   // the last seconds fade out under what comes next
         console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: trimAt && c >= trimAt ? 4000 : Math.max(2000, Math.round(rem * 1000)) }); }   // fade over what is left of the song
     } catch {}
   }

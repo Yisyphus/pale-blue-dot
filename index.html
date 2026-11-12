@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-11-12T10:27:37Z">
+<meta name="pbd-version" content="2026-11-12T10:44:08Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -102,6 +102,10 @@ body.mini .lyrics{display:none}
 .ctrl .play{width:64px;height:64px;background:linear-gradient(var(--amber),var(--amber2));color:#060a2a;box-shadow:0 6px 24px var(--glow)}
 .ctrl .play:hover{color:#060a2a;filter:brightness(1.08)}
 .ctrl .play svg{width:26px;height:26px}
+.ctrl .rep,.ctrl-spacer{width:34px;height:34px}
+.ctrl .rep{color:var(--mute)}
+.ctrl .rep svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ctrl .rep.on{color:var(--amber);background:var(--panel);box-shadow:0 0 0 1px var(--line)}
 .row{display:flex;align-items:center;gap:8px}
 .row .grow{flex:1}
 .vol{display:flex;align-items:center;gap:8px;flex:1;color:var(--mute)}
@@ -234,9 +238,11 @@ body.mini .app{gap:6px}
   </div>
 
   <div class="ctrl">
+    <span class="ctrl-spacer" aria-hidden="true"></span>
     <button id="btnPrev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
     <button class="play" id="btnPlay" aria-label="Play or pause"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
     <button id="btnNext" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <button class="rep" id="btnRepeat" aria-label="Repeat this song" aria-pressed="false" title="Repeat this song"><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 013-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 01-3 3H3"/></svg></button>
   </div>
 
   <div class="row extras">
@@ -447,6 +453,6 @@ body.mini .app{gap:6px}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=9c51bb179a3cf007"></script>
+<script src="app.js?v=ed957a541f35ccf7"></script>
 </body>
 </html>
