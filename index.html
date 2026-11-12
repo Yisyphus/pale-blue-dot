@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-11-11T08:44:11Z">
+<meta name="pbd-version" content="2026-11-12T09:58:29Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -373,7 +373,7 @@ body.mini .app{gap:6px}
   <!-- library -->
   <div class="sheet" id="shLib">
     <div class="hd"><h2>Library <span id="libCount" style="color:var(--mute);font-size:14px"></span></h2><button class="ico" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button><button data-v="lists">Lists</button><button data-v="unlabeled">Needs labels</button></div>
+    <div class="seg" id="libTabs" style="align-self:flex-start"><button data-v="all" class="on">All songs</button><button data-v="fav">&#9829; Favorites</button><button data-v="lists">Lists</button><button data-v="unlabeled">Needs labels</button><button data-v="albums">Albums</button></div>
     <input type="text" id="libQ" placeholder="Search by song or artist" autocomplete="off" style="flex:none">
     <div class="list" id="libList"></div>
   </div>
@@ -393,6 +393,7 @@ body.mini .app{gap:6px}
     <div class="set" style="flex-wrap:wrap"><span style="flex:1 1 100%">News<br><small id="newsNote" style="color:var(--mute);font-size:11px;line-height:1.4">every 4 hours on the hour, in Arabic</small></span><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-left:auto"><div class="seg" id="segNews"><button data-v="on">on</button><button data-v="off">off</button></div><button class="btn ghost" id="btnNews">Play now</button><button class="btn ghost" id="btnNewsCheck" title="See what every news source gives right now">Check sources</button><button class="btn ghost" id="btnNewsLast" title="Every line of the last bulletin, with the link of each headline">Last bulletin</button></div></div>
     <div class="set" style="flex-wrap:wrap"><span style="flex:1 1 200px">A podcast, now<br><small style="color:var(--mute);font-size:11px;line-height:1.4">plays right away, then the music continues (on the PC radio)</small></span><div id="podNow" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto"><button class="btn ghost" data-v="dahih">الدحيح</button><button class="btn ghost" data-v="hadara">في الحضارة</button><button class="btn ghost" data-v="huwa">هو ليه؟</button><button class="btn ghost" data-v="abdellatif">مع عبد اللطيف</button><button class="btn ghost" data-v="regular">Regular</button></div></div>
     <div class="set" style="flex-wrap:wrap"><span style="flex:1 1 200px">A live concert, now<br><small style="color:var(--mute);font-size:11px;line-height:1.4">a full performance from KEXP or a Tiny Desk Concert from NPR Music. Saturdays, one plays instead of the podcast (on the PC radio)</small></span><div id="concertNow" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto"><button class="btn ghost" data-v="concert">Either</button><button class="btn ghost" data-v="kexp">KEXP</button><button class="btn ghost" data-v="tinydesk">Tiny Desk</button></div></div>
+    <div class="set"><span>Album show<br><small style="color:var(--mute);font-size:11px;line-height:1.4">a whole album in its own order, with Astro: the story first, then a pause every 3 tracks (on the PC radio)</small></span><button class="btn ghost" id="btnAlbums">Choose an album…</button></div>
     <div class="set"><span>Marathon<br><small style="color:var(--mute);font-size:11px;line-height:1.4">non-stop: commercials, letters, talks, podcasts… no songs in between</small></span><button class="btn ghost" id="btnMarathon">Choose…</button></div>
     <div class="set"><span>Commercials</span><button class="btn ghost" id="btnAds">Manage commercials</button></div>
     <div class="set"><span>Playback report<br><small style="color:var(--mute);font-size:11px">what YouTube did, for fixing problems</small></span><button class="btn ghost" id="btnReport">Show</button></div>
@@ -439,12 +440,13 @@ body.mini .app{gap:6px}
 <script src="content21.js?v=db801564b6bdd4c3"></script>
 <script src="content22.js?v=97b2806116f2a4e7"></script>
 <script src="content23.js?v=2b2fed3a8873b89a"></script>
+<script src="content24.js?v=6bfa0cc77eb4058a"></script>
 <script src="jingles.js?v=82e560f3edddbd37"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=61a02500bccd646f"></script>
 <script src="cloud.js?v=2fb3e9b1301d659f"></script>
-<script src="app.js?v=a77485d205d36c87"></script>
+<script src="app.js?v=528b0e882be670c2"></script>
 </body>
 </html>

@@ -122,8 +122,8 @@ let saveT;
 function keepFocusOut() {
   let fc = {}; try { fc = JSON.parse(localStorage.getItem('pbd-focus-cache') || '{}'); } catch {}
   let moved = false;
-  ['cache', 'trim', 'bad'].forEach(k => Object.keys(lib[k] || {}).forEach(x => { if (/^focus/.test(x)) { if (k === 'cache') { fc[x] = lib.cache[x]; moved = true; } delete lib[k][x]; } }));
-  if (lib.hist) lib.hist = lib.hist.filter(h => !/^focus/.test(h.k));
+  ['cache', 'trim', 'bad'].forEach(k => Object.keys(lib[k] || {}).forEach(x => { if (/^(focus|album)/.test(x)) { if (k === 'cache') { fc[x] = lib.cache[x]; moved = true; } delete lib[k][x]; } }));
+  if (lib.hist) lib.hist = lib.hist.filter(h => !/^(focus|album)/.test(h.k));
   if (moved) try { localStorage.setItem('pbd-focus-cache', JSON.stringify(fc)); } catch {}
 }
 function saveLib() {
@@ -520,6 +520,7 @@ function fadeP(p, to, ms) {
 async function resolve(s) {
   if (s.cands && s.cands.length) return s.cands;
   if (s.focus) return resolveFocus(s);
+  if (s.album) return resolveAlbum(s);
   try {
     const r = await fetch('/api/search?q=' + encodeURIComponent(s.a + ' ' + s.t) + '&a=' + encodeURIComponent(s.a) + '&t=' + encodeURIComponent(s.t));
     const c = (await r.json()).slice(0, 5);
@@ -552,7 +553,7 @@ async function startSong(s, startVol, fadeInMs = 0, outMs = fadeMs()) {
   setNow(s);
   clearTimeout(startWatch); startWatch = setTimeout(() => { if (!playing && !globalPaused) tryNextCand(); }, 14000);
   if (fadeInMs) fadeP(np, S.vol, fadeInMs);
-  if (!s.podcast && !s.focus) {   // remembered across sessions, so the radio does not replay the same songs every time it opens
+  if (!s.podcast && !s.focus && !s.album) {   // remembered across sessions, so the radio does not replay the same songs every time it opens
     lib.hist = lib.hist || []; lib.hist.push({ k: s.key, a: s.a }); if (lib.hist.length > 400) lib.hist.splice(0, lib.hist.length - 400); saveLib();
   }
   return true;
@@ -825,6 +826,7 @@ function setFocus(mode) {
 }
 const takePlanned = () => { const p = planned; planned = null; return p || pick(); };
 function planPreload() {
+  if (albumShow) return albumPreload();
   if (planned || marathon) return;   // a marathon chooses its next part when this one ends planned = pick(); if (!planned) return;
   const p = planned;
   resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; const n = 1 - ai; try { setVol(pl[n], 0); pl[n].cueVideoById(c[0].id); preload = { key: p.key, idx: n }; } catch {} });
@@ -1390,6 +1392,100 @@ async function playPodcast(pod, prev, opts, id) {
   busy = false;
 }
 
+// ---------- Album show: a whole album in its own order, from the artist's YouTube "Topic" channel ----------
+// Astro tells the story of the band and the album, plays 3 tracks, pauses to talk about them, and so on to the end
+// (content24.js). Never programmed: you start it (Library > Albums, or Settings > Album show). The tracks are kept
+// apart from the library, like Focus tracks. Next skips a track, Previous goes back one, ■ stops the show.
+let albumShow = null;   // { al, i: next track, said: Set of talk points already said }
+const albumSong = (al, i) => ({ a: al.artist, t: al.tracks[i], album: al.id, n: i, genre: 'album', tags: [], key: 'album|' + al.id + '|' + i });
+const foldT = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/\s*[\(\[][^\)\]]*(remaster|version|mono|stereo|mix|edit|including)[^\)\]]*[\)\]]/g, '').replace(/\s+-\s+.*(remaster|version|mono|mix).*$/, '')
+  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+async function resolveAlbum(s) {
+  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache') || '{}'); } catch {}
+  if (cache[s.key] && cache[s.key].length) return (s.cands = cache[s.key]);
+  const al = (R.albums || []).find(x => x.id === s.album), artist = al.ytArtist || al.artist, want = foldT(s.t);
+  const topic = v => / - Topic$/i.test(v.channel || ''), same = v => { const t = foldT(v.title); return t === want || t.startsWith(want + ' ') || want.startsWith(t + ' '); };
+  let pool = [];
+  for (const q of [artist + ' ' + s.t + ' topic', artist + ' - ' + s.t]) {
+    try { const r = await (await fetch('/api/search?q=' + encodeURIComponent(q) + '&a=' + encodeURIComponent(artist) + '&t=' + encodeURIComponent(s.t))).json(); if (Array.isArray(r)) pool.push(...r); } catch {}
+    if (pool.some(v => topic(v) && same(v))) break;
+  }
+  const seen = new Set(); pool = pool.filter(v => v && v.id && !seen.has(v.id) && seen.add(v.id));
+  const rank = v => (topic(v) ? 0 : 2) + (same(v) ? 0 : 1);   // the album version from the Topic channel first
+  const c = pool.sort((p, q) => rank(p) - rank(q)).slice(0, 5);
+  if (!c.length) return [];
+  if (!topic(c[0])) rlog('album: no Topic upload, another one plays', { track: s.key, title: c[0].title, channel: c[0].channel });
+  s.cands = c; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache', JSON.stringify(cache)); } catch {}
+  return c;
+}
+function albumTalk(id, text, title) {   // Astro speaks between tracks, then the album goes on
+  const al = albumShow.al; albumShow.said.add(id);
+  const segs = [{ kind: 'Album show', title: title || al.artist + ' · ' + al.title, lines: [{ t: sub(text) }] }];
+  (async () => {
+    const run = marathonQuiet(); bedOn(); $('kind').textContent = 'album show';
+    curBreak = { segs, idx: 0, next: null };
+    const ok = await runSegments(segs, run);
+    if (!ok || run !== runId || !albumShow) return;
+    curBreak = null; bedOff(1.5); busy = false; caption('Album show', '');
+    await sleep(500); if (run === runId && albumShow) advance();
+  })();
+}
+function albumStep() {
+  const sh = albumShow, al = sh.al, i = sh.i, groups = Math.ceil(al.tracks.length / 3);
+  if (i === 0 && !sh.said.has('intro')) return albumTalk('intro', al.intro, 'The album · ' + al.artist + ', ' + al.title);
+  if (i > 0 && i % 3 === 0 && i < al.tracks.length && !sh.said.has('n' + i)) return albumTalk('n' + i, al.notes[i / 3 - 1] || '');
+  if (i >= al.tracks.length) {
+    if (!sh.said.has('end')) return albumTalk('end', (al.notes[groups - 1] || '') + ' ' + rnd(R.albumOutros || ['That was {album}, by {artist}, from beginning to end. Back to the radio.']).replace(/\{album\}/g, al.title).replace(/\{artist\}/g, al.artist));
+    albumShow = null; albumUI(); rlog('album show finished', { album: al.id }); return advance({ silent: true, noCount: true });
+  }
+  sh.i = i + 1;
+  let s = albumSong(al, i); if (planned && planned.key === s.key) { s = planned; } planned = null;
+  caption('Album show', al.artist + ' · ' + al.title + ' · track ' + (i + 1) + ' of ' + al.tracks.length);
+  return advance({ song: s, prev: null, silent: true, noCount: true, quick: true, fadeOldMs: 400, marSong: true });
+}
+function albumPreload() {   // the next track is found and loaded ahead, so tracks follow each other closely
+  const sh = albumShow, i = sh.i; if (planned || i >= sh.al.tracks.length || (i % 3 === 0 && !sh.said.has('n' + i))) return;
+  const p = planned = albumSong(sh.al, i);
+  resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; const n = 1 - ai; try { setVol(pl[n], 0); pl[n].cueVideoById(c[0].id); preload = { key: p.key, idx: n }; } catch {} });
+}
+function albumBack() {   // Previous: the track before this one (its talk is not repeated)
+  const sh = albumShow, now = current && current.album === sh.al.id ? current.n : sh.i - 1;
+  sh.i = Math.max(0, now - 1); if (sh.i === 0) sh.said.add('intro'); sh.said.add('n' + sh.i);
+  planned = null; preload = null; stopSpeech(); albumStep();
+}
+function startAlbum(id) {
+  const al = (R.albums || []).find(x => x.id === id); if (!al) return;
+  if (!started) return toast('Press play first, then choose an album.');
+  if (!HELPER) return toast('The album show finds its tracks on YouTube through your PC, so it plays on the PC radio.');
+  if (marathon) marathon = null;
+  if (focusMode) { focusMode = ''; try { localStorage.setItem('pbd-focus', ''); } catch {} paintFocus(); }   // quietly: the show starts itself
+  albumShow = { al, i: 0, said: new Set() }; planned = null; preload = null; batch = null;
+  rlog('album show', { album: al.id }); toast(al.artist + ', ' + al.title + ': the whole album, in order.');
+  openSheet(null); albumUI(); stopSpeech(); albumStep();
+}
+function stopAlbum() {
+  if (!albumShow) return; albumShow = null; albumUI(); toast('Album show stopped. Back to the radio.');
+  if (started) { stopSpeech(); bedOff(1); planned = null; preload = null; advance({ silent: true, noCount: true }); }
+}
+function albumUI() {
+  const b = $('marStop'); b.style.display = albumShow || marathon ? '' : 'none';
+  b.innerHTML = albumShow ? '&#9632; stop the album' : '&#9632; stop marathon';
+}
+function renderAlbums() {
+  const l = $('libList'); l.innerHTML = ''; const all = R.albums || [], shown = all.filter(a => libMatch(a.artist, a.title));
+  $('libCount').textContent = `· ${all.length} albums`;
+  if (!shown.length) { l.innerHTML = noMatch(); return; }
+  shown.forEach(al => {
+    const d = document.createElement('div'); d.className = 'item' + (albumShow && albumShow.al.id === al.id ? ' now' : '');
+    d.innerHTML = `<div class="meta"><b></b><span></span></div><button class="btn" style="padding:6px 11px">&#9654; Play</button>`;
+    d.querySelector('b').textContent = al.title; d.querySelector('span').textContent = `${al.artist} · ${al.year} · ${al.tracks.length} tracks`;
+    d.querySelector('button').onclick = () => startAlbum(al.id);
+    l.appendChild(d);
+  });
+}
+$('btnAlbums').onclick = () => { libTab = 'albums'; openSheet('shLib'); renderLib(); };
+
 // ---------- Lyrics: from LRCLIB (lrclib.net, free and open), synced line by line to where the song really is ----------
 // The line shown follows the player's own position, so skipping, rewinding or seeking inside the song keeps it right.
 // A YouTube upload can start earlier or later than the album version the timing was made for: tap the line being
@@ -1594,6 +1690,7 @@ function stopMarathon() {
 }
 async function advance(opts = {}) {
   if (marathon && !opts.marSong) return marathonStep();
+  if (albumShow && !opts.marSong) return albumStep();
   if (globalPaused) clearPause();   // anything new starts un-paused
   if (newsOn) { newsOn = false; newsBack = null; }   // you chose something else during the news
   stopSpeech();
@@ -2378,11 +2475,11 @@ function next() {
   if (globalPaused) resumeAll();
   if (breakSkip) { const b = breakSkip; breakSkip = null; b(); return; }   // during a commercial break: skip the current jingle, ad or spoken line
   try { // learn where a silent tail begins: if you skip near the end, trim there from now on
-    if (current && !current.podcast && !current.focus && playing && !busy) { const d = P().getDuration(), c = P().getCurrentTime(); if (d > 60 && d - c < 90 && d - c > 3) { lib.trim[current.key] = Math.max(0, c - 1); saveLib(); toast('Got it. I will end this song right here from now on.'); } }
+    if (current && !current.podcast && !current.focus && !current.album && playing && !busy) { const d = P().getDuration(), c = P().getCurrentTime(); if (d > 60 && d - c < 90 && d - c > 3) { lib.trim[current.key] = Math.max(0, c - 1); saveLib(); toast('Got it. I will end this song right here from now on.'); } }
   } catch {}
   advance({ quick: true });
 }
-function prev() { if (started && globalPaused) resumeAll(); if (started && marathon && !newsOn) return marathonBack(); if (!started || !history.length) return toast('No earlier song yet.'); const p = history.pop(); advance({ song: p, prev: null, silent: true, noCount: true, quick: true }); }
+function prev() { if (started && globalPaused) resumeAll(); if (started && marathon && !newsOn) return marathonBack(); if (started && albumShow && !newsOn) return albumBack(); if (!started || !history.length) return toast('No earlier song yet.'); const p = history.pop(); advance({ song: p, prev: null, silent: true, noCount: true, quick: true }); }
 async function tuneIn() {
   if (!songs.length) { $('tuneSub').textContent = 'one moment, loading your library…'; await bootDone; }   // play pressed while the library (or a slow sign-in) is still loading
   started = true; $('tune').style.display = 'none'; unlockAudio();
@@ -2697,10 +2794,10 @@ const libMatch = (...fields) => { const ws = fold($('libQ').value).split(' ').fi
 const noMatch = () => `<p style="color:var(--mute);font-size:13px">Nothing here matches "${$('libQ').value.replace(/[<&"]/g, '')}".</p>`;
 const favIdx = k => (lib.fav || []).findIndex(f => f.key === k);
 function updateHeart() {
-  const r = $('btnRemoveSong'); if (r) { r.style.display = current && !current.podcast && !current.sounds ? '' : 'none'; r.classList.remove('sure'); r.innerHTML = '&#10005; remove this song'; }
+  const r = $('btnRemoveSong'); if (r) { r.style.display = current && !current.podcast && !current.sounds && !current.album ? '' : 'none'; r.classList.remove('sure'); r.innerHTML = '&#10005; remove this song'; }
   const b = $('btnHeart'); if (!b) return;
   const on = !!current && favIdx(current.key) >= 0;
-  b.classList.toggle('on', on); b.disabled = !current || !!current.podcast || !!current.focus;
+  b.classList.toggle('on', on); b.disabled = !current || !!current.podcast || !!current.focus || !!current.album;
   b.title = on ? 'Remove from favorites' : 'Add to favorites'; b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 function toggleFav() {
@@ -2805,6 +2902,7 @@ function renderLib() {
   document.querySelectorAll('#libTabs button').forEach(b => b.classList.toggle('on', b.dataset.v === libTab || (b.dataset.v === 'lists' && libTab.startsWith('list:'))));
   if (libTab === 'fav') return renderFav();
   if (libTab === 'lists') return renderLists();
+  if (libTab === 'albums') return renderAlbums();
   const L = libTab.startsWith('list:') && (lib.lists || []).find(x => 'list:' + x.key === libTab);
   if (libTab.startsWith('list:') && !L) { libTab = 'lists'; return renderLists(); }   // deleted on another device
   const all = L ? listSongs(L) : libTab === 'unlabeled' ? songs.filter(needsLabels) : songs, shown = all.filter(s => libMatch(s.a, s.t));
@@ -3029,7 +3127,7 @@ $('marGo').onclick = () => {
   startMarathon(kinds, pods, src, marEvery);
 };
 $('marEnd').onclick = () => { openSheet(null); stopMarathon(); };
-$('marStop').onclick = e => { e.stopPropagation(); stopMarathon(); };
+$('marStop').onclick = e => { e.stopPropagation(); if (albumShow) stopAlbum(); else stopMarathon(); };
 $('btnNewsNow').onclick = () => { unlockAudio(); if (newsOn) endNews(); else runNews(true); };
 document.addEventListener('pointerdown', () => { if (!ttsPlayer.src) unlockAudio(); }, { once: true, capture: true });
 $('btnTest').onclick = () => { stopSpeech(); say(`Hello. This is ${R.host}, and this is how I sound on Pale Blue Dot Radio.`); };
@@ -3074,7 +3172,7 @@ setInterval(() => {
       if (!isPod && d > 60 && rem <= 75) planPreload();   // a minute and more ahead: time to find and load it on a slow connection
       const trimAt = lib.trim[current.key];
       // end the song a little early (and learn-trim) so trailing silence never reaches you
-      if (!isPod && d > 30 && (rem <= Math.max(S.trim || 0, S.fade || 0) || (trimAt && c >= trimAt))) {   // the last seconds fade out under what comes next
+      if (!isPod && !current.album && d > 30 && (rem <= Math.max(S.trim || 0, S.fade || 0) || (trimAt && c >= trimAt))) {   // the last seconds fade out under what comes next
         console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: trimAt && c >= trimAt ? 4000 : Math.max(2000, Math.round(rem * 1000)) }); }   // fade over what is left of the song
     } catch {}
   }

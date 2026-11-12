@@ -143,6 +143,7 @@ breaks may get a small extra: a genre note, a letter + reading, a station ident,
 | `content19.js` | A Long Letter to You; the **birthday letter** (plays only on the listener's birthday); `R.listener = { born }`. |
 | `content20.js` | Conversations with You: the host and the listener younger (y), older (o), the part that refuses (r), the part that keeps going (k)… each a different voice and pitch. |
 | `content23.js` | Focus stations, ambient sounds, dedication lines, the podcast shows and concerts, pronunciation fixes (`R.sayAs`). |
+| `content24.js` | The album show: the albums, their tracklists, what Astro says before and between the tracks. |
 | `jingles.js` | The jingles. |
 
 - **Voices** (Settings): Astro (default Brian Multilingual), Luna (Emily, Ireland), News (Mouna, Morocco), speaking
@@ -189,6 +190,14 @@ breaks may get a small extra: a genre note, a letter + reading, a station ident,
   pick; edit, delete; nothing is found for you). Or **Ambient sounds** (rain, night rain, deep space, ocean, forest,
   café, fireplace, thunder, desert wind: one long recording at a time). PC only.
 - Focus tracks never touch the library, history or favorites.
+
+### Album show (Library > Albums, or Settings > Album show)
+A whole album in its own order, from the artist's YouTube "Topic" channel (`resolveAlbum`: the Topic upload with the
+same title first). Astro introduces the band and the album, plays 3 tracks, pauses to talk about them, and so on to
+the end, then a closing line (`content24.js`: `R.albums` with `tracks`, `intro`, one `notes` entry per 3 tracks,
+`ytArtist` when YouTube spells the name differently; tracklists checked against MusicBrainz, facts from Wikipedia).
+Never programmed; tracks stay out of the library and history; no early fade or trim between tracks; the next track
+is loaded ahead. Next skips a track, Previous goes back one, ■ stop the album. PC only.
 
 ### Marathon (Settings > Marathon)
 Four groups, each a box that ticks or clears all of it (ticking inside ticks the group):
