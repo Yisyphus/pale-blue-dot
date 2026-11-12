@@ -167,7 +167,7 @@ async function ytInfo(id) {
   const d = (p && p.videoDetails) || {}, desc = d.shortDescription || '';
   const lines = desc.split('\n').map(x => x.trim()).filter(Boolean);
   const i = lines.findIndex(x => /\s·\s/.test(x));
-  return { id, title: d.title || '', channel: d.author || '', seconds: +d.lengthSeconds || 0, topic: /^Provided to YouTube by/i.test(lines[0] || ''), track: i >= 0 ? lines[i].split(' · ')[0] : '', album: i >= 0 && lines[i + 1] && !/^℗|^©|^Released on/i.test(lines[i + 1]) ? lines[i + 1] : '', released: (desc.match(/Released on:\s*([\d-]+)/) || [])[1] || '' };
+  return { id, title: d.title || '', channel: d.author || '', seconds: +d.lengthSeconds || 0, topic: /^Provided to YouTube by/i.test(lines[0] || ''), track: i >= 0 ? lines[i].split(' · ')[0] : '', album: i >= 0 && lines[i + 1] && !/^℗|^©|^Released on/i.test(lines[i + 1]) ? lines[i + 1] : '', released: (desc.match(/Released on:\s*([\d-]+)/) || [])[1] || '', desc: desc.slice(0, 3000) };
 }
 // Live concerts (KEXP full performances, Tiny Desk): 8 to 75 minutes, as YouTube ranks them
 async function concert(q) {

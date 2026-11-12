@@ -1416,13 +1416,23 @@ const albumTitleOk = (got, al) => {
   const rest = (g.slice(0, at) + ' ' + g.slice(at + w.length)).replace(/\b(original )?album mix\b|\boriginal mix\b/g, '').trim();   // "Original Album Mix" is the album itself
   return !/\b(live|remix|remixes|mix|demo|demos|session|sessions|early years|anthology|collection|best of|greatest|hits|essential|years|instrumentals?|acoustic)\b/.test(rest);
 };
+// 4) The rest of the description: credits and notes can still say it is another recording ("Recorded live at…",
+// "Demo", "Remix", "Session"), even under a clean title and album. The album's own name is left out of the search,
+// and so is the label line, so "Live" or "Mix" in those does not count.
+function otherVersion(desc, al) {
+  const own = String(al.ytAlbum || al.title).toLowerCase();
+  return String(desc || '').split('\n').slice(1).some(l => {
+    const x = l.toLowerCase().replace(own, ' ');
+    return /\b(recorded live|live (at|in|from|on)|live recording|in concert|demo|demos|remix|remixed|rehearsal|outtake|alternate take|alternative take|early take|session|bbc)\b/.test(x) && !/^℗|^©|^(producer|composer|lyricist|writer|engineer|mixing|mastering|associated)/.test(x.trim());
+  });
+}
 let helperChecks = null;   // does this PC's helper read a video's album? (older helpers cannot)
 async function canCheckAlbums() {
   if (helperChecks === null) { try { helperChecks = (await fetch('/api/ytinfo?id=xxxxxxxxxxx')).status !== 404; } catch { helperChecks = false; } }
   return helperChecks;
 }
 async function resolveAlbum(s) {
-  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache3') || '{}'); } catch {}
+  let cache = {}; try { cache = JSON.parse(localStorage.getItem('pbd-album-cache4') || '{}'); } catch {}
   if (cache[s.key] && cache[s.key].length) return (s.cands = cache[s.key]);
   if (!(await canCheckAlbums())) return [];
   const al = (R.albums || []).find(x => x.id === s.album), artist = al.ytArtist || al.artist;
@@ -1433,8 +1443,8 @@ async function resolveAlbum(s) {
     for (const v of pool.filter(v => topic(v) && sameTrack(v.title, s.t) && !v._checked).slice(0, 6)) {
       v._checked = true;
       let info = null; try { const r = await fetch('/api/ytinfo?id=' + v.id); if (r.ok) info = await r.json(); } catch {}
-      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, s.t)) {
-        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache3', JSON.stringify(cache)); } catch {}
+      if (info && info.topic && albumTitleOk(info.album, al) && sameTrack(info.track || v.title, s.t) && !otherVersion(info.desc, al)) {
+        const c = [v]; cache[s.key] = c; try { localStorage.setItem('pbd-album-cache4', JSON.stringify(cache)); } catch {}
         rlog('album track', { track: s.key, id: v.id, album: info.album, title: info.track || v.title });
         return (s.cands = c);
       }
