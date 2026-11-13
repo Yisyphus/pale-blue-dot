@@ -58,14 +58,36 @@ The browser cannot search YouTube or read most news sites (CORS), so on the PC a
   `server.js` is validated and installed too. `public/` stays the fallback.
 
 ### The installed app (Windows)
-- Installed in `%LOCALAPPDATA%\Programs\PaleBlueDotRadio` (no admin rights). The bundle holds `node.exe` renamed
-  `PaleBlueDotHelper.exe`, `server.js`, `public/` (page files), `cloud.json`, `data/`.
-- The `.vbs` launcher starts the helper hidden if it is not running, then opens **Microsoft Edge in app mode**
-  (`--app=http://localhost:8787/ --window-size=440,800`). Edge is required: its natural online voices (Brian, Emily,
-  Mouna…) are what the radio speaks with.
-- **Updates itself every time it opens**, before play is pressed (`autoUpdate` in `app.js`): new page → reload;
-  new helper → `/api/restart`. Settings also has an **Update** button.
-- The radio's own **✕** turns everything off (`/api/quit`); closing the window leaves the helper running.
+- Installed in `%LOCALAPPDATA%\Programs\PaleBlueDotRadio` (no admin rights). **Its own program (Electron)**:
+  `Pale Blue Dot Radio.exe` with `resources\app` = `desktop/` (`main.js`, `package.json`). The window has
+  `backgroundThrottling: false` and the switches `disable-renderer-backgrounding`, `disable-background-timer-throttling`,
+  `disable-backgrounding-occluded-windows`, `autoplay-policy=no-user-gesture-required`, so it stays "visible" when
+  minimized: YouTube loads and starts songs as usual (in a browser, a song loaded while minimized stays buffering
+  forever). The user agent has no "Electron/". It starts the helper with its own Node (`ELECTRON_RUN_AS_NODE=1`,
+  `PBD_DESKTOP=1`), waits for `/api/ping`, calls `/api/update` once, then loads `http://localhost:8787/`. Links open in
+  the normal browser; the Google sign-in popup is a child window; one instance only; closing the window calls `/api/quit`.
+- **Voices made on the PC** (helper, `POST /api/say { text, who, speed, pre }` → WAV, `{ items: [...] }` to make
+  ahead in order): the table `VOICES` in `server.js` — Astro `h` = Kokoro `am_echo`, Luna `s` = Kokoro `af_heart`, the
+  news `ar` = Piper `ar_JO-kareem-medium` (`piper\piper.exe`, which adds the Arabic vowel marks itself with
+  libtashkeel). Kokoro: kokoro-js 1.2.1, q8, CPU, model in `voice-model\onnx-community\Kokoro-82M-v1.0-ONNX` (revision
+  1939ad2a…); Kareem in `voice-model\piper`. One job at a time, a line needed now first, 150 cached, never the same
+  line twice. `/api/ping` reports `desktop` and `voice: { state, progress, rtf, error, ar, arError }`.
+- **The page in the app** (`desktopApp`): `say()` plays the helper's recordings (`sayKokoro`/`playPiece`, caption
+  following the playback); never a stand-in voice: the first welcome waits for the voices ("Getting the voices
+  ready…"), a break before they are ready is skipped, the news is skipped until Kareem is ready. The next break and
+  its intro are written ~95 s before a song ends (`planBreak`) and recorded ahead; every break and bulletin is sent
+  as ONE ordered list when it starts; blocks are cut in pieces (first piece one sentence). The other voices of a
+  script (the versions of you) are Astro's or Luna's played slightly higher or lower. `R.kokoroSay` (content.js):
+  Kokoro's own pronunciation list (checked with the phonemizer, espeak en-us), applied before `R.sayAs`.
+- **The next song is primed**: loaded on the idle player at volume 0 (never `mute()`), paused at 0 once playing,
+  then started with unMute + seekTo(0) + playVideo. The report logs "window minimized" / "window back" with both
+  players, player changes while minimized, "next song ready", and "voices …".
+- **Release** (`tools/release/build.ps1`, Windows on GitHub Actions): Electron 44.10.0 (checked against SHASUMS256),
+  renamed and branded with rcedit; kokoro-js trimmed to what Windows needs, only the two voices; Piper 2023.11.14-2
+  (checksum pinned); a check that Kokoro loads with the app's Node and that piper.exe speaks Arabic with libtashkeel.
+  The installer downloads Kokoro's model and Kareem (SHA-256 each), removes the old `.vbs` launcher and node helper,
+  and its uninstall removes `voice-model\`.
+- The radio's own **✕** turns everything off.
 
 ### The website and the phone
 Published by GitHub Pages from `main`. Without the helper (phone, other browsers), `mobileWeb()` is true: YouTube
@@ -286,7 +308,8 @@ Previous goes back to the part before (any kind, last 40). Next skips to the nex
 
 - The PC helper must stay dependency-free and self-updating; the page must keep working with an **older helper**
   (check its abilities through `/api/ping`, fall back when an endpoint is missing).
-- Edge app mode is what gives the good voices; online voices need the internet sentence by sentence.
+- A browser slows a minimized page down and YouTube's fresh loads then stall: the app is Electron with background
+  throttling off. Its voices are made on the PC (Kokoro, Piper), never a stand-in; record ahead so a slow PC keeps up.
 - Long jobs on a weak connection: give each source its own time limit; never let one global timeout discard results
   that already arrived. Ask the PC first, the public relays only if that fails.
 - Time media by the media's own clock (player position), never by a timer that starts at load.
