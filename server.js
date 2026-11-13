@@ -372,41 +372,145 @@ const send = (res, code, body, type = 'application/json') => { res.writeHead(cod
 const argv = process.argv.slice(2);
 if (argv[0] === '--extract-ads') { extractPlaylist(argv[1] || '').then(l => { console.log('Saved ' + l.length + ' ads to ads-playlist.json'); process.exit(0); }).catch(e => { console.error(e.message); process.exit(1); }); }
 else {
-// ---------- the voice engine: an Edge window (voice.html) that only speaks, for Edge's natural voices ----------
-// The radio page sends each line here (/api/voice/say); voice.html receives it over Server-Sent Events
-// (/api/voice/inbox), speaks it with speechSynthesis and posts what happened (/api/voice/event): start, boundary,
-// end, error, its voice list, and a heartbeat every 2 s. The radio page follows those events (/api/voice/events).
-const voice = { inbox: new Set(), listeners: new Set(), beat: 0, voices: [], log: [] };
-const sse = res => { res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' }); res.write(': hello\n\n'); };
-const push = (set, obj) => { const line = 'data: ' + JSON.stringify(obj) + '\n\n'; set.forEach(r => { try { r.write(line); } catch {} }); return set.size; };
-setInterval(() => { voice.inbox.forEach(r => { try { r.write(': keep\n\n'); } catch {} }); voice.listeners.forEach(r => { try { r.write(': keep\n\n'); } catch {} }); }, 15000);
-const voiceAlive = () => Date.now() - voice.beat < 6000;
-async function voiceApi(u, req, res) {
-  const p = u.pathname;
-  if (p === '/api/voice/inbox') { sse(res); voice.inbox.add(res); req.on('close', () => voice.inbox.delete(res)); return true; }
-  if (p === '/api/voice/events') { sse(res); voice.listeners.add(res); req.on('close', () => voice.listeners.delete(res)); return true; }
-  if (p === '/api/voice/voices') { send(res, 200, { alive: voiceAlive(), voices: voice.voices }); return true; }
-  if (p === '/api/voice/log') { send(res, 200, { alive: voiceAlive(), log: voice.log }); return true; }
-  if (req.method !== 'POST') return false;
-  const b = await readBody(req);
-  if (p === '/api/voice/say') { const n = push(voice.inbox, { id: String(b.id || ''), text: String(b.text || ''), voice: b.voice || '', rate: +b.rate || 1, pitch: +b.pitch || 1 }); send(res, 200, { ok: n > 0, delivered: n }); return true; }
-  if (p === '/api/voice/cmd') { const n = push(voice.inbox, { cmd: String(b.cmd || '') }); send(res, 200, { ok: n > 0 }); return true; }
-  if (p === '/api/voice/event') {
-    if (b.type === 'beat') voice.beat = Date.now();
-    else if (b.type === 'voices') { voice.voices = Array.isArray(b.voices) ? b.voices.slice(0, 500) : []; voice.beat = Date.now(); }
-    else { voice.log.push({ at: Date.now(), ...b }); if (voice.log.length > 100) voice.log.shift(); }
-    if (b.type !== 'beat') push(voice.listeners, b);
-    send(res, 200, { ok: true }); return true;
-  }
-  return false;
+// ---------- the voices of the Windows app: made on this PC, free and offline (no account, no limit) ----------
+// The three voices, in ONE place: change a line here to change a voice (content.js only names them in Settings).
+// Kokoro voices ship with the app (node_modules/kokoro-js/voices/<voice>.bin, chosen in tools/release/build.ps1);
+// the Piper voice is a model file in voice-model/piper/ (downloaded by the installer, or here on the first start).
+const VOICES = {
+  h: { engine: 'kokoro', voice: 'am_echo' },               // Astro, the host (English)
+  s: { engine: 'kokoro', voice: 'af_heart' },              // Luna, the readings (English)
+  ar: { engine: 'piper', voice: 'ar_JO-kareem-medium' },   // the news (Arabic, a man's voice, standard Arabic)
+};
+// where the Piper voice comes from, checked by SHA-256 (rhasspy/piper-voices on Hugging Face)
+const PIPER_VOICE = { base: 'https://huggingface.co/rhasspy/piper-voices/resolve/main/ar/ar_JO/kareem/medium/', onnx: '9e95cab07b679da603bba17c4dec7ab3111320571964ee95c0379603c086491e', json: 'ea6d9b9d9076dbdb6bf5c98c6a141ef154959d2359709b37855727964e7d6c4d' };
+// The page asks for a block of text (POST /api/say { text, who, speed, pre }) and gets a WAV back; { items: [...] }
+// queues several, in that order, to be made ahead. One block is made at a time; a block needed now goes first.
+const VOICE = { state: 'none', progress: 0, rtf: 0, error: '', loadMs: 0, ar: 'none', arError: '' };
+let tts = null;
+const sayCache = new Map(), sayJobs = [];
+let sayBusy = false, sayCur = null;
+const VOICE_DIR = path.join(__dirname, 'voice-model');
+const PIPER_EXE = path.join(__dirname, 'piper', process.platform === 'win32' ? 'piper.exe' : 'piper');
+const piperModel = () => path.join(VOICE_DIR, 'piper', VOICES.ar.voice + '.onnx');
+async function voiceInit() {
+  let K, T;
+  try { const rq = require('module').createRequire(path.join(__dirname, 'server.js')); K = rq('kokoro-js'); T = rq('@huggingface/transformers'); }
+  catch (e) { if (process.env.PBD_DESKTOP) { VOICE.state = 'error'; VOICE.error = 'voice engine missing: ' + String(e.message || e).slice(0, 120); } return; }   // the website's helper: the browser speaks
+  VOICE.state = 'loading'; VOICE.error = '';
+  piperInit();
+  const t0 = Date.now();
+  try {
+    T.env.cacheDir = VOICE_DIR; T.env.allowLocalModels = true;
+    const seen = {};
+    tts = await K.KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'cpu', progress_callback: x => {
+      if (x && x.file && x.total) { seen[x.file] = [x.loaded || 0, x.total]; const t = Object.values(seen).reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]); VOICE.progress = Math.round(100 * t[0] / t[1]); }
+    } });
+    VOICE.state = 'ready'; VOICE.progress = 100; VOICE.loadMs = Date.now() - t0;   // ready as soon as the model loads; the speed (rtf) is measured on the first lines
+    console.log('Voices ready in ' + VOICE.loadMs + ' ms');
+    runSay();
+  } catch (e) { tts = null; VOICE.state = 'error'; VOICE.error = String(e.message || e).slice(0, 200); console.log('Voices failed: ' + VOICE.error); setTimeout(voiceInit, 60000); }
+}
+// Piper: the program ships with the app; the voice is downloaded once if the installer could not
+async function piperInit() {
+  if (!fs.existsSync(PIPER_EXE)) { VOICE.ar = 'error'; VOICE.arError = 'piper missing'; return; }
+  const m = piperModel();
+  if (fs.existsSync(m) && fs.existsSync(m + '.json')) { VOICE.ar = 'ready'; return; }
+  VOICE.ar = 'loading';
+  try {
+    fs.mkdirSync(path.dirname(m), { recursive: true });
+    for (const [ext, sum] of [['.onnx.json', PIPER_VOICE.json], ['.onnx', PIPER_VOICE.onnx]]) {
+      const r = await fetch(PIPER_VOICE.base + VOICES.ar.voice + ext); if (!r.ok) throw new Error('HTTP ' + r.status);
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (crypto.createHash('sha256').update(buf).digest('hex') !== sum) throw new Error(ext + ' did not match its checksum');
+      fs.writeFileSync(path.join(path.dirname(m), VOICES.ar.voice + ext + '.part'), buf);
+    }
+    for (const ext of ['.onnx.json', '.onnx']) fs.renameSync(path.join(path.dirname(m), VOICES.ar.voice + ext + '.part'), path.join(path.dirname(m), VOICES.ar.voice + ext));
+    VOICE.ar = 'ready'; runSay();
+  } catch (e) { VOICE.ar = 'error'; VOICE.arError = String(e.message || e).slice(0, 160); setTimeout(piperInit, 120000); }
+}
+// a block, cut into pieces Kokoro can say in one go (it cuts anything longer than about 500 sounds), joined back
+// with a short breath; the silence Kokoro leaves at each end of a piece is trimmed so the joins sound natural
+function speechPieces(text) {
+  const safe = text.replace(/\b(Inc|Mr|Mrs|Dr|St|Pt|Pts|vs)\. /g, '$1․ ');   // never cut after "Mr." or "Dr."
+  const sents = safe.match(/[^.!?…]+[.!?…]+["')\]]*\s*|[^.!?…]+$/g) || [safe], out = []; let cur = '';
+  for (const x of sents.map(s => s.trim()).filter(Boolean)) { if (cur && (cur + ' ' + x).length > 220) { out.push(cur); cur = x; } else cur = cur ? cur + ' ' + x : x; }
+  if (cur) out.push(cur);
+  return out.flatMap(p => p.length <= 300 ? [p] : p.match(/.{1,280}(\s|$)|.+/g).map(q => q.trim()).filter(Boolean)).map(p => p.replace(/․/g, '.'));
+}
+function trimSilence(a, sr) {
+  const th = 0.008; let i = 0, j = a.length - 1;
+  while (i < j && Math.abs(a[i]) < th) i++; while (j > i && Math.abs(a[j]) < th) j--;
+  return a.subarray(Math.max(0, i - Math.round(sr * 0.02)), Math.min(a.length, j + Math.round(sr * 0.06)));
+}
+function wav(f32, sr) {
+  const b = Buffer.alloc(44 + f32.length * 2);
+  b.write('RIFF', 0); b.writeUInt32LE(36 + f32.length * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(f32.length * 2, 40);
+  for (let i = 0; i < f32.length; i++) b.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767))), 44 + i * 2);
+  return b;
+}
+async function kokoroSpeech(text, voice, speed) {
+  const parts = [], sr = 24000, gap = new Float32Array(Math.round(sr * 0.14));
+  for (const p of speechPieces(text)) { const a = await tts.generate(p, { voice, speed }); if (parts.length) parts.push(gap); parts.push(trimSilence(a.audio, a.sampling_rate)); }
+  const n = parts.reduce((x, y) => x + y.length, 0), all = new Float32Array(n); let o = 0; for (const x of parts) { all.set(x, o); o += x.length; }
+  return wav(all, sr);
+}
+function piperSpeech(text, speed) {   // piper.exe --model … --output_file …, the text on stdin (UTF-8); it adds the Arabic vowel marks itself
+  return new Promise((res, rej) => {
+    const out = path.join(require('os').tmpdir(), 'pbd-' + process.pid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.wav');
+    const p = require('child_process').spawn(PIPER_EXE, ['--model', piperModel(), '--output_file', out, '--length_scale', String(+(1 / speed).toFixed(2))], { cwd: path.dirname(PIPER_EXE), windowsHide: true });
+    let err = ''; p.stderr.on('data', d => { err = (err + d).slice(-400); });
+    const t = setTimeout(() => { try { p.kill(); } catch {} }, 60000);
+    p.on('error', e => { clearTimeout(t); rej(e); });
+    p.on('close', code => { clearTimeout(t); try { const b = fs.readFileSync(out); fs.unlinkSync(out); return res(b); } catch { rej(new Error('piper failed (' + code + '): ' + err.slice(-160))); } });
+    p.stdin.end(Buffer.from(text.replace(/\s+/g, ' ').trim() + '\n', 'utf8'));
+  });
+}
+const wavSeconds = b => { try { return (b.length - 44) / b.readUInt32LE(28); } catch { return 0; } };
+const voiceOf = who => VOICES[who] || VOICES.h;
+const engineReady = v => v.engine === 'piper' ? VOICE.ar === 'ready' : !!tts;
+function say(text, who, speed, pre) {
+  const v = voiceOf(who), sp = Math.max(0.7, Math.min(1.4, +speed || 1)), key = v.engine + '|' + v.voice + '|' + sp + '|' + text;
+  if (sayCache.has(key)) { const b = sayCache.get(key); sayCache.delete(key); sayCache.set(key, b); return Promise.resolve(b); }
+  if (sayCur && sayCur.key === key) return new Promise((res, rej) => sayCur.wait.push([res, rej]));   // being made right now: never twice
+  let job = sayJobs.find(j => j.key === key);
+  if (!job) { job = { key, text, v, sp, wait: [] }; if (pre) sayJobs.push(job); else sayJobs.unshift(job); }
+  else if (!pre) { sayJobs.splice(sayJobs.indexOf(job), 1); sayJobs.unshift(job); }   // needed now: first in line
+  const p = new Promise((res, rej) => job.wait.push([res, rej]));
+  runSay(); return p;
+}
+async function runSay() {
+  if (sayBusy) return; sayBusy = true;
+  try {
+    while (sayJobs.length) {
+      const i = sayJobs.findIndex(j => engineReady(j.v)); if (i < 0) break;   // the Arabic voice still downloading: its lines wait
+      const j = sayCur = sayJobs.splice(i, 1)[0], t0 = Date.now();
+      try {
+        const b = j.v.engine === 'piper' ? await piperSpeech(j.text, j.sp) : await kokoroSpeech(j.text, j.v.voice, j.sp);
+        const sec = wavSeconds(b); if (sec > 1 && j.v.engine === 'kokoro') VOICE.rtf = +(((Date.now() - t0) / 1000) / sec * (VOICE.rtf ? 0.3 : 1) + (VOICE.rtf || 0) * 0.7).toFixed(2);   // seconds of work per second of speech
+        sayCache.set(j.key, b); while (sayCache.size > 150) sayCache.delete(sayCache.keys().next().value);
+        j.wait.forEach(w => w[0](b));
+      } catch (e) { j.wait.forEach(w => w[1](e)); }
+    }
+  } finally { sayBusy = false; sayCur = null; }
 }
 
 let lastActivity = Date.now();
 const server = http.createServer(async (req, res) => {
   lastActivity = Date.now();
   const u = new URL(req.url, 'http://localhost');
-  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2, desktop: process.env.PBD_DESKTOP === '1', voice: { engine: 'edge', alive: voiceAlive(), voices: voice.voices.length } });   // open 2: links open in the browser (not explorer.exe)
-  if (u.pathname.startsWith('/api/voice/') && await voiceApi(u, req, res)) return;
+  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2, desktop: process.env.PBD_DESKTOP === '1', voice: VOICE });   // open 2: links open in the browser (not explorer.exe)
+  if (u.pathname === '/api/say' && req.method === 'POST') {   // { text, who: h|s|ar, speed, pre } → audio/wav; { items: [{ text, who, speed }] } to make ahead, in order
+    if (VOICE.state !== 'ready') return send(res, 503, { error: 'voices ' + VOICE.state });
+    const q = await readBody(req);
+    if (Array.isArray(q.items)) { q.items.slice(0, 80).forEach(x => { const t = String((x && x.text) || '').slice(0, 4000).trim(); if (t) say(t, x.who, x.speed, true).catch(() => {}); }); return send(res, 200, { queued: q.items.length }); }
+    const text = String(q.text || '').slice(0, 4000).trim();
+    if (!text) return send(res, 400, { error: 'no text' });
+    if (!engineReady(voiceOf(q.who)) && voiceOf(q.who).engine === 'piper' && VOICE.ar === 'error') return send(res, 503, { error: 'arabic voice ' + VOICE.arError });
+    const p = say(text, q.who, q.speed, !!q.pre);
+    if (q.pre) { p.catch(() => {}); return send(res, 200, { queued: true }); }
+    try { return send(res, 200, await p, 'audio/wav'); } catch (e) { return send(res, 500, { error: String(e.message || e).slice(0, 200) }); }
+  }
   try {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
     if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
@@ -487,7 +591,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => { console.log('Pale Blue Dot Radio is on air: http://localhost:' + PORT); syncApp(); });
+server.listen(PORT, '127.0.0.1', () => { console.log('Pale Blue Dot Radio is on air: http://localhost:' + PORT); syncApp(); voiceInit(); });
 setInterval(syncApp, 6 * 3600e3);
 let portTries = 0;
 server.on('error', e => {

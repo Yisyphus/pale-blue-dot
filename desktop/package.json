@@ -1,0 +1,8 @@
+{
+  "name": "pale-blue-dot-radio",
+  "productName": "Pale Blue Dot Radio",
+  "version": "1.0.0",
+  "description": "Pale Blue Dot Radio, in its own window",
+  "main": "main.js",
+  "private": true
+}

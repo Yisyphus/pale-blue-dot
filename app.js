@@ -56,6 +56,7 @@ let libLoaded = false;
 async function loadLib() {
   const ping = await fetch('/api/ping').then(r => r.ok ? r.json() : null).catch(() => null);
   HELPER = !!(ping && ping.app === 'pale-blue-dot'); helperOpens = !!(ping && ping.open >= 2);
+  desktopApp = !!(ping && ping.desktop); if (ping && ping.voice) { voiceState = ping.voice.state; voiceAr = ping.voice.ar; voiceErr = ping.voice.error || ''; }
   if (HELPER) { try { const r = await fetch('/api/library'); lib = Object.assign(lib, await r.json()); } catch {} }
   else { try { const c = JSON.parse(localStorage.getItem('pbd-lib') || 'null'); if (c) lib = Object.assign(lib, c); } catch {} }
   if (window.Cloud && Cloud.enabled) {
@@ -370,6 +371,7 @@ async function sayArabic(text) {
 }
 
 function say(text, who = 'h') {
+  if (desktopApp) return sayApp(text, who);   // the app: its own voices (the caption keeps the text as written)
   (R.sayAs || []).forEach(([re, to]) => { text = String(text).replace(re, to); });
   return new Promise(res => {
     const id = runId, parts = splitParts(text);
@@ -401,6 +403,95 @@ function say(text, who = 'h') {
     });
   });
 }
+// ---------- the Windows app's own voices: made on this PC by the helper (the table is in server.js) ----------
+// Astro = Kokoro am_echo, Luna = Kokoro af_heart, the Arabic news = Piper ar_JO-kareem-medium. The page asks the
+// helper for a recording of each block and plays it. NEVER a stand-in voice in the app: while the voices load, the
+// first welcome waits for them; a break that comes before they are ready is skipped and the music goes on.
+// What the radio will say soon is recorded ahead (a whole break about 95 s before the song ends; the rest of a
+// break or the bulletin as soon as it starts), as ONE ordered list, so a slow PC never makes Astro wait.
+let voiceState = '', voiceAr = '', voiceErr = '', desktopApp = false;
+const voicesPending = () => desktopApp && voiceState !== 'ready' && voiceState !== 'error';
+const kokoroReady = () => desktopApp && HELPER && voiceState === 'ready';
+const arReady = () => kokoroReady() && voiceAr === 'ready';
+async function waitVoices(ms) {   // a few seconds normally; minutes only if the voices are still being downloaded
+  if (!voicesPending()) return;
+  const t0 = Date.now(), cap = $('capText'), keep = cap.textContent;
+  while (voicesPending() && Date.now() - t0 < ms) { cap.textContent = 'Getting the voices ready…'; $('cap').classList.remove('idle'); await voicePoll(); await sleep(1000); }
+  cap.textContent = keep;
+}
+// what the voice hears: Kokoro's own pronunciation fixes first (R.kokoroSay), then the radio's (R.sayAs)
+const kokoroText = (t, who) => who === 'ar' ? String(t) : (R.sayAs || []).reduce((x, [re, to]) => x.replace(re, to), (R.kokoroSay || []).reduce((x, [re, to]) => x.replace(re, to), String(t)));
+// who: Astro h, Luna s, the news ar. The other voices of a script (the versions of you, a guest) are Astro's or
+// Luna's voice played a little higher or lower (kPitch), as the browser's voices did with their pitch.
+const kWho = w => w === 'ar' ? 'ar' : (w === 's' || w === 'g') ? 's' : 'h';
+const kPitch = { y: 1.06, o: 0.93, r: 0.97, k: 1.03, b: 1.04, g: 1.05 };
+const kSpeed = w => w === 'ar' ? 1 : +(((S.rate || 90) / 100) * (w === 'o' ? 0.92 : w === 's' ? 0.94 : 1)).toFixed(2);
+// a block in pieces, cut the way the helper would: the first piece one sentence (it starts sooner), the rest up to
+// ~220 characters; never after "Inc." "Mr." "Dr."
+const kPieces = text => { const out = []; let cur = ''; splitParts(String(text).replace(/\b(Inc|Mr|Mrs|Dr|St|Pt|Pts|vs)\. /g, '$1․ ')).map(x => x.replace(/․/g, '.')).forEach(x => { if (cur && (!out.length || (cur + ' ' + x).length > 220)) { out.push(cur); cur = x; } else cur = cur ? cur + ' ' + x : x; }); if (cur) out.push(cur); return out; };
+const kItem = (t, w) => ({ text: kokoroText(t, w), who: kWho(w), speed: kSpeed(w) });
+let preList = [], preTimer = 0;
+function kokoroPre(text, who) {   // collected, then sent in one list, so the helper makes them in this order
+  if (!kokoroReady() || !text || (who === 'ar' && !arReady())) return;
+  kPieces(text).forEach(t => preList.push(kItem(t, who)));
+  if (!preTimer) preTimer = setTimeout(() => { const items = preList; preList = []; preTimer = 0; fetch('/api/say', { method: 'POST', body: JSON.stringify({ items }) }).catch(() => {}); }, 0);
+}
+async function voicePoll() {
+  if (!HELPER || !desktopApp) return;
+  const p = await fetch('/api/ping').then(r => r.json()).catch(() => null), v = p && p.voice;
+  if (!v) return;
+  if (v.state !== voiceState || v.ar !== voiceAr) rlog('voices ' + v.state, { progress: v.progress, speed: v.rtf, arabic: v.ar, error: v.error || v.arError || undefined });
+  if (v.state === 'ready' && voiceState && voiceState !== 'ready') toast('The voices are ready.');
+  voiceState = v.state; voiceAr = v.ar; voiceErr = v.error || '';
+  const note = $('voiceNote'); if (note && v.state === 'loading') note.textContent = 'Getting the voices ready, once: ' + (v.progress || 0) + '%';
+  ownVoicesUI();
+}
+function ownVoicesUI() {
+  if (!desktopApp) return;
+  ['voiceSel', 'lunaSel', 'newsVoiceSel'].forEach(id => { const el = $(id), row = el && el.closest('.set'); if (row) row.hidden = true; });
+  const note = $('voiceNote'); if (!note) return; note.style.color = '';
+  if (voiceState === 'ready') note.textContent = (R.voiceNames || 'Astro and Luna have voices of their own, made on this PC.') + (voiceAr === 'ready' ? '' : voiceAr === 'error' ? ' The Arabic news voice could not be set up, so the news waits for it.' : ' The Arabic news voice is still being set up.');
+  else if (voiceState === 'error') note.textContent = 'The voices could not start on this PC (' + (voiceErr.slice(0, 120) || 'unknown') + '). Close the radio and open it again.';
+}
+setInterval(() => { if (desktopApp && (voiceState !== 'ready' || (voiceAr !== 'ready' && voiceAr !== 'error'))) voicePoll(); }, 2000);
+// true when it was said (or stopped on purpose), false when the helper could not make it
+function sayKokoro(text, who, alive) {
+  return new Promise(async res => {
+    const id = runId, ok = () => id === runId && (!alive || alive()), pieces = kPieces(text); speaking = true;
+    const get = t => withTimeout(fetch('/api/say', { method: 'POST', body: JSON.stringify(kItem(t, who)) }), 90000).then(r => r.ok ? r.blob() : null).catch(() => null);
+    let next = get(pieces[0]);   // first in line
+    if (pieces.length > 1) fetch('/api/say', { method: 'POST', body: JSON.stringify({ items: pieces.slice(1).map(t => kItem(t, who)) }) }).catch(() => {});   // the rest is made while the first is said
+    for (let k = 0; k < pieces.length; k++) {
+      const blob = await (next || get(pieces[k])); next = k + 1 < pieces.length ? get(pieces[k + 1]) : null;
+      if (!ok()) { speaking = false; return res(true); }
+      if (!blob) { speaking = false; rlog('a line could not be made', { who, text: pieces[k].slice(0, 40) }); return res(k > 0); }
+      await playPiece(blob, pieces[k], ok, kPitch[who] || 1);
+      if (!ok()) { speaking = false; return res(true); }
+    }
+    speaking = false; res(true);
+  });
+}
+function playPiece(blob, text, ok, pitch) {   // the caption follows the playback, sentence by sentence
+  return new Promise(res => {
+    const url = URL.createObjectURL(blob), a = new Audio(url), parts = splitParts(text), total = parts.reduce((n, x) => n + x.length + 1, 0) || 1;
+    if (pitch !== 1) { a.preservesPitch = false; a.playbackRate = pitch; }
+    let shown = -1, done = false, watch;
+    const show = () => { if (!ok() || !a.duration) return; const k = a.currentTime / a.duration * total; let acc = 0, i = 0; for (; i < parts.length - 1; i++) { acc += parts[i].length + 1; if (acc > k) break; } if (i !== shown) { shown = i; $('capText').textContent = parts[i]; } };
+    const fin = () => { if (done) return; done = true; clearInterval(watch); a.ontimeupdate = null; if (curAudio === a) curAudio = null; URL.revokeObjectURL(url); res(); };
+    watch = setInterval(() => { if (!ok()) { try { a.pause(); } catch {} fin(); } }, 300);
+    $('capText').textContent = parts[0] || text; shown = 0;
+    curAudio = a; a.ontimeupdate = show; a.onended = fin; a.onerror = fin;
+    if (!globalPaused) a.play().catch(fin);   // paused meanwhile: Play continues it (resumeAll)
+  });
+}
+async function sayApp(text, who, alive) {   // the app: its own voices, or nothing
+  if (voicesPending()) await waitVoices(30000);
+  if (!kokoroReady() || (who === 'ar' && !arReady())) { rlog('a line was skipped: the voices are not ready', { who }); return; }
+  if (await sayKokoro(String(text), who, alive)) return;
+  voiceState = 'loading'; await waitVoices(30000);   // the helper restarted or is busy: wait, then once more
+  if (kokoroReady()) await sayKokoro(String(text), who, alive);
+}
+
 // The news on a computer: one sentence at a time, so an arrow can stop it cleanly. A sentence that does not start
 // within 3 seconds (Chrome and Edge sometimes drop one spoken right after a cancel) is tried once more, then left,
 // so the bulletin never freezes.
@@ -416,6 +507,7 @@ function speakOnce(part, v, alive) {
   });
 }
 async function sayNewsComputer(text) {
+  if (desktopApp) { const id = runId, tok = newsLineTok; return sayApp(text, 'ar', () => id === runId && tok === newsLineTok); }   // the app: Kareem
   const v = arabicVoice(); if (!v) return say(text, 'ar');   // no Arabic voice here: the online voice, as before
   const id = runId, tok = newsLineTok, alive = () => id === runId && tok === newsLineTok;
   speaking = true;
@@ -459,6 +551,8 @@ window.onYouTubeIframeAPIReady = () => {
       onReady: () => { setVol(pl[i], 0); if (++ready === 2) ytReady = true; },
       onStateChange: e => {
         if (adHook && adHook.idx === i) { adHook.state(e.data); return; }
+        if (document.hidden) rlog('player ' + i + ' while minimized', { state: e.data, active: i === ai, song: current && current.key });
+        if (preload && preload.idx === i && !preload.primed && i !== ai) { setVol(pl[i], 0); if (e.data === YT.PlayerState.PLAYING) { try { pl[i].pauseVideo(); pl[i].seekTo(0, true); } catch {} preload.primed = true; rlog('next song ready', { song: preload.key }); } }   // never heard while it is being prepared
         if (i !== ai) return;
         if (e.data === YT.PlayerState.PLAYING) { clearTimeout(startWatch); playing = true; setPlayIcon(true); setLive(true); try { pl[i].unMute(); if (Number.isFinite(pl[i]._vol)) pl[i].setVolume(pl[i]._vol); } catch {} }
         else if (e.data === YT.PlayerState.PAUSED) {
@@ -548,9 +642,10 @@ async function startSong(s, startVol, fadeInMs = 0, outMs = fadeMs()) {
   candIdx = 0; current = s; ai = n; playing = false;
   const np = pl[n];
   setVol(np, fadeInMs ? 0 : startVol);
-  if (preload && preload.key === s.key && preload.idx === n) np.playVideo(); else np.loadVideoById(c[0].id);
+  const primed = !!(preload && preload.key === s.key && preload.idx === n && preload.primed);
+  if (preload && preload.key === s.key && preload.idx === n) { try { np.unMute(); np.seekTo(0, true); } catch {} np.playVideo(); } else np.loadVideoById(c[0].id);   // a primed song only resumes, which works even when minimized
   preload = null;
-  rlog('start', { song: s.key, id: c[0].id });
+  rlog('start', { song: s.key, id: c[0].id, primed, minimized: document.hidden });
   const stopOld = () => { try { if (pl[ai] !== old) old.pauseVideo(); } catch {} };
   if (old._fading && old._fadeTo === 0) { const w = setInterval(() => { if (!old._fading) { clearInterval(w); stopOld(); } }, 250); }   // already fading under the host: let it finish
   else fadeP(old, 0, outMs).then(stopOld);
@@ -829,12 +924,29 @@ function setFocus(mode) {
   if (started && !newsOn) { stopSpeech(); advance({ silent: true, noCount: true, quick: true }); }   // switch now, with a crossfade
 }
 const takePlanned = () => { const p = planned; planned = null; return p || pick(); };
+// The next song is loaded and started on the idle player at volume 0 (not muted: a muted video gets paused by the
+// browser), then paused at 0 once it plays. Starting it later only resumes it, which works even when minimized.
+function primeNext(p, c) {
+  const n = 1 - ai, q = pl[n]; if (!q || !c || !c.length) return;
+  try { setVol(q, 0); q.unMute(); preload = { key: p.key, idx: n, primed: false }; q.loadVideoById(c[0].id); setVol(q, 0); } catch {}
+}
+// The break after this song, written early (about 95 s before the end) so its speech is recorded in time (the app's
+// voices). Only when the host will talk at that change; anything that changes the plan (Next, a chosen song) drops it.
+let preBreak = null;
+function planBreak() {
+  if (!kokoroReady() || !planned || !current || preBreak || busy || marathon || albumShow || focusMode || planned.focus || current.podcast || current.focus) return;
+  if (songsSinceBreak + 1 < breakEvery() || podcastDue || dedications.has(planned.key)) return;
+  if (lastRunSong && current.key === lastRunSong.key) return;
+  preBreak = { next: planned, prev: current, segs: makeBreak(current, planned, false), intro: introFor(planned, current) };
+  preSegs(preBreak.segs); kokoroPre(preBreak.intro, 'h');
+  rlog('next break prepared', { parts: preBreak.segs.length });
+}
 function planPreload() {
   if (albumShow) return albumPreload();
   if (planned || marathon) return;   // a marathon chooses its next part when this one ends
   planned = pick(); if (!planned) return;
   const p = planned;
-  resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; const n = 1 - ai; try { setVol(pl[n], 0); pl[n].cueVideoById(c[0].id); preload = { key: p.key, idx: n }; } catch {} });
+  resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; primeNext(p, c); });
 }
 const clock = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const period = () => { const h = new Date().getHours(); return h < 5 ? 'night' : h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening'; };
@@ -1292,7 +1404,10 @@ function marathonLines(seg) {
     return kept ? { ...l, t: kept } : null;
   }).filter(Boolean);
 }
+// every line of a break, sent to the helper as one ordered list the moment it starts (the app's voices)
+function preSegs(segs) { if (kokoroReady()) (segs || []).forEach(seg => { if (seg && seg.lines && !seg.jingle && !seg.ad) seg.lines.forEach(l => kokoroPre(l.t, l.w && l.w !== 'h' ? l.w : 'h')); }); }
 async function runSegments(segs, id) {
+  preSegs(marathon ? segs.map(seg => seg && seg.lines ? { ...seg, lines: marathonLines(seg) } : seg) : segs);
   if (marathon) segs = segs.filter(s => !(s.adGroup && s.lines));   // commercials back to back: no "short break" or "back to the music"
   for (let si = 0; si < segs.length; si++) {
     let seg = segs[si];
@@ -1396,6 +1511,13 @@ async function playPodcast(pod, prev, opts, id) {
   caption((live ? 'Live concert' : 'Podcast') + (pod.show ? ' · ' + R.podShows[pod.show].name : ''), (live ? 'Now playing a live concert: ' : 'Now playing a podcast: ') + ep.t + (ep.a ? ', from ' + ep.a : '') + (marathon ? '.' : '. The music returns when it ends.'));
   busy = false;
 }
+
+// in the report: what both players were doing when the window was minimized or came back
+document.addEventListener('visibilitychange', () => {
+  if (!started) return;
+  const ps = [0, 1].map(i => { try { const q = pl[i]; return [q.getPlayerState(), Math.round(q.getCurrentTime()), q._vol, q.isMuted() ? 'muted' : 'on'].join(' '); } catch { return '?'; } });
+  rlog(document.hidden ? 'window minimized' : 'window back', { playing, busy, speaking, song: current && current.key, active: ai, players: ps, next: preload && (preload.key + (preload.primed ? ' ready' : ' preparing')) });
+});
 
 // ---------- Repeat: the song (or track, episode, Focus track…) that is playing starts again when it ends ----------
 // It stays on until you press it again; Next still moves on (and the next song repeats too).
@@ -1567,7 +1689,7 @@ function albumStep() {
 function albumPreload() {   // the next track is found and loaded ahead, so tracks follow each other closely
   const sh = albumShow, i = sh.i; if (planned || i >= sh.al.tracks.length || (i % 3 === 0 && !sh.said.has('n' + i))) return;
   const p = planned = albumSong(sh.al, i);
-  resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; const n = 1 - ai; try { setVol(pl[n], 0); pl[n].cueVideoById(c[0].id); preload = { key: p.key, idx: n }; } catch {} });
+  resolve(p).then(c => { if (planned !== p || !c.length || !ytReady) return; primeNext(p, c); });
 }
 function albumBack() {   // Previous: the track before this one (its talk is not repeated)
   const sh = albumShow, now = current && current.album === sh.al.id ? current.n : sh.i - 1;
@@ -1891,7 +2013,8 @@ async function advance(opts = {}) {
   current = null; updateHeart();   // the heart is only active while a song is playing
   if (!opts.noCount && !afterPod && !next.focus) songsSinceBreak++;
   const endRunNow = !!(prev && lastRunSong && prev.key === lastRunSong.key);
-  const talk = !opts.silent && !next.focus && (opts.first || afterPod || endRunNow || songsSinceBreak >= breakEvery() || opts.forceTalk || dedications.has(next.key));
+  let talk = !opts.silent && !next.focus && (opts.first || afterPod || endRunNow || songsSinceBreak >= breakEvery() || opts.forceTalk || dedications.has(next.key));
+  if (talk && desktopApp && !kokoroReady() && !opts.first) { talk = false; rlog('break skipped: the voices are not ready yet'); }   // the music goes on
   console.info('[radio] advance', { next: next.t, talk, count: songsSinceBreak, every: breakEvery() });
   if (talk) songsSinceBreak = 0;
   const old = P();
@@ -1908,7 +2031,11 @@ async function advance(opts = {}) {
   bedOn();
   nextPending = true; // a song you suggest while the host is talking takes the place of this one
   resolve(next);
-  const segs = opts.replaySegs || makeBreak(prev, next, opts.first);   // after the news: the rest of the interrupted break
+  const pb = preBreak; preBreak = null;
+  const usePb = !!(pb && !opts.replaySegs && !opts.first && pb.next === next && pb.prev === prev);
+  const segs = opts.replaySegs || (usePb ? pb.segs : makeBreak(prev, next, opts.first));   // after the news: the rest of the interrupted break
+  const introT = usePb ? pb.intro : introFor(next, prev);
+  preSegs(segs); kokoroPre(introT, 'h');   // the break first, then the intro, in one ordered list
   console.info('[radio] break', lib.b, segs.map(s => s.kind + (s.title ? ' · ' + s.title : '')));
   curBreak = { segs, next, idx: 0 };
   const ok = await runSegments(segs, id);
@@ -1928,7 +2055,7 @@ async function advance(opts = {}) {
   nextPending = false;
   $('vinyl').classList.add('talk');
   $('capKind').textContent = R.host;
-  await say(introFor(next, prev), 'h');
+  await say(introT, 'h');
   $('vinyl').classList.remove('talk');
   if (id !== runId) return;
   bedOff(2.5);
@@ -2458,6 +2585,7 @@ function arabicBulletin(n) {
 async function runNews(manual) {
   if (newsOn) return;
   if (!started) { if (manual) toast('Press play first, then try the news.'); return; }
+  if (desktopApp && !arReady()) { rlog('news skipped: the Arabic voice is not ready', { voices: voiceState, arabic: voiceAr }); if (manual) toast('The Arabic news voice is still being set up on this PC. Try again in a moment.'); return; }   // never a stand-in voice
   newsBack = resumeTarget();
   newsShown = { kind: $('kind').textContent, title: $('title').textContent, artist: $('artist').textContent, chips: $('chips').innerHTML };
   if (globalPaused) clearPause();
@@ -2492,6 +2620,7 @@ async function runNews(manual) {
   if (id !== runId) return;
   $('capKind').textContent = 'الأخبار';
   const lines = arabicBulletin(n);
+  lines.forEach(t => kokoroPre(t, 'ar'));   // the app: the whole bulletin recorded ahead, in order (Kareem is fast)
   try { localStorage.setItem('pbd-news-last', JSON.stringify({ at: Date.now(), lines: lines.map((t, i) => ({ said: t, tag: lines.tags[i] || '', ...(lines.info[i] || {}) })) })); } catch {}
   newsArrows(true);
   let jumped = false;
@@ -2670,6 +2799,7 @@ async function tuneIn() {
   started = true; $('tune').style.display = 'none'; unlockAudio();
   if (!voices.length) loadVoices();
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
+  await waitVoices(60000);   // the app: its own voices first, for the welcome
   setPlayIcon(true);
   const back = updResume; updResume = null;
   if (back && back.song) {   // right after an update: the same song, from where it was, without the welcome
@@ -3384,7 +3514,7 @@ setInterval(() => {
       const d = P().getDuration(), c = P().getCurrentTime(), rem = d - c;
       $('tcur').textContent = fmt(c); $('tdur').textContent = fmt(d); $('barfill').style.width = d ? (100 * c / d) + '%' : '0';
       const isPod = current.podcast;
-      if (!isPod && !repeatOn && d > 60 && rem <= 75) planPreload();   // a minute and more ahead: time to find and load it on a slow connection
+      if (!isPod && !repeatOn && d > 60 && rem <= 100) { planPreload(); if (rem < 95 && rem > 10) planBreak(); }   // the next song found and loaded ahead, and its break recorded
       const trimAt = lib.trim[current.key];
       if (repeatOn && d > 5 && (rem <= 0.8 || (trimAt && c >= trimAt))) repeatSong();   // repeat: back to the start, no fade, no next song
       // end the song a little early (and learn-trim) so trailing silence never reaches you
@@ -3501,6 +3631,7 @@ $('btnCloud').onclick = async () => {
 let booted; const bootDone = new Promise(r => { booted = r; });
 (async () => {
   await loadLib(); buildSongs(); booted(); loadVoices(); syncAds().then(runAdCleanups); autoUpdate().catch(() => {});
+  if (desktopApp) { rlog('voices ' + voiceState, { arabic: voiceAr, error: voiceErr || undefined }); ownVoicesUI(); }   // the app: its own voices, not the browser's
   $('vol').value = S.vol;
   setNow(null); updateCloudUI();
 })();

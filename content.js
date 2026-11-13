@@ -300,3 +300,22 @@ window.RADIO = {
     'This next one is a song you suggested to me. {t}, by {a}. Good taste, by the way.', 'From your own list: {a}, with {t}. I am glad it is here.',
   ],
 };
+
+// ---------- the Windows app's voices (made on the PC: the table is VOICES in server.js) ----------
+// Astro = Kokoro am_echo, Luna = Kokoro af_heart, the Arabic news = Piper ar_JO-kareem-medium.
+window.RADIO.voiceNames = 'Astro and Luna have voices of their own, made on this PC (Kokoro: Echo and Heart), and Kareem reads the Arabic news (Piper).';
+// Kokoro reads some names differently from Edge: how it should say them (applied before R.sayAs; the caption keeps
+// the name as written). Each one checked with the phonemizer Kokoro uses (espeak, en-us).
+window.RADIO.kokoroSay = [
+  [/\bAlvvays\b/g, 'Always'], [/\bGotye\b/g, 'Gaw-tee-yay'], [/\bNujabes\b/g, 'Noo-jah-bess'], [/\bStromae\b/g, 'Stro-my'],
+  [/\bErik Satie\b/g, 'Erik Sah-tee'], [/\bSatie\b/g, 'Sah-tee'], [/\bDebussy\b/g, 'Deh-bue-see'], [/\bChopin\b/g, 'Show-pan'],
+  [/\bJean-Michel Jarre\b/g, 'Zhon Mee-shell Zhar'], [/\bJarre\b/g, 'Zhar'], [/\bAznavour\b/g, 'Az-na-voor'], [/\bFrançoise Hardy\b/g, 'Fran-swaz Ar-dee'],
+  [/\bGeorges Brassens\b/g, 'Zhorzh Bra-sonce'], [/\bGainsbourg\b/g, 'Gans-boor'], [/\bÉdith Piaf\b/g, 'Eh-deet Pee-aff'], [/\bPiaf\b/g, 'Pee-aff'],
+  [/\bMorricone\b/g, 'Morri-ko-nay'], [/\bMdou Moctar\b/g, 'Em-doo Mok-tar'], [/\bMoctar\b/g, 'Mok-tar'], [/\bODESZA\b/g, 'Oh-dess-ah'], [/\bKhruangbin\b/g, 'Krung-bin'],
+  [/\bSigur Rós\b/g, 'See-ur Rose'], [/\bJóhann Jóhannsson\b/g, 'Yo-hahn Yo-hahn-son'], [/\bRöyksopp\b/g, 'Royk-sopp'], [/\bJoep Beving\b/g, 'Yoop Bay-ving'],
+  [/\bHania Rani\b/g, 'Hahn-ya Rah-nee'], [/\bYoshimura\b/g, 'Yoshi-moo-rah'], [/\bAltın Gün\b|\bAltin Gun\b/g, 'Altin Goon'], [/\bJoubran\b/g, 'Zhoo-brahn'],
+  [/\bFairuz\b/g, 'Fay-rooz'], [/\bNass El Ghiwane\b/g, 'Nass el Ghee-wahn'], [/\bGhazaleh\b/g, 'Gha-zah-leh'], [/\bKhalife\b/g, 'Kha-lee-feh'],
+  [/\bAnouar Brahem\b/g, 'Anwar Brah-hem'], [/\bMunir Bashir\b/g, 'Moo-neer Bah-sheer'], [/\bKudsi Erguner\b/g, 'Kood-see Er-goo-ner'], [/\bL'indécis\b/g, 'Lan-day-see'],
+  [/\bKudasai\b/g, 'Koo-dah-sigh'], [/\bTomppabeats\b/g, 'Tom-pah beats'], [/\bSaib\b/g, 'Sah-eeb'], [/\bVangelis\b/g, 'Van-ghell-iss'], [/\bSlowdive\b/g, 'Slow dive'],
+  [/\bÓlafur Arnalds\b/g, 'Oh-lah-vur Ar-nalds'], [/\bHerrmann\b/g, 'Herman'], [/\bPts?\. /g, m => m.length > 4 ? 'Parts ' : 'Part '], [/\s(ft|feat)\. /g, ' featuring '],
+];
