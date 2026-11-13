@@ -372,11 +372,41 @@ const send = (res, code, body, type = 'application/json') => { res.writeHead(cod
 const argv = process.argv.slice(2);
 if (argv[0] === '--extract-ads') { extractPlaylist(argv[1] || '').then(l => { console.log('Saved ' + l.length + ' ads to ads-playlist.json'); process.exit(0); }).catch(e => { console.error(e.message); process.exit(1); }); }
 else {
+// ---------- the voice engine: an Edge window (voice.html) that only speaks, for Edge's natural voices ----------
+// The radio page sends each line here (/api/voice/say); voice.html receives it over Server-Sent Events
+// (/api/voice/inbox), speaks it with speechSynthesis and posts what happened (/api/voice/event): start, boundary,
+// end, error, its voice list, and a heartbeat every 2 s. The radio page follows those events (/api/voice/events).
+const voice = { inbox: new Set(), listeners: new Set(), beat: 0, voices: [], log: [] };
+const sse = res => { res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' }); res.write(': hello\n\n'); };
+const push = (set, obj) => { const line = 'data: ' + JSON.stringify(obj) + '\n\n'; set.forEach(r => { try { r.write(line); } catch {} }); return set.size; };
+setInterval(() => { voice.inbox.forEach(r => { try { r.write(': keep\n\n'); } catch {} }); voice.listeners.forEach(r => { try { r.write(': keep\n\n'); } catch {} }); }, 15000);
+const voiceAlive = () => Date.now() - voice.beat < 6000;
+async function voiceApi(u, req, res) {
+  const p = u.pathname;
+  if (p === '/api/voice/inbox') { sse(res); voice.inbox.add(res); req.on('close', () => voice.inbox.delete(res)); return true; }
+  if (p === '/api/voice/events') { sse(res); voice.listeners.add(res); req.on('close', () => voice.listeners.delete(res)); return true; }
+  if (p === '/api/voice/voices') { send(res, 200, { alive: voiceAlive(), voices: voice.voices }); return true; }
+  if (p === '/api/voice/log') { send(res, 200, { alive: voiceAlive(), log: voice.log }); return true; }
+  if (req.method !== 'POST') return false;
+  const b = await readBody(req);
+  if (p === '/api/voice/say') { const n = push(voice.inbox, { id: String(b.id || ''), text: String(b.text || ''), voice: b.voice || '', rate: +b.rate || 1, pitch: +b.pitch || 1 }); send(res, 200, { ok: n > 0, delivered: n }); return true; }
+  if (p === '/api/voice/cmd') { const n = push(voice.inbox, { cmd: String(b.cmd || '') }); send(res, 200, { ok: n > 0 }); return true; }
+  if (p === '/api/voice/event') {
+    if (b.type === 'beat') voice.beat = Date.now();
+    else if (b.type === 'voices') { voice.voices = Array.isArray(b.voices) ? b.voices.slice(0, 500) : []; voice.beat = Date.now(); }
+    else { voice.log.push({ at: Date.now(), ...b }); if (voice.log.length > 100) voice.log.shift(); }
+    if (b.type !== 'beat') push(voice.listeners, b);
+    send(res, 200, { ok: true }); return true;
+  }
+  return false;
+}
+
 let lastActivity = Date.now();
 const server = http.createServer(async (req, res) => {
   lastActivity = Date.now();
   const u = new URL(req.url, 'http://localhost');
-  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2 });   // open 2: links open in the browser (not explorer.exe)
+  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2, desktop: process.env.PBD_DESKTOP === '1', voice: { engine: 'edge', alive: voiceAlive(), voices: voice.voices.length } });   // open 2: links open in the browser (not explorer.exe)
+  if (u.pathname.startsWith('/api/voice/') && await voiceApi(u, req, res)) return;
   try {
     if (u.pathname === '/api/search') return send(res, 200, await search(u.searchParams.get('q') || '', u.searchParams.get('a') || '', u.searchParams.get('t') || ''));
     if (u.pathname === '/api/playlist') { try { return send(res, 200, await readPlaylist(u.searchParams.get('list') || '')); } catch (e) { return send(res, 400, { error: String(e.message || e) }); } }
