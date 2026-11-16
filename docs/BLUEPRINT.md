@@ -203,11 +203,17 @@ breaks may get a small extra: a genre note, a letter + reading, a station ident,
 
 ### Focus mode (headphones icon)
 - No talk, no commercials; the news stays. **Instrumental stations that never mix**: Piano & Strings, Deep Ambient,
-  Lofi & Chill Beats, Downtempo, Synth & Retro, Post-rock, Late-night Jazz, Jazz Noir, Oud & the East, Dub (~310
+  Lofi & Chill Beats, Downtempo, Synth & Retro, Post-rock, Late-night Jazz, Jazz Noir, Oud & the East, Dub, Aquacore (~330
   hand-picked instrumentals, nothing cinematic), plus **your own genres** (+ Add a genre: a name and 3+ tracks you
   pick; edit, delete; nothing is found for you). Or **Ambient sounds** (rain, night rain, deep space, ocean, forest,
   café, fireplace, thunder, desert wind: one long recording at a time). PC only.
 - Focus tracks never touch the library, history or favorites.
+- **Exact videos** (`R.focusIds` in `content23.js`, 'artist|title' in lowercase -> video id and length): those tracks
+  are pinned in `focusSong()` and never searched. Used for **Aquacore** (calm Frutiger Aero and dreamy underwater
+  music: 17 long fan-made mixes and game soundtracks with generic titles that a search would get wrong; the same
+  station as Feel Good Inc. FM). A station whose every track is pinned needs no search, so it also plays on the
+  website and the phone (`pinnedStation()`); the other stations stay PC only. Owner's taste for it: calm Frutiger
+  Aero first; no Wii music, Beach Bowl Galaxy, Lake Hylia, Animal Crossing or anything upbeat.
 
 ### Album show (Library > Albums, or Settings > Album show)
 A whole album in its own order. Astro introduces the band and the album, plays 3 tracks, pauses to talk about them,

@@ -127,7 +127,49 @@
       'Pachyman|Destroy the Empire', 'Pachyman|All Night Long', 'Pachyman|Sunset Sound', 'Pachyman|Dub Fellowship',
       'Pachyman|Strictly Vibes', 'Pachyman|Sensi',
     ] },
+    { id: 'aqua', label: 'Aquacore', note: 'calm Frutiger Aero, dreamy underwater music', tracks: [
+      "Frutiger Aero|A calm Frutiger Aero playlist: aquatic ambience",
+      "Frutiger Aero|Relaxing Frutiger Aero mix",
+      "Frutiger Aero|A calm Frutiger Aero playlist",
+      "Frutiger Aero|Calming Frutiger Aero, 1 hour",
+      "Frutiger Aero|Hydrate!, a Frutiger Aero playlist",
+      "Frutiger Aero|The future we were promised, a Frutiger Aero playlist",
+      "Frutiger Aero|Future aquarium, calm ambient",
+      "Frutiger Aero|A Brighter Age, Frutiger Aero ambience",
+      "Frutiger Aero|Frutiger Aero aquarium",
+      "Frutiger Aero|1 hour of Frutiger Aero music to study, chill or sleep",
+      "Frutiger Aero|Chill study music",
+      "Frutiger Aero|The internet used to be like this, a Frutiger Aero mix for studying",
+      "Ayako Saso|Endless Ocean: Blue World (soundtrack)",
+      "Ayako Saso|Endless Ocean (soundtrack)",
+      "David Wise|Aquatic Ambience (Donkey Kong Country, extended)",
+      "Koji Kondo|Dire, Dire Docks (Super Mario 64, extended)",
+      "Ecco the Dolphin|Ambient music",
+    ] },
   ];
+
+  // Exact videos for tracks a search would not find (long fan-made mixes with generic titles): 'artist|title' in
+  // lowercase -> the video. focusSong() pins these, so they play this video and are never searched. Checked
+  // embeddable (oEmbed), November 2026.
+  R.focusIds = Object.assign(R.focusIds || {}, {
+    "frutiger aero|a calm frutiger aero playlist: aquatic ambience": { id: '8ugK6BCZzyY', seconds: 1332 },
+    "frutiger aero|relaxing frutiger aero mix": { id: 'jWcWb-7Hvyk', seconds: 3749 },
+    "frutiger aero|a calm frutiger aero playlist": { id: 'pGt37zt_2oY', seconds: 2035 },
+    "frutiger aero|calming frutiger aero, 1 hour": { id: 'cG-Xh6NUhxg', seconds: 3606 },
+    "frutiger aero|hydrate!, a frutiger aero playlist": { id: 'mqpgTLH9UP0', seconds: 1648 },
+    "frutiger aero|the future we were promised, a frutiger aero playlist": { id: 'qQzvkyGHtl0', seconds: 2618 },
+    "frutiger aero|future aquarium, calm ambient": { id: 'Wf5Nh6ICKOc', seconds: 7200 },
+    "frutiger aero|a brighter age, frutiger aero ambience": { id: 'Scw_anb0oig', seconds: 7201 },
+    "frutiger aero|frutiger aero aquarium": { id: 'm5sAV-bS56k', seconds: 1315 },
+    "frutiger aero|1 hour of frutiger aero music to study, chill or sleep": { id: 'm2kWl3ysOJo', seconds: 3627 },
+    "frutiger aero|chill study music": { id: 'swsneAqOUE8', seconds: 3601 },
+    "frutiger aero|the internet used to be like this, a frutiger aero mix for studying": { id: 'zlM4cKcqTSI', seconds: 1260 },
+    "ayako saso|endless ocean: blue world (soundtrack)": { id: 'bcssOAHk4s0', seconds: 2209 },
+    "ayako saso|endless ocean (soundtrack)": { id: 'sqQEiTy7WjU', seconds: 1042 },
+    "david wise|aquatic ambience (donkey kong country, extended)": { id: 'gVOzQfe_GQE', seconds: 974 },
+    "koji kondo|dire, dire docks (super mario 64, extended)": { id: '89-f5qcJVng', seconds: 1801 },
+    "ecco the dolphin|ambient music": { id: 'saXWEjfcBh0', seconds: 902 },
+  });
 
   // Focus mode > Ambient sounds: one long recording at a time, found on YouTube by the PC
   R.focusSounds = [

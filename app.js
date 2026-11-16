@@ -763,7 +763,7 @@ function choose(cur, rs) {
 function lastHeard() { const h = (lib.hist || []).slice(-1)[0]; return h ? songs.find(s => s.key === h.k) : null; }
 function pick() {
   if (upNext.length) return upNext.shift();
-  if (focusMode && HELPER) return focusPick();   // the phone and the web cannot search YouTube for them
+  if (focusMode && (HELPER || pinnedStation(focusMode))) return focusPick();   // the phone and the web cannot search YouTube, except for a station of exact videos
   if (batch) { const s = nextFromRun(); if (s) return s; }
   const c = choose(current || lastHeard(), recentSets());
   lastPick = { key: c.song.key, why: c.why };
@@ -772,11 +772,16 @@ function pick() {
 // ---------- Focus mode: instrumental only (or ambient sounds), no talk, no commercials, until you turn it off ----------
 // Its tracks (content23.js) live apart from the library; the news still comes every 4 hours.
 // Instrumental music is split into stations (R.focusStations): the one you pick plays alone until you change it.
-const focusSong = (a, t, st) => ({ a, t, style: st, genre: 'focus', tags: [], focus: true, key: 'focus|' + (a + '|' + t).toLowerCase() });
+const focusSong = (a, t, st) => {
+  const k = (a + '|' + t).toLowerCase(), v = (R.focusIds || {})[k];   // an exact video (R.focusIds): played as is, never searched
+  return { a, t, style: st, genre: 'focus', tags: [], focus: true, key: 'focus|' + k, pin: v ? [{ id: v.id, title: t, channel: a, seconds: v.seconds }] : null };
+};
 const focusStations = (R.focusStations || []).map(st => ({ ...st, songs: st.tracks.map(l => { const [a, t] = l.split('|'); return focusSong(a, t, st.id); }) }));
 // Your own genres (Focus > Add a genre, lib.focusCustom, synced): only the tracks you chose for them, in lib.focusAdd
 const allStations = () => focusStations.concat((lib.focusCustom || []).map(c => ({ id: c.key, label: c.label, note: 'your genre', songs: [], custom: true })));
 const focusStation = id => allStations().find(st => st.id === id);
+// a station whose every track has its exact video needs no search, so it also plays on the website and the phone
+const pinnedStation = id => { const st = focusStations.find(x => x.id === id); return !!(st && st.songs.length && st.songs.every(s => s.pin)); };
 // A station's tracks: the hand-picked ones, plus the ones you suggested to it (lib.focusAdd, synced; never in the library)
 const stationSongs = st => st.songs.concat((lib.focusAdd || []).filter(x => x.st === st.id && !st.songs.some(s => s.key === x.k)).map(x => Object.assign(focusSong(x.a, x.t, st.id), { pin: x.v ? [x.v] : null })));
 let focusMode = ''; try { focusMode = localStorage.getItem('pbd-focus') || ''; } catch {}
@@ -820,7 +825,7 @@ function paintFocus() {
   document.querySelectorAll('#focusMenu button').forEach(x => x.classList.toggle('on', x.hasAttribute('data-v') && x.dataset.v === focusMode));
 }
 function setFocus(mode) {
-  if (mode && !HELPER) { focusMode = ''; paintFocus(); return toast('Focus mode works on the PC radio: it finds its tracks on YouTube through your PC.'); }
+  if (mode && !HELPER && !pinnedStation(mode)) { focusMode = ''; paintFocus(); return toast('Focus mode works on the PC radio: it finds its tracks on YouTube through your PC.'); }
   if (mode === focusMode) return;
   focusMode = mode; try { localStorage.setItem('pbd-focus', mode); } catch {}
   paintFocus(); planned = null; preload = null;
