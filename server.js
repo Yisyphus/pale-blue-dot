@@ -646,7 +646,7 @@ public static class PbdGhost {
   static volatile bool hideAsked = false;
   static void Listen() { try { string l; while ((l = Console.In.ReadLine()) != null) if (l.Trim() == "hide") hideAsked = true; } catch { } }
   public static void Run(int parent) {
-    IntPtr h = IntPtr.Zero, g = IntPtr.Zero; int orig = 0; bool leftFront = false; int tick = 0;
+    IntPtr h = IntPtr.Zero, g = IntPtr.Zero; int orig = 0; bool leftFront = false; int tick = 0, unseen = 0;
     var t = new Thread(Listen); t.IsBackground = true; t.Start();
     Console.WriteLine("watching"); Console.Out.Flush();
     while (true) {
@@ -658,26 +658,30 @@ public static class PbdGhost {
           IntPtr f = GetForegroundWindow();
           if (f != g) leftFront = true;
           else if (leftFront) { Back(g, orig); g = IntPtr.Zero; Console.WriteLine("back"); Console.Out.Flush(); continue; }
-          if (IsIconic(g)) ShowWindow(g, 4);   // minimized again: invisible again
+          if (IsIconic(g) || !IsWindowVisible(g)) ShowWindow(g, 4);   // minimized or sent to the tray again: invisible again
           continue;
         }
-        if (h == IntPtr.Zero || !IsWindow(h) || tick % 7 == 0) h = Find();
+        // look for the window again now and then, but keep the one we have while a tray tool (RBTray) hides it
+        if (h != IntPtr.Zero && !IsWindow(h)) h = IntPtr.Zero;
+        if (h == IntPtr.Zero || (tick % 7 == 0 && IsWindowVisible(h))) { IntPtr f = Find(); if (f != IntPtr.Zero) h = f; }
         if (h == IntPtr.Zero) continue;
+        unseen = IsWindowVisible(h) ? 0 : unseen + 1;
         int ex = GetWindowLong(h, EX);
         if (!IsIconic(h) && (ex & (LAYERED | CLICKTHROUGH)) == (LAYERED | CLICKTHROUGH)) {   // left hidden by a helper that restarted: take it over
           g = h; orig = ex & ~(LAYERED | CLICKTHROUGH); leftFront = GetForegroundWindow() != h;
           Console.WriteLine("hidden"); Console.Out.Flush(); continue;
         }
-        bool min = IsIconic(h), asked = hideAsked; hideAsked = false;
-        // minimized, or the page says it can't be seen (covered by another program): from now on invisible and on top
-        if (min || (asked && GetForegroundWindow() != h)) {
+        bool min = IsIconic(h), tray = unseen >= 3, asked = hideAsked; hideAsked = false;
+        // minimized, sent to the tray (RBTray hides the window: half a second, so a window that is closing is left alone),
+        // or the page says it can't be seen (covered by another program): from now on invisible and on top
+        if (min || tray || (asked && GetForegroundWindow() != h)) {
           orig = ex;
           SetWindowLong(h, EX, orig | LAYERED | CLICKTHROUGH);
           SetLayeredWindowAttributes(h, 0, 3, 2);               // about 1% visible: nothing you can see
           SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, NOSIZE | NOMOVE | NOACTIVATE);   // on top, so never covered
-          if (min) ShowWindow(h, 4);                            // out of "minimized", without taking focus
-          g = h; leftFront = GetForegroundWindow() != h;
-          Console.WriteLine(min ? "hidden" : "hidden-covered"); Console.Out.Flush();
+          if (min || tray) ShowWindow(h, 4);                    // out of "minimized" or the tray, without taking focus
+          g = h; leftFront = GetForegroundWindow() != h; unseen = 0;
+          Console.WriteLine(min ? "hidden" : tray ? "hidden-tray" : "hidden-covered"); Console.Out.Flush();
         }
       } catch (Exception e) { Console.WriteLine("error " + e.Message); Console.Out.Flush(); }
     }
@@ -703,6 +707,7 @@ function ghostStart() {
     for (const l of lines.map(x => x.trim()).filter(Boolean)) {
       if (l === 'watching') { GHOST.state = 'on'; radioLog('hide-on-minimize ready'); }
       else if (l === 'hidden') { GHOST.state = 'hidden'; radioLog('window hidden (minimize): invisible, still playing'); }
+      else if (l === 'hidden-tray') { GHOST.state = 'hidden'; radioLog('window hidden (sent to the tray): invisible, still playing'); }
       else if (l === 'hidden-covered') { GHOST.state = 'hidden'; radioLog('window hidden (covered by another program): invisible, still playing'); }
       else if (l === 'back') { GHOST.state = 'on'; radioLog('window back from hiding'); }
       else radioLog('hide-on-minimize: ' + l);
