@@ -631,10 +631,11 @@ public static class PbdGhost {
     edge[pid] = r; return r;
   }
   // the radio's own Edge window: its title has "Pale Blue Dot"; Edge's normal browser windows end in "Microsoft Edge"
-  static IntPtr Find() {
+  static IntPtr Find() { IntPtr f = Find(true); return f != IntPtr.Zero ? f : Find(false); }   // a shown one first, else one in the tray
+  static IntPtr Find(bool shown) {
     IntPtr found = IntPtr.Zero;
     EnumWindows((h, l) => {
-      if (!IsWindowVisible(h)) return true;
+      if (shown && !IsWindowVisible(h)) return true;
       var c = new StringBuilder(64); GetClassName(h, c, 64); if (c.ToString() != "Chrome_WidgetWin_1") return true;
       var t = new StringBuilder(512); GetWindowText(h, t, 512); var s = t.ToString();
       if (s.IndexOf("Pale Blue Dot", StringComparison.OrdinalIgnoreCase) < 0 || s.IndexOf("Microsoft") >= 0) return true;

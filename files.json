@@ -1,5 +1,5 @@
 {
- "version": "2026-11-16T09:48:01Z",
+ "version": "2026-11-16T09:51:41Z",
  "files": {
   "app.js": "f2d27c03113778e0",
   "cloud.js": "2fb3e9b1301d659f",
@@ -30,8 +30,8 @@
   "firebase-config.js": "61a02500bccd646f",
   "icon.png": "414972388b2218eb",
   "jingles.js": "82e560f3edddbd37",
-  "index.html": "60dd16af7b4f700a",
+  "index.html": "0e92137a74b3b998",
   "content24.js": "6aa264e46d2d069a"
  },
- "server": "d09e6a9f309bff6a"
+ "server": "476dd21155302099"
 }
