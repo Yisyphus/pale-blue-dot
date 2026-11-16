@@ -1515,6 +1515,8 @@ async function playPodcast(pod, prev, opts, id) {
 // in the report: what both players were doing when the window was minimized or came back
 document.addEventListener('visibilitychange', () => {
   if (!started) return;
+  // on the PC (Edge app): a window that can't be seen is hidden by the helper (invisible, on top), or YouTube stops starting songs
+  if (document.hidden && HELPER && !desktopApp) fetch('/api/hide', { method: 'POST' }).catch(() => {});
   const ps = [0, 1].map(i => { try { const q = pl[i]; return [q.getPlayerState(), Math.round(q.getCurrentTime()), q._vol, q.isMuted() ? 'muted' : 'on'].join(' '); } catch { return '?'; } });
   rlog(document.hidden ? 'window minimized' : 'window back', { playing, busy, speaking, song: current && current.key, active: ai, players: ps, next: preload && (preload.key + (preload.primed ? ' ready' : ' preparing')) });
 });

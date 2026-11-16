@@ -579,6 +579,10 @@ const server = http.createServer(async (req, res) => {
       if (!r.ok) return send(res, 502, { error: 'tts ' + r.status });
       return send(res, 200, Buffer.from(await r.arrayBuffer()), 'audio/mpeg');
     }
+    if (u.pathname === '/api/hide' && req.method === 'POST') {   // the page can't be seen (covered): the watcher hides it, so songs keep starting
+      try { ghostProc && ghostProc.stdin.write('hide\n'); } catch {}
+      return send(res, 200, { ok: !!ghostProc });
+    }
     if (u.pathname === '/api/quit') { send(res, 200, { ok: true }); setTimeout(() => process.exit(0), 200); return; }
     let p = decodeURIComponent(u.pathname);
     if (p === '/') p = '/index.html';
@@ -639,8 +643,11 @@ public static class PbdGhost {
     }, IntPtr.Zero);
     return found;
   }
+  static volatile bool hideAsked = false;
+  static void Listen() { try { string l; while ((l = Console.In.ReadLine()) != null) if (l.Trim() == "hide") hideAsked = true; } catch { } }
   public static void Run(int parent) {
     IntPtr h = IntPtr.Zero, g = IntPtr.Zero; int orig = 0; bool leftFront = false; int tick = 0;
+    var t = new Thread(Listen); t.IsBackground = true; t.Start();
     Console.WriteLine("watching"); Console.Out.Flush();
     while (true) {
       Thread.Sleep(150);
@@ -661,14 +668,16 @@ public static class PbdGhost {
           g = h; orig = ex & ~(LAYERED | CLICKTHROUGH); leftFront = GetForegroundWindow() != h;
           Console.WriteLine("hidden"); Console.Out.Flush(); continue;
         }
-        if (IsIconic(h)) {
+        bool min = IsIconic(h), asked = hideAsked; hideAsked = false;
+        // minimized, or the page says it can't be seen (covered by another program): from now on invisible and on top
+        if (min || (asked && GetForegroundWindow() != h)) {
           orig = ex;
           SetWindowLong(h, EX, orig | LAYERED | CLICKTHROUGH);
           SetLayeredWindowAttributes(h, 0, 3, 2);               // about 1% visible: nothing you can see
           SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, NOSIZE | NOMOVE | NOACTIVATE);   // on top, so never covered
-          ShowWindow(h, 4);                                     // out of the taskbar's "minimized", without taking focus
+          if (min) ShowWindow(h, 4);                            // out of "minimized", without taking focus
           g = h; leftFront = GetForegroundWindow() != h;
-          Console.WriteLine("hidden"); Console.Out.Flush();
+          Console.WriteLine(min ? "hidden" : "hidden-covered"); Console.Out.Flush();
         }
       } catch (Exception e) { Console.WriteLine("error " + e.Message); Console.Out.Flush(); }
     }
@@ -685,7 +694,8 @@ function ghostStart() {
   if (process.platform !== 'win32' || process.env.PBD_DESKTOP === '1' || ghostProc) return;
   const ps = "Add-Type -TypeDefinition @'\n" + GHOST_CS + "\n'@\n[PbdGhost]::Run(" + process.pid + ')';
   try {
-    ghostProc = require('child_process').spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    ghostProc = require('child_process').spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    ghostProc.stdin.on('error', () => {});
   } catch (e) { GHOST.state = 'error'; GHOST.error = String(e.message || e); radioLog('hide-on-minimize could not start: ' + GHOST.error); return; }
   let buf = '';
   ghostProc.stdout.on('data', d => {
@@ -693,6 +703,7 @@ function ghostStart() {
     for (const l of lines.map(x => x.trim()).filter(Boolean)) {
       if (l === 'watching') { GHOST.state = 'on'; radioLog('hide-on-minimize ready'); }
       else if (l === 'hidden') { GHOST.state = 'hidden'; radioLog('window hidden (minimize): invisible, still playing'); }
+      else if (l === 'hidden-covered') { GHOST.state = 'hidden'; radioLog('window hidden (covered by another program): invisible, still playing'); }
       else if (l === 'back') { GHOST.state = 'on'; radioLog('window back from hiding'); }
       else radioLog('hide-on-minimize: ' + l);
     }
