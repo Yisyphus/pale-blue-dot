@@ -499,7 +499,7 @@ let lastActivity = Date.now();
 const server = http.createServer(async (req, res) => {
   lastActivity = Date.now();
   const u = new URL(req.url, 'http://localhost');
-  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2, desktop: process.env.PBD_DESKTOP === '1', voice: VOICE });   // open 2: links open in the browser (not explorer.exe)
+  if (u.pathname === '/api/ping') return send(res, 200, { app: 'pale-blue-dot', ok: true, dir: __dirname, open: 2, desktop: process.env.PBD_DESKTOP === '1', voice: VOICE, hide: GHOST });   // open 2: links open in the browser (not explorer.exe)
   if (u.pathname === '/api/say' && req.method === 'POST') {   // { text, who: h|s|ar, speed, pre } → audio/wav; { items: [{ text, who, speed }] } to make ahead, in order
     if (VOICE.state !== 'ready') return send(res, 503, { error: 'voices ' + VOICE.state });
     const q = await readBody(req);
@@ -561,8 +561,7 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === '/api/log' && req.method === 'POST') {   // playback diagnostics from the page: data/radio-log.txt, last ~300 KB
       let b = ''; req.on('data', c => { if (b.length < 4000) b += c; }); req.on('end', () => {
         try {
-          const f = path.join(DATA, 'radio-log.txt'); fs.mkdirSync(DATA, { recursive: true });
-          fs.appendFileSync(f, new Date().toISOString() + '  ' + b.replace(/[\r\n]+/g, ' ').slice(0, 1000) + '\n');
+          const f = path.join(DATA, 'radio-log.txt'); radioLog(b);
           const st = fs.statSync(f); if (st.size > 300000) fs.writeFileSync(f, fs.readFileSync(f, 'utf8').slice(-200000));
         } catch {}
         send(res, 200, { ok: true });
@@ -591,7 +590,118 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => { console.log('Pale Blue Dot Radio is on air: http://localhost:' + PORT); syncApp(); voiceInit(); });
+// Minimize = hide, while the radio keeps playing. YouTube will not start a new song in a window Windows counts as hidden
+// (minimized, or fully covered): it waits at "buffering" until the window is seen again. So when the radio's Edge window
+// is minimized, this watcher puts it straight back, but invisible (1% opacity), click-through and on top: for Windows and
+// Edge it is open and uncovered, so songs start; for you nothing is there and your clicks go to what is under it.
+// Clicking its taskbar icon (or Alt+Tab) brings it back to normal. Windows PC with the Edge app only.
+const GHOST = { state: 'off', error: '' };
+function radioLog(line) {
+  try {
+    const f = path.join(DATA, 'radio-log.txt'); fs.mkdirSync(DATA, { recursive: true });
+    fs.appendFileSync(f, new Date().toISOString() + '  ' + String(line).replace(/[\r\n]+/g, ' ').slice(0, 1000) + '\n');
+  } catch {}
+}
+const GHOST_CS = `
+using System; using System.Text; using System.Diagnostics; using System.Collections.Generic; using System.Threading; using System.Runtime.InteropServices;
+public static class PbdGhost {
+  delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);
+  [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int i, int v);
+  [DllImport("user32.dll")] static extern bool SetLayeredWindowAttributes(IntPtr h, uint key, byte a, uint f);
+  [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint f);
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int c);
+  const int EX = -20, LAYERED = 0x80000, CLICKTHROUGH = 0x20; const uint NOSIZE = 1, NOMOVE = 2, NOACTIVATE = 0x10;
+  static Dictionary<uint, bool> edge = new Dictionary<uint, bool>();
+  static bool IsEdge(uint pid) {
+    bool r; if (edge.TryGetValue(pid, out r)) return r;
+    try { r = Process.GetProcessById((int)pid).ProcessName.ToLower() == "msedge"; } catch { r = false; }
+    edge[pid] = r; return r;
+  }
+  // the radio's own Edge window: its title has "Pale Blue Dot"; Edge's normal browser windows end in "Microsoft Edge"
+  static IntPtr Find() {
+    IntPtr found = IntPtr.Zero;
+    EnumWindows((h, l) => {
+      if (!IsWindowVisible(h)) return true;
+      var c = new StringBuilder(64); GetClassName(h, c, 64); if (c.ToString() != "Chrome_WidgetWin_1") return true;
+      var t = new StringBuilder(512); GetWindowText(h, t, 512); var s = t.ToString();
+      if (s.IndexOf("Pale Blue Dot", StringComparison.OrdinalIgnoreCase) < 0 || s.IndexOf("Microsoft") >= 0) return true;
+      uint pid; GetWindowThreadProcessId(h, out pid); if (!IsEdge(pid)) return true;
+      found = h; return false;
+    }, IntPtr.Zero);
+    return found;
+  }
+  public static void Run(int parent) {
+    IntPtr h = IntPtr.Zero, g = IntPtr.Zero; int orig = 0; bool leftFront = false; int tick = 0;
+    Console.WriteLine("watching"); Console.Out.Flush();
+    while (true) {
+      Thread.Sleep(150);
+      if (++tick % 20 == 0) { try { Process.GetProcessById(parent); } catch { return; } }   // the helper closed or restarted: a hidden window stays hidden, the next helper takes it over
+      try {
+        if (g != IntPtr.Zero) {   // hidden: wait for you to bring it back
+          if (!IsWindow(g)) { g = IntPtr.Zero; continue; }
+          IntPtr f = GetForegroundWindow();
+          if (f != g) leftFront = true;
+          else if (leftFront) { Back(g, orig); g = IntPtr.Zero; Console.WriteLine("back"); Console.Out.Flush(); continue; }
+          if (IsIconic(g)) ShowWindow(g, 4);   // minimized again: invisible again
+          continue;
+        }
+        if (h == IntPtr.Zero || !IsWindow(h) || tick % 7 == 0) h = Find();
+        if (h == IntPtr.Zero) continue;
+        int ex = GetWindowLong(h, EX);
+        if (!IsIconic(h) && (ex & (LAYERED | CLICKTHROUGH)) == (LAYERED | CLICKTHROUGH)) {   // left hidden by a helper that restarted: take it over
+          g = h; orig = ex & ~(LAYERED | CLICKTHROUGH); leftFront = GetForegroundWindow() != h;
+          Console.WriteLine("hidden"); Console.Out.Flush(); continue;
+        }
+        if (IsIconic(h)) {
+          orig = ex;
+          SetWindowLong(h, EX, orig | LAYERED | CLICKTHROUGH);
+          SetLayeredWindowAttributes(h, 0, 3, 2);               // about 1% visible: nothing you can see
+          SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, NOSIZE | NOMOVE | NOACTIVATE);   // on top, so never covered
+          ShowWindow(h, 4);                                     // out of the taskbar's "minimized", without taking focus
+          g = h; leftFront = GetForegroundWindow() != h;
+          Console.WriteLine("hidden"); Console.Out.Flush();
+        }
+      } catch (Exception e) { Console.WriteLine("error " + e.Message); Console.Out.Flush(); }
+    }
+  }
+  static void Back(IntPtr h, int orig) {
+    SetWindowPos(h, new IntPtr(-2), 0, 0, 0, 0, NOSIZE | NOMOVE | NOACTIVATE);   // no longer on top
+    SetWindowLong(h, EX, orig);
+    if ((orig & LAYERED) != 0) SetLayeredWindowAttributes(h, 0, 255, 2);
+    SetWindowPos(h, IntPtr.Zero, 0, 0, 0, 0, NOSIZE | NOMOVE | NOACTIVATE | 0x20 | 4);   // redraw with its own style
+  }
+}`;
+let ghostProc = null;
+function ghostStart() {
+  if (process.platform !== 'win32' || process.env.PBD_DESKTOP === '1' || ghostProc) return;
+  const ps = "Add-Type -TypeDefinition @'\n" + GHOST_CS + "\n'@\n[PbdGhost]::Run(" + process.pid + ')';
+  try {
+    ghostProc = require('child_process').spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) { GHOST.state = 'error'; GHOST.error = String(e.message || e); radioLog('hide-on-minimize could not start: ' + GHOST.error); return; }
+  let buf = '';
+  ghostProc.stdout.on('data', d => {
+    buf += d; const lines = buf.split(/\r?\n/); buf = lines.pop();
+    for (const l of lines.map(x => x.trim()).filter(Boolean)) {
+      if (l === 'watching') { GHOST.state = 'on'; radioLog('hide-on-minimize ready'); }
+      else if (l === 'hidden') { GHOST.state = 'hidden'; radioLog('window hidden (minimize): invisible, still playing'); }
+      else if (l === 'back') { GHOST.state = 'on'; radioLog('window back from hiding'); }
+      else radioLog('hide-on-minimize: ' + l);
+    }
+  });
+  ghostProc.stderr.on('data', d => { GHOST.error = (GHOST.error + d).slice(-300); });
+  ghostProc.on('exit', code => { ghostProc = null; if (GHOST.state !== 'off') radioLog('hide-on-minimize stopped' + (GHOST.error ? ': ' + GHOST.error : ' (' + code + ')')); GHOST.state = 'error'; });
+}
+
+server.listen(PORT, '127.0.0.1', () => { console.log('Pale Blue Dot Radio is on air: http://localhost:' + PORT); syncApp(); voiceInit(); ghostStart(); });
 setInterval(syncApp, 6 * 3600e3);
 let portTries = 0;
 server.on('error', e => {

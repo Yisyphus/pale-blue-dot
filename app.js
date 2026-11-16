@@ -218,7 +218,7 @@ function setNow(s, kind) {
   const id = s && s.cands && s.cands[0] ? (s.cands[candIdx] || s.cands[0]).id : null;
   setArt(s, id);
   if (s) { let h = 0; for (const c of s.key) h = (h * 31 + c.charCodeAt(0)) >>> 0; const p = 8 + (h % 84); $('needle').style.left = p + '%'; $('freq').textContent = (87.5 + p * 0.2).toFixed(1) + ' FM'; }
-  document.title = s ? `${s.t} · ${s.a}` : 'Pale Blue Dot Radio';
+  document.title = s ? `${s.t} · ${s.a}` + (HELPER ? ' · Pale Blue Dot' : '') : 'Pale Blue Dot Radio';   // on the PC the name stays in the title: that is how the helper finds the window to hide on minimize
   updateHeart();
   if ('mediaSession' in navigator && s) navigator.mediaSession.metadata = new MediaMetadata({ title: s.t, artist: s.a, album: 'Pale Blue Dot Radio' });
 }
