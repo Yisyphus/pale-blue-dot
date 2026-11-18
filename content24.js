@@ -7,7 +7,7 @@
   // YouTube playlists that hold whole albums in their exact versions (Library > Albums > add a playlist adds more).
   // The radio reads each one on the PC, recognises which album it is from the titles, and plays those very videos.
   // A playlist that is none of the albums below becomes an album of its own.
-  R.albumPlaylists = ['PLc60gkdW0bcGpw3bR6BHYBGUJncc8eQQZ', 'PLdKPHQCziSjqc2RRScdzvX9i3vwaYehgD'];
+  R.albumPlaylists = ['PLc60gkdW0bcGpw3bR6BHYBGUJncc8eQQZ', 'PLdKPHQCziSjqc2RRScdzvX9i3vwaYehgD', 'PL9PFQ5wkMXJ8zNb2HFUJdSvSPfI7TVXfs'];   // the last: M83, Hurry Up, We're Dreaming
   R.albumIntroPlain = 'A whole album now, from beginning to end, in its own order: {album}, by {artist}. Here it is.';
 
   R.albumOutros = [
@@ -261,6 +261,22 @@
         'Alpaca Mountain, Kroy Wen, and Sui Ye. Alpaca Mountain takes a detour to the Andes. Kroy Wen is New York, spelled backwards. The band travels the world without leaving its imaginary Asia.',
         'The Rabbit That Hunts Tigers, the title song, A Ballad for Chong Wang, and The Sacred Valley of Cusco, another trip to Peru, to the valley of the Incas.',
         'Dis ko Dis ko, to close, which is exactly what it sounds like: disco, disco. That was Yin Yin. Their music came out on a small label in Geneva, and spread the way this kind of music always has, from one curious listener to the next.',
+      ],
+    },
+    {
+      id: 'hurryup', artist: 'M83', title: "Hurry Up, We're Dreaming", year: 2011,
+      tracks: ['Intro', 'Midnight City', 'Reunion', 'Where the Boats Go', 'Wait', 'Raconte-moi une histoire', 'Train to Pluton', 'Claudia Lewis', 'This Bright Flash', 'When Will You Come Home?', 'Soon, My Friend', 'My Tears Are Becoming a Sea', 'New Map', 'OK Pal', 'Another Wave from You', 'Splendor', 'Year One, One UFO', 'Fountains', 'Steve McQueen', 'Echoes of Mine', 'Klaus I Love You', 'Outro'],
+      lengths: [323, 244, 235, 106, 343, 244, 76, 272, 144, 84, 189, 152, 263, 238, 114, 308, 198, 82, 229, 220, 105, 247],   // seconds, on the original album (Deezer)
+      intro: 'A whole album now, and a long one: a double album, twenty-two tracks, more than an hour and a quarter. M83, Hurry Up, We\'re Dreaming, from October 2011. M83 is mostly one man, Anthony Gonzalez, from Antibes in the south of France, and the name comes from a galaxy, Messier 83, a spiral of stars about fifteen million light years away. This album is about childhood and dreams, the size of a feeling when you are young. Lie back. Here it is, from the first track to the last.',
+      notes: [
+        'Intro, Midnight City, and Reunion. The voice that rises with Anthony Gonzalez in Intro is Zola Jesus. And Midnight City is the song that made M83 known around the world: a city at night seen through the eyes of a child, that strange cry of a synthesiser, and at the end, a saxophone.',
+        'Where the Boats Go, Wait, and Raconte-moi une histoire, tell me a story. That is a child speaking, telling a story about a tiny frog: if you touch it, she says, you can change, and everything around you changes too. The whole album lives inside that idea.',
+        'Train to Pluton, Claudia Lewis, and This Bright Flash. Short pieces between the songs, like rooms you walk through between bigger ones. That is how a double album breathes.',
+        'When Will You Come Home, Soon My Friend, and My Tears Are Becoming a Sea. Soon My Friend closes the first half of the album, and My Tears Are Becoming a Sea opens the second, like a door to a darker room.',
+        'New Map, OK Pal, and Another Wave from You. Big, bright and full of air, the sound of the eighties remembered through a dream, not quite the way it really was.',
+        'Splendor, Year One One UFO, and Fountains. M83 likes titles that sound like pictures: a splendour, the first year, an object in the sky, water that rises.',
+        'Steve McQueen, named after the actor, the king of cool, Echoes of Mine, and Klaus I Love You. Three songs before the end, getting slower and quieter, the way a long day ends.',
+        'And Outro, to close: the last door of the dream, slowly opening, and the light coming in.',
       ],
     },
   ];
