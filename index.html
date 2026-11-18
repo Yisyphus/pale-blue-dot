@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="pbd-version" content="2026-11-18T18:25:55Z">
+<meta name="pbd-version" content="2026-11-18T18:28:57Z">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pale Blue Dot</title>
 <link rel="icon" type="image/png" href="icon.png">
@@ -149,8 +149,9 @@ select{background:var(--panel);border:1px solid var(--line);border-radius:8px;co
 .focus-stations .add span{color:var(--amber)}
 @media (max-width:420px){.focus-stations{grid-template-columns:1fr}}
 .pill{white-space:nowrap;flex-shrink:0}
-/* phones: the Focus menu opens as a panel over the page and scrolls, so every station can be reached */
-@media (pointer:coarse){.focus-menu{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));max-height:72vh;max-height:72dvh;overflow-y:auto;overscroll-behavior:contain;z-index:60;margin:0;box-shadow:0 -12px 40px rgba(0,0,0,.65)}}
+/* the Focus menu opens as a panel over the radio (inside its column) and scrolls, so every station can be reached on
+   any screen: the phone, the PC window, a short browser window */
+.focus-menu{position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));max-height:calc(100% - 90px);overflow-y:auto;overscroll-behavior:contain;z-index:60;margin:0;box-shadow:0 -12px 40px rgba(0,0,0,.65)}
 .mar{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0}
 .mar-g{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .mar-g:has(.mar-h input:checked){border-color:var(--amber2)}
