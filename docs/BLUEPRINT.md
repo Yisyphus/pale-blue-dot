@@ -75,6 +75,25 @@ The browser cannot search YouTube or read most news sites (CORS), so on the PC a
   "Pale Blue Dot" on the PC; Edge's own browser windows end in "Microsoft Edge"). The log says
   `window hidden (minimize / sent to the tray / covered)` and `window back from hiding`.
 
+### The Android app (`android/`)
+- Why: on a phone, YouTube's player stops the song as soon as the screen locks or another app comes in front (a
+  page that can't be seen), and the browser's voice stops too. No web page can avoid that.
+- A small Java app (no framework, `minSdk 26`): a web view showing the live website, so the radio updates itself.
+  - The page always counts as visible: `RadioWebView` tells the web view it is always on screen, and
+    `assets/visible.js` (in every frame, YouTube's too) answers "visible" and hides visibility, freeze and blur events.
+    Animation frames, which stop with the screen off, get a timer stand-in.
+  - `RadioService`: a "now playing" foreground service (media playback), processor and Wi-Fi kept awake, a media
+    session: song title, play/pause, previous, next on the notification, the lock screen and headphones (they press
+    the page's own buttons).
+  - The host's voice: `assets/speech.js` is the page's `speechSynthesis` / `SpeechSynthesisUtterance`, made by
+    Android's text-to-speech through a message channel that only the radio's own page can use.
+  - Google sign-in: the user agent drops the web view's "wv" mark and adds `PaleBlueDotApp/1`; `cloud.js` then uses
+    the redirect sign-in (no pop-ups in the app). Other links open in the phone's browser. Back keeps it playing.
+  - Signed with a fixed key in the repo (`android/app/pbd.keystore`), so new builds install over old ones.
+- Built by `.github/workflows/android.yml` when `android/` changes; the APK is always at the release tagged
+  `android`: https://github.com/Yisyphus/pale-blue-dot/releases/download/android/PaleBlueDotRadio.apk
+- Build locally: Android SDK (platform 35) + Gradle 8.14, `gradle -p android assembleRelease`.
+
 ### The website and the phone
 Published by GitHub Pages from `main`. Without the helper (phone, other browsers), `mobileWeb()` is true: YouTube
 search is not available (songs with a known video id still play), news goes through public CORS relays, the

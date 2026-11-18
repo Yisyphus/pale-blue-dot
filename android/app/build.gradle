@@ -1,0 +1,25 @@
+// The Android app: the radio's website in its own window that keeps playing when the screen is locked.
+plugins { id 'com.android.application' }
+android {
+  namespace 'dot.paleblue.radio'
+  compileSdk 35
+  defaultConfig {
+    applicationId 'dot.paleblue.radio'
+    minSdk 26
+    targetSdk 35
+    versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger())
+    versionName file('../VERSION').text.trim()
+  }
+  // A fixed key, kept in the repo, so every new build installs over the old one (and keeps your sign-in).
+  // It only signs this app, which only shows the radio's own website.
+  signingConfigs {
+    release { storeFile file('pbd.keystore'); storePassword 'paleblue-radio'; keyAlias 'pbd'; keyPassword 'paleblue-radio' }
+  }
+  buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+  implementation 'androidx.webkit:webkit:1.12.1'
+  implementation 'androidx.core:core:1.13.1'
+  implementation 'androidx.media:media:1.7.0'
+}

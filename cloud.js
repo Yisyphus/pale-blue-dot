@@ -31,6 +31,8 @@
   });
   C.signIn = async () => {
     const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
+    // the Android app has no pop-up windows: it signs in by going to Google's page and coming back
+    if (/PaleBlueDotApp/.test(navigator.userAgent)) return firebase.auth().signInWithRedirect(p);
     try { await firebase.auth().signInWithPopup(p); }
     catch (e) { if (/popup/i.test(e.code || '')) await firebase.auth().signInWithRedirect(p); else throw e; }
   };
