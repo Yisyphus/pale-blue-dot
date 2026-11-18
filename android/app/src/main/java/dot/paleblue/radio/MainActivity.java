@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.CancellationSignal;
 import android.os.Message;
 import android.os.PowerManager;
 import android.provider.Settings;
@@ -31,7 +32,18 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import androidx.credentials.Credential;
+import androidx.credentials.CredentialManager;
+import androidx.credentials.CredentialManagerCallback;
+import androidx.credentials.CustomCredential;
+import androidx.credentials.GetCredentialRequest;
+import androidx.credentials.GetCredentialResponse;
+import androidx.credentials.exceptions.GetCredentialCancellationException;
+import androidx.credentials.exceptions.GetCredentialException;
 import androidx.webkit.JavaScriptReplyProxy;
+
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
@@ -191,6 +203,7 @@ public class MainActivity extends Activity {
       if ("hello".equals(op)) sendVoices();
       else if ("cancel".equals(op)) { if (ttsReady) tts.stop(); }
       else if ("speak".equals(op)) speak(o);
+      else if ("signin".equals(op)) signIn();
     } catch (Exception ignored) {}
   }
 
@@ -237,6 +250,34 @@ public class MainActivity extends Activity {
   void post(JSONObject o) {
     final String s = o.toString();
     ui.post(() -> { if (reply != null) try { reply.postMessage(s); } catch (Exception ignored) {} });
+  }
+
+  // ---------- Sign in with Google (Android's own account sheet; Google does not allow its web page in apps) ----------
+  // The radio's Firebase project's web sign-in ID: the token is made for it, so Firebase accepts it.
+  static final String WEB_CLIENT = "16930431363-ua9ehamhim7rl1gud5eidql9m1fbvunl.apps.googleusercontent.com";
+
+  void signIn() {
+    GetCredentialRequest req = new GetCredentialRequest.Builder()
+        .addCredentialOption(new GetSignInWithGoogleOption.Builder(WEB_CLIENT).build()).build();
+    CredentialManager.create(this).getCredentialAsync(this, req, new CancellationSignal(), ui::post,
+        new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
+          @Override public void onResult(GetCredentialResponse r) {
+            Credential c = r.getCredential();
+            try {
+              if (c instanceof CustomCredential && GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(c.getType())) {
+                signedIn(GoogleIdTokenCredential.createFrom(c.getData()).getIdToken(), null);
+              } else signedIn(null, "Google gave an unexpected answer (" + c.getType() + ")");
+            } catch (Exception e) { signedIn(null, "Google's answer could not be read: " + e.getMessage()); }
+          }
+          @Override public void onError(GetCredentialException e) {
+            String why = e instanceof GetCredentialCancellationException ? "cancelled" : e.getClass().getSimpleName() + (e.getMessage() != null ? ": " + e.getMessage() : "");
+            signedIn(null, why);
+          }
+        });
+  }
+
+  void signedIn(String token, String error) {
+    try { JSONObject o = new JSONObject().put("op", "signin"); if (token != null) o.put("token", token); else o.put("error", error); post(o); } catch (Exception ignored) {}
   }
 
   // ---------- links ----------

@@ -47,8 +47,15 @@
   Object.defineProperty(S, 'pending', { get: function () { return order.length > 1 || held.length > 0; } });
   Object.defineProperty(S, 'paused', { get: function () { return paused; } });
 
+  // Sign in with Google, done by Android (the page asks, the app answers with a Google token)
+  var signinWait = null;
+  window.PBDApp = { signIn: function () {
+    return new Promise(function (res, rej) { if (signinWait) signinWait.rej(new Error('cancelled')); signinWait = { res: res, rej: rej }; post({ op: 'signin' }); });
+  } };
+
   N.onmessage = function (m) {
     var d; try { d = JSON.parse(m.data); } catch (e) { return; }
+    if (d.op === 'signin') { var w = signinWait; signinWait = null; if (w) { if (d.token) w.res(d.token); else w.rej(new Error(d.error || 'sign-in failed')); } return; }
     if (d.op === 'voices') {
       voices = d.voices.map(function (v) { return { name: v.name, lang: v.lang, voiceURI: v.name, localService: !!v.local, default: !!v.default }; });
       var e = new Event('voiceschanged');

@@ -31,8 +31,15 @@
   });
   C.signIn = async () => {
     const p = new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
-    // the Android app has no pop-up windows: it signs in by going to Google's page and coming back
-    if (/PaleBlueDotApp/.test(navigator.userAgent)) return firebase.auth().signInWithRedirect(p);
+    // the Android app: Google does not allow its sign-in page inside an app, so the app signs in with Android's own
+    // "Sign in with Google" (the account sheet) and hands the radio a Google token for this project
+    if (window.PBDApp && PBDApp.signIn) {
+      const token = await PBDApp.signIn();
+      await firebase.auth().signInWithCredential(firebase.auth.GoogleAuthProvider.credential(token));
+      await new Promise(r => setTimeout(r, 300));   // let the signed-in state reach the rest of the radio
+      return;
+    }
+    if (/PaleBlueDotApp/.test(navigator.userAgent)) return firebase.auth().signInWithRedirect(p);   // the first app version
     try { await firebase.auth().signInWithPopup(p); }
     catch (e) { if (/popup/i.test(e.code || '')) await firebase.auth().signInWithRedirect(p); else throw e; }
   };

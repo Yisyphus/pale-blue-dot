@@ -87,8 +87,12 @@ The browser cannot search YouTube or read most news sites (CORS), so on the PC a
     the page's own buttons).
   - The host's voice: `assets/speech.js` is the page's `speechSynthesis` / `SpeechSynthesisUtterance`, made by
     Android's text-to-speech through a message channel that only the radio's own page can use.
-  - Google sign-in: the user agent drops the web view's "wv" mark and adds `PaleBlueDotApp/1`; `cloud.js` then uses
-    the redirect sign-in (no pop-ups in the app). Other links open in the phone's browser. Back keeps it playing.
+  - Google sign-in: Google refuses its sign-in page inside apps (the first version's redirect failed), so the app
+    uses Android's own "Sign in with Google" (Credential Manager) with the Firebase project's web client ID; the page
+    (`cloud.js`) calls `PBDApp.signIn()` and signs in to Firebase with the Google ID token
+    (`signInWithCredential`). Required once: the Android app registered in the Firebase project (package
+    `dot.paleblue.radio`, SHA-1 `0F:F5:DF:A0:C8:BF:42:DA:CC:F9:B2:A1:9B:58:0B:F2:D5:DA:BA:D8`). Other links open
+    in the phone's browser. Back keeps it playing.
   - Signed with a fixed key in the repo (`android/app/pbd.keystore`), so new builds install over old ones.
 - Built by `.github/workflows/android.yml` when `android/` changes; the APK is always at the release tagged
   `android`: https://github.com/Yisyphus/pale-blue-dot/releases/download/android/PaleBlueDotRadio.apk

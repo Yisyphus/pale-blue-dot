@@ -22,4 +22,8 @@ dependencies {
   implementation 'androidx.webkit:webkit:1.12.1'
   implementation 'androidx.core:core:1.13.1'
   implementation 'androidx.media:media:1.7.0'
+  // Sign in with Google, the Android way
+  implementation 'androidx.credentials:credentials:1.3.0'
+  implementation 'androidx.credentials:credentials-play-services-auth:1.3.0'
+  implementation 'com.google.android.libraries.identity.googleid:googleid:1.1.1'
 }
