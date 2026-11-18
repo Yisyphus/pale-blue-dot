@@ -1590,14 +1590,16 @@ function albumBack() {   // Previous: the track before this one (its talk is not
 async function startAlbum(id) {
   const al = albumById(id); if (!al) return;
   if (!started) return toast('Press play first, then choose an album.');
-  if (!HELPER) return toast('The album show finds its tracks on YouTube through your PC, so it plays on the PC radio.');
   await readAlbumPlaylists();   // your playlists first: their videos are the exact versions
-  if (!(await canCheckAlbums())) return toast('The album show needs the newest PC helper to check each track. Turn the radio off with its ✕ and open it again, then try again.');
+  // without the PC (the phone): only the tracks whose exact video is saved can play; the others are skipped, never
+  // replaced by a version nobody checked
+  if (!HELPER && !al.tracks.some((t, n) => albumVideo(al, n))) return toast(phoneYT() ? 'The playlist of ' + al.title + ' could not be read just now. Check the internet and try again in a moment.' : 'The videos of ' + al.title + ' are not saved yet. Open the radio on your PC once: it reads them, and then the album plays here too.');
+  if (HELPER && !(await canCheckAlbums())) return toast('The album show needs the newest PC helper to check each track. Turn the radio off with its ✕ and open it again, then try again.');
   openSheet(null); toast('Checking the ' + al.tracks.length + ' tracks of ' + al.title + '…');
   const missing = await albumCheck(al, (n, m) => { $('capKind').textContent = 'Album show'; $('capText').textContent = 'Checking the album on YouTube: ' + n + ' of ' + al.tracks.length + (m ? ' (' + m + ' not found)' : ''); });
   rlog('album check', { album: al.id, missing });
   if (missing.length === al.tracks.length) return toast('None of the tracks of ' + al.title + ' could be found on YouTube as part of this album. Nothing was played.');
-  if (missing.length) toast('Not found as part of this album, so skipped: ' + missing.join(', ') + '. Everything else is the album version.');
+  if (missing.length) toast((HELPER ? 'Not found as part of this album, so skipped: ' : 'No saved video, so skipped here (the PC can look for them): ') + missing.join(', ') + '. Everything else is the album version.');
   if (marathon) marathon = null;
   if (focusMode) { focusMode = ''; try { localStorage.setItem('pbd-focus', ''); } catch {} paintFocus(); }   // quietly: the show starts itself
   albumShow = { al, i: 0, said: new Set() }; planned = null; preload = null; batch = null;
