@@ -49,12 +49,25 @@
 
   // Sign in with Google, done by Android (the page asks, the app answers with a Google token)
   var signinWait = null;
-  window.PBDApp = { signIn: function () {
-    return new Promise(function (res, rej) { if (signinWait) signinWait.rej(new Error('cancelled')); signinWait = { res: res, rej: rej }; post({ op: 'signin' }); });
-  } };
+  // Reading YouTube's pages for the radio (playlists), which a web page cannot do itself: youtube.com only
+  var httpWait = {}, httpSeq = 0;
+  window.PBDApp = {
+    signIn: function () {
+      return new Promise(function (res, rej) { if (signinWait) signinWait.rej(new Error('cancelled')); signinWait = { res: res, rej: rej }; post({ op: 'signin' }); });
+    },
+    http: function (url, opts) {
+      opts = opts || {};
+      return new Promise(function (res, rej) {
+        var id = 'h' + (++httpSeq); httpWait[id] = { res: res, rej: rej };
+        post({ op: 'http', id: id, url: String(url), method: opts.method || 'GET', body: opts.body == null ? '' : String(opts.body) });
+        setTimeout(function () { if (httpWait[id]) { delete httpWait[id]; rej(new Error('YouTube did not answer in time.')); } }, 30000);
+      });
+    },
+  };
 
   N.onmessage = function (m) {
     var d; try { d = JSON.parse(m.data); } catch (e) { return; }
+    if (d.op === 'http') { var h = httpWait[d.id]; delete httpWait[d.id]; if (h) { if (d.error) h.rej(new Error(d.error)); else h.res({ status: d.status, text: d.text || '' }); } return; }
     if (d.op === 'signin') { var w = signinWait; signinWait = null; if (w) { if (d.token) w.res(d.token); else w.rej(new Error(d.error || 'sign-in failed')); } return; }
     if (d.op === 'voices') {
       voices = d.voices.map(function (v) { return { name: v.name, lang: v.lang, voiceURI: v.name, localService: !!v.local, default: !!v.default }; });

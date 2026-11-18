@@ -93,6 +93,10 @@ The browser cannot search YouTube or read most news sites (CORS), so on the PC a
     (`signInWithCredential`). Required once: the Android app registered in the Firebase project (package
     `dot.paleblue.radio`, SHA-1 `0F:F5:DF:A0:C8:BF:42:DA:CC:F9:B2:A1:9B:58:0B:F2:D5:DA:BA:D8`). Other links open
     in the phone's browser. Back keeps it playing.
+  - Playlists on the phone: the app fetches YouTube pages for the radio (`PBDApp.http`, www.youtube.com only, with
+    the helper's desktop identity and consent cookie); `ytphone.js` is the helper's `readPlaylist()` copied for the
+    page, used by Albums > Add, an album's playlist (✎) and Library > Lists. Other YouTube searches still need the PC.
+    On the phone website (no app) a pasted album playlist is saved (synced) and the PC reads it when it opens.
   - Signed with a fixed key in the repo (`android/app/pbd.keystore`), so new builds install over old ones.
 - Built by `.github/workflows/android.yml` when `android/` changes; the APK is always at the release tagged
   `android`: https://github.com/Yisyphus/pale-blue-dot/releases/download/android/PaleBlueDotRadio.apk

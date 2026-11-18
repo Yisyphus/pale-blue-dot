@@ -45,7 +45,15 @@ const key = s => (s.a + '|' + s.t).toLowerCase();
 // - opened from the web with no helper (the phone), a copy is kept in the browser;
 // - signed in, the cloud (cloud.js) keeps the shared copy, and the newest copy wins.
 let HELPER = false, cloudAds = null, helperOpens = false;   // helperOpens: this PC's helper opens links in the browser (older ones opened Documents)
-const NEEDS_PC = 'Searching YouTube needs the radio running on your PC (start.bat). Here you can still play, skip, choose favorites, and remove songs or ads.';
+const NEEDS_PC = 'Searching YouTube needs the radio open on your PC. Here you can still play, skip, choose favorites, and remove songs or ads.';
+// Reading a YouTube playlist: through the PC helper, or inside the Android app (ytphone.js); elsewhere it waits for the PC
+const phoneYT = () => !!(window.PhoneYT && window.PhoneYT.ok);
+const canReadPlaylists = () => HELPER || phoneYT();
+async function readPlaylistAny(id) {
+  if (HELPER) { const r = await fetch('/api/playlist?list=' + encodeURIComponent(id)); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'The playlist could not be read.'); return j; }
+  if (phoneYT()) return window.PhoneYT.playlist(id);
+  throw new Error(NEEDS_PC);
+}
 function normalizeLib() {
   if (lib.cacheV !== 2) { lib.cache = {}; lib.cacheV = 2; } // earlier versions cached some wrong videos; search again with the stricter matching
   lib.used = lib.used || {}; lib.b = lib.b || 0; lib.trim = lib.trim || {}; lib.disc = lib.disc || {}; lib.cache = lib.cache || {}; lib.user = lib.user || []; lib.removed = lib.removed || []; lib.lists = lib.lists || [];
@@ -1511,13 +1519,13 @@ function plMap(al, items, force) {   // which video is which track: by title (an
 }
 const savedVideos = id => { const e = (lib.albumVideos || {})[id]; return e && !e.cleared ? e : null; };
 async function readAlbumPlaylists() {
-  if (!HELPER) return;
+  if (!canReadPlaylists()) return;
   let changed = false;
   for (const id of plIds()) {
     const have = Object.values(lib.albumVideos || {}).some(e => e && e.pl === id);   // read before: its videos are saved
     if (have) continue;
     try {
-      const r = await fetch('/api/playlist?list=' + encodeURIComponent(id)); const j = await r.json(); if (!r.ok || !j.items || !j.items.length) throw new Error(j.error || 'empty');
+      const j = await readPlaylistAny(id); if (!j.items || !j.items.length) throw new Error('empty');
       const items = j.items.map(vid), now = Date.now();
       const forced = (lib.albumLists || []).find(x => x.key === id && x.album), fa = forced && (R.albums || []).find(a => a.id === forced.album);
       let al = fa, map = fa ? plMap(fa, items, true) : null;
@@ -1612,8 +1620,8 @@ function renderAlbums() {
   add.querySelector('button').onclick = async () => {
     const v = add.querySelector('input').value.trim(), m = v.match(/[?&]list=([\w-]+)/) || v.match(/^([\w-]{12,})$/);
     if (!m) return toast('That does not look like a YouTube playlist link.');
-    if (!HELPER) return toast(NEEDS_PC);
     lib.albumLists = lib.albumLists || []; if (!lib.albumLists.some(x => x.key === m[1])) lib.albumLists.push({ key: m[1], added: Date.now() }); saveLib();
+    if (!canReadPlaylists()) { add.querySelector('input').value = ''; return toast('Saved. The radio on your PC reads it the next time it opens there, then the album plays here too.'); }
     toast('Reading the playlist…'); await readAlbumPlaylists();
     const hit = Object.entries(lib.albumVideos || {}).find(([, x]) => x && x.pl === m[1] && !x.cleared);
     toast(!hit ? 'The playlist could not be read. Is it public or unlisted?' : hit[0].startsWith('pl:') ? `Added as an album of its own: ${hit[1].title}. Its videos are saved.` : `Recognised: ${albumById(hit[0]).title}. Its videos are saved, and they are what plays.`);
@@ -1655,7 +1663,7 @@ async function editAlbum(al) {
   if (cur && m && cur.pl === m[1]) return toast('That playlist is already the one saved.');
   lib.albumVideos = lib.albumVideos || {}; lib.albumVideos[al.id] = { cleared: true, ts: Date.now() };   // the old videos go
   if (m) {
-    if (!HELPER) { saveLib(); return toast(NEEDS_PC); }
+    if (!canReadPlaylists()) { lib.albumLists = (lib.albumLists || []).filter(x => x.key !== m[1]); lib.albumLists.push({ key: m[1], album: al.id, added: Date.now() }); saveLib(); return toast('Saved. The radio on your PC reads it the next time it opens there, then the album plays here too.'); }
     Object.keys(lib.albumVideos).forEach(k => { const x = lib.albumVideos[k]; if (x && x.pl === m[1] && k !== al.id) lib.albumVideos[k] = { cleared: true, ts: Date.now() }; });   // read it again, for this album
     lib.albumHidden = (lib.albumHidden || []).filter(x => { if (x.key === 'plid:' + m[1]) { markDeleted('albumHidden', x.key); return false; } return true; });
     lib.albumLists = (lib.albumLists || []).filter(x => x.key !== m[1]); lib.albumLists.push({ key: m[1], album: al.id, added: Date.now() });
@@ -2898,16 +2906,16 @@ $('listRetry').onclick = async () => {
 };
 $('listGo').onclick = async () => {
   if (listBusy) { listBusy = false; return; }   // the button reads "Stop" while searching
-  if (!HELPER) { $('listStatus').textContent = NEEDS_PC; return; }
   const raw = $('listIn').value.trim(); if (!raw) return;
+  const isPl = /[?&]list=([\w-]+)/.test(raw) || /^(PL|OL|UU|FL|RD)[\w-]{10,}$/.test(raw);
+  if (!HELPER && !(isPl && phoneYT())) { $('listStatus').textContent = NEEDS_PC; return; }
   listItems = []; renderListRes(); listBusy = true; $('listGo').textContent = 'Stop';
   $('listGenre').innerHTML = genreOptions('none, I will label them later');
   try {
     const pl = raw.match(/[?&]list=([\w-]+)/) || (/^(PL|OL|UU|FL|RD)[\w-]{10,}$/.test(raw) ? [raw, raw] : null);
     if (pl) {
       $('listStatus').textContent = 'Reading the playlist…';
-      const r = await fetch('/api/playlist?list=' + encodeURIComponent(pl[1])); const j = await r.json();
-      if (!r.ok) throw new Error(j.error || 'the playlist could not be read');
+      const j = await readPlaylistAny(pl[1]);
       j.items.forEach(v => { const { a, t } = splitTitle(v); listItems.push(listEntry(a, t, [v], '')); });
       if (j.title) $('listName').value = j.title;
       renderListRes();

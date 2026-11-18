@@ -204,6 +204,7 @@ public class MainActivity extends Activity {
       else if ("cancel".equals(op)) { if (ttsReady) tts.stop(); }
       else if ("speak".equals(op)) speak(o);
       else if ("signin".equals(op)) signIn();
+      else if ("http".equals(op)) http(o);
     } catch (Exception ignored) {}
   }
 
@@ -278,6 +279,44 @@ public class MainActivity extends Activity {
 
   void signedIn(String token, String error) {
     try { JSONObject o = new JSONObject().put("op", "signin"); if (token != null) o.put("token", token); else o.put("error", error); post(o); } catch (Exception ignored) {}
+  }
+
+  // ---------- reading YouTube's pages for the radio (playlists): youtube.com only, never anything else ----------
+  final java.util.concurrent.ExecutorService net = java.util.concurrent.Executors.newFixedThreadPool(2);
+
+  void http(JSONObject o) {
+    final String id = o.optString("id"), url = o.optString("url"), method = "POST".equals(o.optString("method")) ? "POST" : "GET", body = o.optString("body");
+    Uri u = Uri.parse(url);
+    if (!"https".equals(u.getScheme()) || !"www.youtube.com".equals(u.getHost())) { httpDone(id, 0, null, "only YouTube can be read"); return; }
+    net.execute(() -> {
+      java.net.HttpURLConnection c = null;
+      try {
+        c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+        c.setConnectTimeout(15000); c.setReadTimeout(20000); c.setRequestMethod(method);
+        // like the PC helper: a desktop browser that has already said yes to YouTube's cookie question
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+        c.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+        c.setRequestProperty("Cookie", "CONSENT=YES+1; SOCS=CAI");
+        if ("POST".equals(method)) {
+          c.setDoOutput(true); c.setRequestProperty("Content-Type", "application/json");
+          try (java.io.OutputStream out = c.getOutputStream()) { out.write(body.getBytes(StandardCharsets.UTF_8)); }
+        }
+        int status = c.getResponseCode();
+        InputStream in = status >= 400 ? c.getErrorStream() : c.getInputStream();
+        String text = "";
+        if (in != null) try (InputStream i = in) {
+          ByteArrayOutputStream b = new ByteArrayOutputStream(); byte[] buf = new byte[16384]; int n;
+          while ((n = i.read(buf)) > 0 && b.size() < 8_000_000) b.write(buf, 0, n);
+          text = b.toString(StandardCharsets.UTF_8.name());
+        }
+        httpDone(id, status, text, null);
+      } catch (Exception e) { httpDone(id, 0, null, "YouTube could not be reached: " + e.getMessage()); }
+      finally { if (c != null) c.disconnect(); }
+    });
+  }
+
+  void httpDone(String id, int status, String text, String error) {
+    try { JSONObject o = new JSONObject().put("op", "http").put("id", id).put("status", status); if (text != null) o.put("text", text); if (error != null) o.put("error", error); post(o); } catch (Exception ignored) {}
   }
 
   // ---------- links ----------
