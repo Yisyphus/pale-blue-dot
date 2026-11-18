@@ -25,6 +25,11 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.WebMessageCompat;
@@ -68,13 +73,25 @@ public class MainActivity extends Activity {
     current = this;
     web = new RadioWebView(this);
     web.setBackgroundColor(Color.parseColor("#05081a"));
-    setContentView(web);
+    // the page sits between the status bar and the navigation bar (Android 15 draws apps behind them), and above the
+    // keyboard when one is open
+    FrameLayout frame = new FrameLayout(this);
+    frame.setBackgroundColor(Color.parseColor("#05081a"));
+    frame.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+    ViewCompat.setOnApplyWindowInsetsListener(frame, (v, in) -> {
+      Insets bars = in.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+      Insets ime = in.getInsets(WindowInsetsCompat.Type.ime());
+      v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+      return WindowInsetsCompat.CONSUMED;
+    });
+    setContentView(frame);
 
     WebSettings s = web.getSettings();
     s.setJavaScriptEnabled(true);
     s.setDomStorageEnabled(true);
     s.setDatabaseEnabled(true);
     s.setMediaPlaybackRequiresUserGesture(false);
+    s.setTextZoom(100);   // the radio's own text size: the phone's font size setting would push its layout off the screen
     s.setSupportMultipleWindows(true);
     s.setJavaScriptCanOpenWindowsAutomatically(true);
     // Google's sign-in page refuses app windows: the app introduces itself as the phone's browser (plus its own name)
