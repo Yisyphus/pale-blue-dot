@@ -3022,21 +3022,23 @@ async function downloadCurrent() {
   toast(site.link ? `Opening ${site.name} with "${s.t}". Choose MP3 and the quality there.` : `Opening ${site.name}. The link of "${s.t}" is copied: paste it there.`);
 }
 $('btnDownload').onclick = downloadCurrent;
+// an album track is liked as the song itself (artist and title), with the album's exact version that is playing
+const favKey = s => s.album ? (s.a + '|' + s.t).toLowerCase() : s.key;
 function updateHeart() {
   $('btnDownload').disabled = !current;
   const r = $('btnRemoveSong'); if (r) { r.style.display = current && !current.podcast && !current.sounds && !current.album ? '' : 'none'; r.classList.remove('sure'); r.innerHTML = '&#10005; remove this song'; }
   const b = $('btnHeart'); if (!b) return;
-  const on = !!current && favIdx(current.key) >= 0;
-  b.classList.toggle('on', on); b.disabled = !current || !!current.podcast || !!current.focus || !!current.album;
+  const on = !!current && favIdx(favKey(current)) >= 0;
+  b.classList.toggle('on', on); b.disabled = !current || !!current.podcast || !!current.focus;
   b.title = on ? 'Remove from favorites' : 'Add to favorites'; b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 function toggleFav() {
-  if (!current || current.podcast) return;
-  lib.fav = lib.fav || []; const i = favIdx(current.key);
-  if (i >= 0) { lib.fav.splice(i, 1); markDeleted('fav', current.key); toast('Removed from your favorites.'); }
+  if (!current || current.podcast || current.focus) return;
+  lib.fav = lib.fav || []; const k = favKey(current), i = favIdx(k);
+  if (i >= 0) { lib.fav.splice(i, 1); markDeleted('fav', k); toast('Removed from your favorites.'); }
   else {
     const c = current.cands && (current.cands[candIdx] || current.cands[0]);   // remember the exact version that is playing
-    lib.fav.push({ key: current.key, a: current.a, t: current.t, id: c ? c.id : null, tags: (current.tags || []).slice(), genre: current.genre || '', ts: Date.now() });
+    lib.fav.push({ key: k, a: current.a, t: current.t, id: c ? c.id : null, tags: (current.tags || []).slice(), genre: current.album ? '' : current.genre || '', ts: Date.now() });
     toast(`"${current.t}" is now in your favorites.`);
   }
   saveLib(); updateHeart(); if ($('shLib').classList.contains('open')) renderLib();
