@@ -190,6 +190,7 @@ breaks may get a small extra: a genre note, a letter + reading, a station ident,
 | `content23.js` | Focus stations, ambient sounds, dedication lines, the podcast shows and concerts, pronunciation fixes (`R.sayAs`). |
 | `content24.js` | The album show: the albums, their tracklists, what Astro says before and between the tracks. |
 | `jingles.js` | The jingles. |
+| `content_more.js` | Loaded last of the content files: about three times as many lines in every small pool (welcomes, intros, "that was", mood, energy, themes, idents, check-ins, commercial breaks, podcasts and concerts and their lead-ins, Arabic shows, runs, dedications, detours, letters, Luna's readings, the Long Hour, albums), plus the news lines (`newsIntros`, `newsOutros`, `newsWait`, `newsFail`, the Arabic `newsArOpen`/`newsArOpenMidnight`/`newsArClose`) and the sleep timer (`sleepLines`). It only adds to the pools (`add()`); same placeholders. The shuffle bag knows a line by its first 48 characters, so new lines must differ from the others there. A podcast or concert lead-in is skipped when the intro already announces it, or when it would repeat a word of the intro's opening. |
 
 - **Voices** (Settings): Astro (default Brian Multilingual), Luna (Emily, Ireland), News (Mouna, Morocco), speaking
   pace. Edge's natural voices are preferred; an online voice is the fallback.

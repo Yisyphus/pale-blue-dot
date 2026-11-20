@@ -171,7 +171,7 @@
     'You are listening to {station}. It is {time}, and somewhere a kettle is boiling for someone who needed a pause.', '{time} on {station}. If you can hear this, you are still here, and that is already a good start.',
     'This is {host}, at {time}, on {station}. A small blue planet, a small radio, a small light.', 'It is {time}. Stay with us, and let the world be a little less loud.',
     '{station}. {time}. This hour is yours.', 'Time check: {time}. Existential status: manageable, thanks to music.', 'Out in the dark, it is {time}. In here, there is a song coming.',
-    'You are tuned to {station}. The hour is {time}. The mood: reflective, with a chance of tea.', 'This is {station}. We have no commercials worth mentioning, and a lot of time for you. It is {time}.',
+    'You are tuned to {station}. The hour is {time}. The mood: reflective, with a chance of tea.',
     'The hour is {time}, and you are not alone with it. {station}, on the air.', 'You have found {station} at {time}. That is either luck or insomnia. Welcome, either way.',
     'A few words at {time}. You are doing fine. This is {station}.',
   ]);

@@ -1,7 +1,7 @@
 {
- "version": "2026-11-19T10:05:41Z",
+ "version": "2026-11-20T16:48:28Z",
  "files": {
-  "app.js": "90ec785713dd21d9",
+  "app.js": "dcddf9cf08ba23a6",
   "cloud.js": "578da9ce151322e4",
   "content.js": "45f00d7b85dcbf83",
   "content10.js": "9275cf846195a692",
@@ -14,7 +14,7 @@
   "content17.js": "fa82a3cfa0116ff4",
   "content18.js": "55dd5f381b1f8891",
   "content19.js": "fe61c606500ba72f",
-  "content2.js": "d3855b56ef45b9dd",
+  "content2.js": "d19579fcd9688093",
   "content20.js": "5b3d991b435b2d2a",
   "content21.js": "db801564b6bdd4c3",
   "content22.js": "97b2806116f2a4e7",
@@ -24,15 +24,16 @@
   "content5.js": "db4717ce75765663",
   "content6.js": "8a26dd2539bdb46f",
   "content7.js": "e55cb6411cc261bc",
-  "content8.js": "9c9162852633638f",
+  "content8.js": "46fb35e2f0c4f640",
   "content9.js": "d3a3d989d495728e",
   "content_songs.js": "4362bfe563749cf2",
   "firebase-config.js": "61a02500bccd646f",
   "icon.png": "414972388b2218eb",
   "jingles.js": "82e560f3edddbd37",
-  "index.html": "f58642640f3f99bf",
+  "index.html": "3e5e294c95bc70dc",
   "content24.js": "7774693259805fc4",
-  "ytphone.js": "0cdd455826a599f2"
+  "ytphone.js": "0cdd455826a599f2",
+  "content_more.js": "039e5a7032f70595"
  },
  "server": "1f2bd21ed998a684"
 }

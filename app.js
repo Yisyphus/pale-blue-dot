@@ -1395,8 +1395,15 @@ async function playPodcast(pod, prev, opts, id) {
   else if (prev) segs.push({ kind: R.station, lines: [{ t: backFor(prev) }] });
   const extra = { min: Math.max(1, Math.round(v.seconds / 60)), topic: pod.topic.label };
   const live = !!(pod.show && R.podShows[pod.show] && R.podShows[pod.show].concert);
-  const lead = live ? fresh('concertlead', ['Live music now.', 'And now, a concert.', 'Time for some live music.', 'A concert now.']) : fresh('podlead', ['Podcast time.', 'And now, a podcast.', 'Time for a podcast.', 'A podcast now.', 'Let us make room for a podcast.']);
-  segs.push({ kind: live ? 'Live concert' : midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: lead + ' ' + sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra) }] });
+  const intro = sub(pod.show ? fresh('podshow:' + pod.show, R.podShows[pod.show].intros) : midnight ? fresh('podintro', R.podcastIntros) : fresh('podintroday', R.podcastIntrosDay), ep, extra);
+  // a short lead-in first, unless the intro itself already says it is a podcast or a concert ("Time for a podcast…")
+  const says = /podcast|concert|live music|full performance|a whole set|full set|tiny desk|the songs (will )?(wait|rest)|music steps (aside|back)/i.test(intro.slice(0, 70));
+  // and never a lead-in that repeats a word of the intro's opening ("Podcast time. Time for…")
+  const words = x => (x.toLowerCase().match(/[a-z]{4,}/g) || []).filter(w => !/^(from|with|this|that|your|have|will|here|there|about|into|them|they|what|just|only|some|then|than|very|also|when|where|which|while)$/.test(w));
+  const opening = new Set(words(intro.slice(0, 80)));
+  const leads = (live ? R.concertLeads : R.podcastLeads || []).filter(l => !words(l).some(w => opening.has(w) || opening.has(w.replace(/s$/, '')) || opening.has(w + 's')));
+  const lead = says || !leads.length ? '' : fresh(live ? 'concertlead' : 'podlead', leads) || '';
+  segs.push({ kind: live ? 'Live concert' : midnight ? 'Midnight podcast' : 'Podcast', title: pod.topic.label, lines: [{ t: (lead ? lead + ' ' : '') + intro }] });
   console.info('[radio] podcast', ep.t, '|', ep.a, '|', extra.min + ' min');
   const ok = await runSegments(segs, id);
   if (!ok) return;
@@ -1566,7 +1573,7 @@ function albumTalk(id, text, title) {   // Astro speaks between tracks, then the
 }
 function albumStep() {
   const sh = albumShow, al = sh.al, i = sh.i, groups = Math.ceil(al.tracks.length / 3);
-  if (i === 0 && !sh.said.has('intro')) return albumTalk('intro', al.intro || (R.albumIntroPlain || '').replace(/\{album\}/g, al.title).replace(/\{artist\}/g, al.artist), 'The album · ' + al.artist + ', ' + al.title);
+  if (i === 0 && !sh.said.has('intro')) return albumTalk('intro', al.intro || (fresh('albumplain', R.albumIntrosPlain) || R.albumIntroPlain || '').replace(/\{album\}/g, al.title).replace(/\{artist\}/g, al.artist), 'The album · ' + al.artist + ', ' + al.title);
   if (i > 0 && i % 3 === 0 && i < al.tracks.length && !sh.said.has('n' + i)) { if (al.notes[i / 3 - 1]) return albumTalk('n' + i, al.notes[i / 3 - 1]); sh.said.add('n' + i); }   // an album without notes plays straight on
   if (i >= al.tracks.length) {
     if (!sh.said.has('end')) return albumTalk('end', (al.notes[groups - 1] || '') + ' ' + rnd(R.albumOutros || ['That was {album}, by {artist}, from beginning to end. Back to the radio.']).replace(/\{album\}/g, al.title).replace(/\{artist\}/g, al.artist));
@@ -1958,18 +1965,7 @@ async function advance(opts = {}) {
 // The headlines come from the PC helper (/api/news), so the news needs the radio running on the PC.
 let newsOn = false, newsBack = null, newsJingle = null, newsShown = null, lastNewsSlot = '';
 const NEWS_TOPIC_AR = { marrakech: 'من مراكش', moroccoaj: 'أخبار المغرب', morocco: 'آخر الأخبار', world: 'آخر الأخبار', tech: 'في التكنولوجيا والذكاء الاصطناعي', techworld: 'في التكنولوجيا والذكاء الاصطناعي', art: 'في الفن', trend: 'الأكثر تداولا على مواقع التواصل' };   // Moroccan and world headlines are mixed in the sources, so they share one heading
-const NEWS_IN = [
-  'It is {time}. Time for the news. Then we come straight back to what was playing.',
-  'It is {time} on {station}. Let us stop for a moment for the headlines. We will pick up again right after.',
-  'It is {time}, and that means the news. The headlines and the weather, and then back to where we were.',
-  'A short pause for the world outside. It is {time}, and here are the headlines.',
-];
-const NEWS_OUT = [
-  'That was the news. And now, back to where we were.',
-  'Those were the headlines. The world will keep turning; we go back to what was playing.',
-  'That is the news for now. Next one in four hours. Back to it.',
-  'Thank you for listening to the news. And now, we pick up where we left off.',
-];
+// the news: what Astro says before and after (R.newsIntros, R.newsOutros, content_more.js)
 function resumeTarget() {
   if (curPod) return { type: 'pod', pod: curPod };
   if (curBreak) return { type: 'break', segs: curBreak.segs, idx: curBreak.idx || 0, next: curBreak.next };
@@ -2446,7 +2442,7 @@ function newsTag(x) {   // "أخبار المغرب · Hespress", the site's nam
   return [NEWS_SECTION_TAG[x.topic] || '', site + (/news\.google\./.test(x.link || '') ? ' (via Google News)' : '')].filter(Boolean).join(' · ');
 }
 function arabicBulletin(n) {
-  const h = new Date().getHours(), lines = [h === 0 ? 'أهلا بكم في نشرة أخبار منتصف الليل.' : `أهلا بكم في نشرة الأخبار. الساعة ${h}.`];
+  const h = new Date().getHours(), lines = [h === 0 ? fresh('newsaropen0', R.newsArOpenMidnight) : fresh('newsaropen', R.newsArOpen).replace(/\{h\}/g, h)];
   let label = '';   // a heading is said once, when it changes
   const info = [{}];   // for Settings > News > Last bulletin: where each line came from
   const tags = [''];   // shown in cyan under each headline: its section · its source
@@ -2466,7 +2462,7 @@ function arabicBulletin(n) {
   while (tags.length < lines.length) tags.push('الطقس · Open-Meteo');   // the weather lines
   while (info.length < tags.length) info.push({});
   (n.extras || []).forEach(e => { lines.push(e.line); tags.push(e.tag); info.push({ title: '', link: e.link, page: '', pause: e.pause || 0 }); });   // warnings, the dirham, the next prayer, a holiday
-  lines.push('كانت هذه أبرز العناوين. شكرا لمتابعتكم.');
+  lines.push(fresh('newsarclose', R.newsArClose));
   const out = lines.map(spokenArabic); out.tags = tags; out.info = info;
   return out;   // voweled, so the voice says Murrākush, not Marākish
 }
@@ -2489,17 +2485,17 @@ async function runNews(manual) {
   await sleep(1300);
   if (id !== runId) return;
   $('capKind').textContent = R.host;
-  await say(sub(fresh('newsin', NEWS_IN)), 'h');
+  await say(sub(fresh('newsin', R.newsIntros)), 'h');
   let ready = false; fetched.then(() => { ready = true; });
   if (mobileWeb()) await sleep(1500);
-  if (!ready && id === runId && mobileWeb()) { bedOn(); await say(fresh('newswait', ['The headlines are coming in. One moment.', 'One moment, the news is on its way.', 'The wires are still coming in. Bear with me.']), 'h'); }   // a slow connection: no silence
+  if (!ready && id === runId && mobileWeb()) { bedOn(); await say(fresh('newswait', R.newsWait), 'h'); }   // a slow connection: no silence
   const n = await fetched;
   if (mobileWeb()) bedOff(0.8);
   if (id !== runId) return;
   if (n) { lastNewsSources = n.sources || null; lastNewsVia = n.via || ''; paintNewsNote(); }
   rlog('news fetched', { via: n && n.via, items: n && (n.items || []).length, weather: !!(n && n.weather), sources: n && n.sources && n.sources.map(s => s.id + (s.ok ? ':ok' : ':' + s.error)).join(' ') });
   if (!n || (!(n.items || []).length && !(n.weather && n.weather.now))) {
-    await say('The news sources are not answering right now, so no headlines this time. Back to where we were.', 'h');
+    await say(fresh('newsfail', R.newsFail), 'h');
     if (id === runId) finishNews();
     return;
   }
@@ -2524,7 +2520,7 @@ async function runNews(manual) {
   await newsJingleRun();
   if (id !== runId) return;
   $('capKind').textContent = R.host;
-  await say(sub(fresh('newsout', NEWS_OUT)), 'h');
+  await say(sub(fresh('newsout', R.newsOutros)), 'h');
   if (id === runId) finishNews();
 }
 // ‹ and › in the caption box, only while the headlines are read: the previous headline, or the next one
@@ -3409,7 +3405,7 @@ setInterval(() => {
         console.info('[radio] trim trigger', { d, c, rem, trimAt, trim: S.trim, key: current.key }); advance({ fadeOldMs: trimAt && c >= trimAt ? 4000 : Math.max(2000, Math.round(rem * 1000)) }); }   // fade over what is left of the song
     } catch {}
   }
-  if (sleepAt && Date.now() > sleepAt) { sleepAt = 0; S.sleep = 0; stopSpeech(); bedOff(); busy = true; (async () => { try { await say('It is time to rest. Goodnight. The world will still be here in the morning, and so will you.', 'h'); await fadeP(P(), 0, 6000); if (current) current._selfPauses = 99; P().pauseVideo(); setVol(P(), S.vol); } catch {} busy = false; })(); }
+  if (sleepAt && Date.now() > sleepAt) { sleepAt = 0; S.sleep = 0; stopSpeech(); bedOff(); busy = true; (async () => { try { await say(fresh('sleep', R.sleepLines), 'h'); await fadeP(P(), 0, 6000); if (current) current._selfPauses = 99; P().pauseVideo(); setVol(P(), S.vol); } catch {} busy = false; })(); }
 }, 500);
 
 // keeps the helper alive while the radio window is open (the installed version closes the helper when the window is gone)

@@ -76,7 +76,7 @@
   R.idents = [
     'You are listening to {station}, the station at the edge of the night. It is {time}.', 'It is {time} on {station}. If you are awake, so are we.', 'This is {host}, with you at {time}. {station}, where the lamp stays on.',
     '{station}. {time}. Somewhere out there, someone else is awake and listening to the same song.', '{time} on {station}. You have no meetings tonight, only thoughts. Let us keep them company.',
-    'It is {time}, and you are tuned to {station}. No news, no traffic, no weather. Only the long weather of the soul.', '{station}, at {time}. Music for people who think too much, and feel just enough.',
+    '{station}, at {time}. Music for people who think too much, and feel just enough.',
     'A little reminder at {time}: you are not behind, you are not late, and you are not alone. This is {station}.', 'This is {station}. The time is {time}, give or take an existential crisis.',
     'Station identification: you are on a small blue planet, listening to {station}. The clock says {time}.', 'It is {time}. {station} is on the air, and I am {host}, speaking quietly into the dark.',
     '{time} and all is, well, as it always is. This is {station}.', 'You are tuned to {station}, a station that plays songs, asks questions, and never promises answers. It is {time}.',
